@@ -80,7 +80,7 @@
       if (!plan) plan = store.get("rp-plan-cache");
     }
     if (!plan) { renderEntry("Can't reach the internet. Check the connection and try again."); return; }
-    if (!$("#day-pane")) { start(); return; }
+    if (plan.paused || plan.kind === "followup" || !$("#day-pane")) { if (mode === "plan") start(); return; }
     renderSidebar();
     if (mode === "plan") renderMain();
     updateHelp();
@@ -137,6 +137,8 @@
 
   // ---------------------------------------------------------------- layout
   function start() {
+    if (plan.paused) { renderPaused(); return; }
+    if (plan.kind === "followup") { renderFollowup(); return; }
     document.body.classList.add("has-plan");
     $("#app").innerHTML = `
       <aside class="day-pane" id="day-pane"></aside>
@@ -148,6 +150,33 @@
     if (mode === "plan") renderMain();
     updateHelp();
     flush();
+  }
+
+  function renderPaused() {
+    document.body.classList.remove("has-plan");
+    $("#app").innerHTML = `
+      <div class="entry"><div class="entry-card">
+        <span class="entry-logo">${RP.logo(110)}</span>
+        <h1>Your program is paused</h1>
+        <p>Your teacher has paused your Reset Program for now. Please see a staff member in the Hub.</p>
+      </div></div>`;
+  }
+
+  // A follow-up program is just the follow-up survey, a few weeks after going back to class.
+  function renderFollowup() {
+    document.body.classList.remove("has-plan");
+    const s = plan.sessions.find(x => x.kind === "survey");
+    if (!s) { renderPaused(); return; }
+    $("#app").innerHTML = `
+      <div class="page narrow"><div class="session" id="main">
+        <div class="session-head k-debrief"><span class="kind-chip">Reset Program</span><h1>Follow-up survey</h1></div>
+        <div class="card">${s.status === "done"
+          ? `<p class="done-note">✓ Done. Thank you! You can close this page now.</p>`
+          : `<p>It's been a few weeks since you finished the Reset Program. This short survey helps us see how things are going back in class. It takes about 5 minutes.</p>
+             <div class="actions"><button class="btn primary big" data-survey>${s.status === "in_progress" ? "Keep going" : "Start the survey"}</button></div>`}</div>
+      </div></div>`;
+    const b = $("[data-survey]");
+    if (b) b.onclick = () => openSurvey(s, () => renderFollowup());
   }
 
   function slotForClock(now) {
@@ -223,50 +252,53 @@
         ${when ? `<div class="when">${when}</div>` : ""}
       </div>`;
     const doneNote = s.status === "done" ? `<p class="done-note">✓ Done</p>` : "";
-    let html = "";
+    const nowSlot = RP.currentSlot();
+    let html = typeof nowSlot === "object" && nowSlot.brk
+      ? `<div class="card break-card">${RP.md(RP.CONTENT.breakTime(nowSlot.brk, RP.formatTime(nowSlot.end)))}</div>` : "";
 
-    if (s.kind === "intro") {
-      html = head("Morning session", "Whole group") + `
-        <div class="card story">${RP.md(RP.CONTENT.story[plan.current_day])}</div>
-        <div class="card laptop-away">${RP.md(RP.CONTENT.morning)}</div>
-        <div class="actions">${s.status === "done" ? doneNote : `<button class="btn primary big" data-read>I've read this</button>`}</div>`;
-    } else if (s.kind === "group") {
-      const g = RP.groupSession(s.activity);
-      html = head(s.title, "Group") +
-        `<div class="card laptop-away big-note"><div class="laptop-icon" aria-hidden="true">💻 ➜ 👥</div>${RP.md(RP.CONTENT.group)}</div>
-        ${g && g.about ? `<div class="card">${RP.md(g.about)}</div>` : ""}${doneNote}`;
-    } else if (s.kind === "debrief") {
-      const survey = RP.SURVEYS[s.day];
-      html = head("Afternoon debrief", "Whole group") + `<div class="card">${RP.md(RP.CONTENT.debrief)}</div>
-        ${survey ? `<div class="card survey-card">
+    const surveyCard = (survey, intro) => survey ? `<div class="card survey-card">
           <h2>${h(survey.title)}</h2>
           ${s.status === "done"
             ? `<p class="done-note">✓ Done. Thank you for filling it in.</p>`
-            : `<p>Your teacher will tell you when to start. It takes about 5 minutes.</p>
+            : `<p>${intro} It takes about 5 minutes.</p>
                <div class="actions"><button class="btn primary big" data-survey>${s.status === "in_progress" ? "Keep going" : "Start the survey"}</button></div>`}
-        </div>` : ""}`;
+        </div>` : "";
+
+    if (s.kind === "intro") {
+      html += head("Morning session", "Whole group") + `
+        <div class="card story">${RP.md(RP.CONTENT.story[plan.current_day])}</div>
+        ${surveyCard(RP.SURVEYS[RP.surveyIdFor(s)], "Start with this short survey about how you're feeling this morning.")}
+        <div class="card laptop-away">${RP.md(RP.CONTENT.morning)}</div>`;
+    } else if (s.kind === "group") {
+      const g = RP.groupSession(s.activity);
+      html += head(s.title, "Group") +
+        `<div class="card laptop-away big-note"><div class="laptop-icon" aria-hidden="true">💻 ➜ 👥</div>${RP.md(RP.CONTENT.group)}</div>
+        ${g && g.about ? `<div class="card">${RP.md(g.about)}</div>` : ""}${doneNote}`;
+    } else if (s.kind === "debrief") {
+      html += head("Afternoon debrief", "Whole group") + `<div class="card">${RP.md(RP.CONTENT.debrief)}</div>
+        ${surveyCard(RP.SURVEYS[RP.surveyIdFor(s)], "Your teacher will tell you when to start.")}`;
     } else if (s.kind === "one_to_one") {
       const ind = RP.individualSession(s.activity);
-      html = head(s.title.replace(/^Individual:\s*/, ""), "Individual session with your teacher") +
+      html += head(s.title.replace(/^Individual:\s*/, ""), "Individual session with your teacher") +
         `<div class="card">${RP.md(ind ? ind.about : (RP.ONE_TO_ONE[s.day] || RP.ONE_TO_ONE[1]).about)}</div>
         <p class="muted">${s.slot === RP.ONE_TO_ONE_SLOT ? "There's no set time. Keep working on your activities and your teacher will come and get you." : "If your teacher is still busy when this session starts, keep working on your last activity until they're ready."}</p>${doneNote}`;
     } else if (s.kind === "free" || (s.kind === "independent" && !s.activity && allElectivesDone())) {
-      html = head(RP.CONTENT.freeChoice.title, "Free choice") + `<div class="card">${RP.md(RP.CONTENT.freeChoice.text)}</div>`;
+      html += head(RP.CONTENT.freeChoice.title, "Free choice") + `<div class="card">${RP.md(RP.CONTENT.freeChoice.text)}</div>`;
     } else if (s.kind === "independent" && !s.activity) {
-      html = head("Elective", "On your own") + `<div class="card">${RP.md(RP.CONTENT.unassigned)}</div>`;
+      html += head("Elective", "On your own") + `<div class="card">${RP.md(RP.CONTENT.unassigned)}</div>`;
     } else if (s.kind === "independent") {
       const m = RP.MODULES[s.activity];
       if (!m) {
-        html = head(s.title) + `<div class="card">This activity isn't available on this website yet. Press <strong>I need help</strong>.</div>`;
+        html += head(s.title) + `<div class="card">This activity isn't available on this website yet. Press <strong>I need help</strong>.</div>`;
       } else if (s.status === "done") {
-        html = head(m.title, "On your own") + `
+        html += head(m.title, "On your own") + `
           <div class="card finished">
             <p class="done-note big">✓ Finished${s.result && RP.resultText(s.result) ? ` · ${h(RP.resultText(s.result))}` : ""}</p>
             <div class="actions"><button class="btn primary" data-cert>View my certificate${s.state && s.state.responses && s.state.responses.length ? " and answers" : ""}</button></div>
           </div>
           ${allElectivesDone() ? `<div class="card"><h2>${h(RP.CONTENT.freeChoice.title)}</h2>${RP.md(RP.CONTENT.freeChoice.text)}</div>` : `<p class="muted">Pick your next activity from the plan on the left.</p>`}`;
       } else {
-        html = head(m.title, "On your own") + `
+        html += head(m.title, "On your own") + `
           <div class="card module-card">
             ${m.icon ? `<div class="module-icon" aria-hidden="true">${m.icon}</div>` : ""}
             <div>${RP.md(m.about || "")}</div>
@@ -274,10 +306,8 @@
           </div>`;
       }
     }
-    main.innerHTML = `<div class="session">${html}</div>`;
-
-    const read = main.querySelector("[data-read]");
-    if (read) read.onclick = () => { queueSave(s.id, "done"); renderSidebar(); renderMain(); };
+    main.innerHTML = `<div class="session"><div class="session-tools">${RP.speech.button()}</div>${html}</div>`;
+    RP.speech.bind(main, () => main.querySelector(".session"));
     const go = main.querySelector("[data-start]");
     if (go) go.onclick = () => openModule(s);
     const cert = main.querySelector("[data-cert]");
@@ -286,10 +316,11 @@
     if (survey) survey.onclick = () => openSurvey(s);
   }
 
-  // The end-of-day survey in the debrief. Answers are sent when it's submitted.
-  function openSurvey(s) {
+  // A survey: the morning survey (morning session), end-of-day survey (debrief) or follow-up.
+  // Answers are sent when it's submitted.
+  function openSurvey(s, after) {
     mode = "module";
-    const survey = RP.SURVEYS[s.day];
+    const survey = RP.SURVEYS[RP.surveyIdFor(s)];
     if (s.status === "not_started") queueSave(s.id, "in_progress", null, s.state || {});
     renderSidebar();
     const answersKey = "rp-answers:" + s.id;
@@ -297,12 +328,12 @@
       el: $("#main"), module: survey, session: s,
       answers: { get: () => store.get(answersKey), set: a => store.set(answersKey, a) },
       save: (status, result, state) => queueSave(s.id, status, result, state),
-      onExit: () => { mode = "plan"; renderSidebar(); renderMain(); },
+      onExit: () => { mode = "plan"; if (after) after(); else { renderSidebar(); renderMain(); } },
       onFinish: (result, state, worksheet) => {
         queueSave(s.id, "done", result, Object.assign({}, state, { responses: worksheet }));
         store.set(answersKey, null);
         mode = "plan";
-        renderSidebar(); renderMain();
+        if (after) after(); else { renderSidebar(); renderMain(); }
       }
     });
   }

@@ -32,8 +32,20 @@ window.RP = window.RP || {};
     }
     const teacher = fn => async (...args) => { await requireLogin(); return fn(...args); };
 
-    return {
+    // Until supabase/update-2.sql has been run, the newer columns and tables don't exist.
+    const missingV2 = error => /kind|paused|staffing/.test(error.message || "") && /does not exist|schema cache|Could not find/i.test(error.message || "");
+    async function withV2(query) {
+      if (!api.needsUpdate) {
+        const res = await query("kind, paused, ");
+        if (!res.error || !missingV2(res.error)) return res;
+        api.needsUpdate = true;
+      }
+      return query("");
+    }
+
+    const api = {
       demo: false,
+      needsUpdate: false,
 
       // Student (no login; the code is the key)
       studentLoad: async code => check(await sb.rpc("student_load", { p_code: code })),
@@ -65,25 +77,37 @@ window.RP = window.RP || {};
         sb.auth.onAuthStateChange(event => { if (event === "SIGNED_OUT") cb(); });
       },
 
-      listActive: teacher(async () => check(await sb.from("visits")
-        .select(`id, start_date, current_day, help_requested_at, created_at, student:students(id, code, year_level), sessions(${SESSION_FIELDS})`)
-        .eq("active", true).order("created_at"))),
+      // Columns added by supabase/update-2.sql. Until it's run, ask for the older set instead.
+      listActive: teacher(async () => check(await withV2(v => sb.from("visits")
+        .select(`id, start_date, current_day, help_requested_at, created_at, ${v}student:students(id, code, year_level), sessions(${SESSION_FIELDS})`)
+        .eq("active", true).order("created_at")))),
 
-      getVisit: teacher(async id => check(await sb.from("visits")
-        .select(`id, student_id, start_date, current_day, active, help_requested_at, student:students(id, code, year_level), sessions(${SESSION_FIELDS})`)
-        .eq("id", id).maybeSingle())),
+      getVisit: teacher(async id => check(await withV2(v => sb.from("visits")
+        .select(`id, student_id, start_date, current_day, active, help_requested_at, ${v}student:students(id, code, year_level), sessions(${SESSION_FIELDS})`)
+        .eq("id", id).maybeSingle()))),
 
-      findStudent: teacher(async code => check(await sb.from("students")
-        .select(`id, code, year_level, created_at, visits(id, start_date, active, current_day, sessions(${SESSION_FIELDS}))`)
-        .eq("code", RP.normaliseCode(code)).maybeSingle())),
+      findStudent: teacher(async code => check(await withV2(v => sb.from("students")
+        .select(`id, code, year_level, created_at, visits(id, start_date, active, current_day, ${v}sessions(${SESSION_FIELDS}))`)
+        .eq("code", RP.normaliseCode(code)).maybeSingle()))),
 
-      listAll: teacher(async () => check(await sb.from("students")
-        .select(`id, code, year_level, created_at, visits(id, start_date, active, current_day, created_at, sessions(${SESSION_FIELDS}))`)
-        .order("created_at", { ascending: false }))),
+      listAll: teacher(async () => check(await withV2(v => sb.from("students")
+        .select(`id, code, year_level, created_at, visits(id, start_date, active, current_day, created_at, ${v}sessions(${SESSION_FIELDS}))`)
+        .order("created_at", { ascending: false })))),
 
-      getStudent: teacher(async id => check(await sb.from("students")
-        .select(`id, code, year_level, created_at, visits(id, start_date, active, current_day, created_at, sessions(${SESSION_FIELDS}))`)
-        .eq("id", id).maybeSingle())),
+      getStudent: teacher(async id => check(await withV2(v => sb.from("students")
+        .select(`id, code, year_level, created_at, visits(id, start_date, active, current_day, created_at, ${v}sessions(${SESSION_FIELDS}))`)
+        .eq("id", id).maybeSingle()))),
+
+      // Who's running each session on a date: { slot: "Ms Smith" }.
+      getStaffing: teacher(async date => {
+        const { data, error } = await sb.from("staffing").select("slot, staff").eq("date", date);
+        if (error) { if (missingV2(error)) { api.needsUpdate = true; return {}; } throw new Error(error.message); }
+        const out = {}; data.forEach(r => { out[r.slot] = r.staff; }); return out;
+      }),
+      setStaffing: teacher(async (date, slot, staff) => {
+        if (api.needsUpdate) throw new Error("Run supabase/update-2.sql in Supabase first.");
+        check(await sb.from("staffing").upsert({ date, slot, staff: String(staff || "").slice(0, 80) }));
+      }),
 
       updateStudent: teacher(async (id, patch) => check(await sb.from("students").update(patch).eq("id", id).select("id").single())),
       deleteStudent: teacher(async id => { const { error } = await sb.from("students").delete().eq("id", id); if (error) throw new Error(error.message); }),
@@ -92,8 +116,9 @@ window.RP = window.RP || {};
       createStudent: teacher(async yearLevel => check(await sb.from("students")
         .insert({ year_level: yearLevel || null }).select("id, code, year_level").single())),
 
-      startVisit: teacher(async (studentId, rows) => {
-        const visit = check(await sb.from("visits").insert({ student_id: studentId }).select("id").single());
+      startVisit: teacher(async (studentId, rows, fields) => {
+        if (fields && fields.kind && fields.kind !== "program" && api.needsUpdate) throw new Error("Run supabase/update-2.sql in Supabase first.");
+        const visit = check(await sb.from("visits").insert(Object.assign({ student_id: studentId }, fields || {})).select("id").single());
         const { error } = await sb.from("sessions").insert(rows.map(r => Object.assign({ visit_id: visit.id }, r)));
         if (error) {
           await sb.from("visits").delete().eq("id", visit.id);
@@ -105,7 +130,10 @@ window.RP = window.RP || {};
       updateSession: teacher(async (id, patch) => check(await sb.from("sessions")
         .update(Object.assign({ updated_at: new Date().toISOString() }, patch)).eq("id", id).select(SESSION_FIELDS).single())),
 
-      updateVisit: teacher(async (id, patch) => check(await sb.from("visits").update(patch).eq("id", id).select("id").single())),
+      updateVisit: teacher(async (id, patch) => {
+        if ("paused" in patch && api.needsUpdate) throw new Error("Run supabase/update-2.sql in Supabase first.");
+        return check(await sb.from("visits").update(patch).eq("id", id).select("id").single());
+      }),
 
       subscribe(onChange) {
         const channel = sb.channel("rp-dashboard")
@@ -115,6 +143,7 @@ window.RP = window.RP || {};
         return () => sb.removeChannel(channel);
       }
     };
+    return api;
   }
 
   // ---------------------------------------------------------------- Demo (this browser only)
@@ -142,14 +171,14 @@ window.RP = window.RP || {};
         const db = load(), v = activeVisit(db, code);
         if (!v) return null;
         return clone({
-          current_day: v.current_day, help: !!v.help_requested_at,
+          current_day: v.current_day, help: !!v.help_requested_at, paused: !!v.paused, kind: v.kind || "program",
           sessions: db.sessions.filter(s => s.visit_id === v.id).sort((a, b) => a.day - b.day || a.slot - b.slot)
         });
       },
       async studentSave(code, sessionId, status, result, state) {
         const db = load(), v = activeVisit(db, code);
         const s = v && db.sessions.find(s => s.id === sessionId && s.visit_id === v.id &&
-          ["intro", "independent", "free", "debrief"].includes(s.kind) && s.status !== "done");
+          ["intro", "independent", "free", "debrief", "survey"].includes(s.kind) && s.status !== "done");
         if (!s) return false;
         if (status) s.status = status;
         if (result) s.result = result;
@@ -213,11 +242,16 @@ window.RP = window.RP || {};
         const db = load(), s = { id: RP.uuid(), code: newCode(), year_level: yearLevel || null, created_at: new Date().toISOString() };
         db.students.push(s); store(db); return clone(s);
       },
-      async startVisit(studentId, rows) {
+      async getStaffing(date) { const db = load(); return clone((db.staffing || {})[date] || {}); },
+      async setStaffing(date, slot, staff) {
+        const db = load(); db.staffing = db.staffing || {}; db.staffing[date] = db.staffing[date] || {};
+        db.staffing[date][slot] = String(staff || "").slice(0, 80); store(db);
+      },
+      async startVisit(studentId, rows, fields) {
         const db = load();
         if (db.visits.some(v => v.student_id === studentId && v.active)) throw new Error("This student already has an active program.");
         const now = new Date().toISOString();
-        const v = { id: RP.uuid(), student_id: studentId, start_date: now.slice(0, 10), current_day: 1, active: true, help_requested_at: null, created_at: now };
+        const v = Object.assign({ id: RP.uuid(), student_id: studentId, start_date: now.slice(0, 10), current_day: 1, active: true, kind: "program", paused: false, help_requested_at: null, created_at: now }, fields || {});
         db.visits.push(v);
         rows.forEach(r => db.sessions.push(Object.assign({ id: RP.uuid(), visit_id: v.id, status: "not_started", result: null, state: null, updated_at: now, completed_at: null }, r)));
         store(db); return v.id;

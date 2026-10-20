@@ -12,6 +12,9 @@
   let allStudents = [];    // everyone, for the All students list
   let student = null;      // student open on their record page
   const filters = { q: "", year: "", status: "", from: "" };
+  let staffing = {};       // today's staffing: { slot: "Ms Smith" }
+  const todayIso = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+  const loadStaffing = async () => { try { staffing = await api.getStaffing(todayIso()); } catch (e) { staffing = {}; } };
   let pick = null;         // palette item chosen for click-to-place
   let dragging = false;
   let unsubscribe = null;
@@ -74,6 +77,8 @@
       <button class="nav-btn" data-nav="board">In the program</button>
       <button class="nav-btn" data-nav="all">All students</button>
       <button class="nav-btn" data-nav="new">New student</button>
+      <button class="nav-btn" data-nav="runsheet">Run sheet</button>
+      <button class="nav-btn" data-nav="reports">Reports</button>
       <button class="nav-btn" data-nav="guides">Session guides</button>
       ${laptop ? `<span class="laptop-note">This laptop: ${h(RP.formatCode(laptop))} <button class="link-btn" data-clear-laptop>Clear</button></span>` : ""}
       <span class="laptop-note" data-who></span>
@@ -84,7 +89,7 @@
     const clear = $("[data-clear-laptop]");
     if (clear) clear.onclick = () => { clearLaptop(); renderNav(); };
     $("#nav").querySelectorAll("[data-nav]").forEach(b => b.classList.toggle("active", b.dataset.nav === view.name ||
-      (["plan", "student", "print"].includes(view.name) && b.dataset.nav === (view.from === "board" ? "board" : "all"))));
+      (["plan", "student", "print", "individual"].includes(view.name) && b.dataset.nav === (view.from === "board" ? "board" : "all"))));
   }
 
   function laptopCode() { try { return JSON.parse(localStorage.getItem("rp-code")); } catch (e) { return null; } }
@@ -94,18 +99,28 @@
   }
 
   // ---------------------------------------------------------------- routing and live updates
+  function updateNotice() {
+    const n = $("#notice");
+    if (n) n.hidden = !api.needsUpdate;
+  }
+
   async function show(v) {
     view = v; pick = null;
+    RP.speech.stop();
     renderNav();
     try {
-      if (v.name === "board") { visits = await api.listActive(); renderBoard(); }
-      else if (v.name === "plan") { [visit, visits] = await Promise.all([api.getVisit(v.visitId), api.listActive()]); renderPlan(); }
+      if (v.name === "board") { [visits] = await Promise.all([api.listActive(), loadStaffing()]); renderBoard(); }
+      else if (v.name === "plan") { [visit, visits] = await Promise.all([api.getVisit(v.visitId), api.listActive(), loadStaffing()]); renderPlan(); }
+      else if (v.name === "individual") { [visit] = await Promise.all([api.getVisit(v.visitId), loadStaffing()]); renderIndividual(); }
+      else if (v.name === "runsheet") { const date = v.date || todayIso(); const [vs, st] = await Promise.all([api.listActive(), api.getStaffing(date)]); visits = vs; renderRunsheet(date, st); }
+      else if (v.name === "reports") { allStudents = await api.listAll(); renderReports(); }
       else if (v.name === "new") renderNew();
       else if (v.name === "guides") renderGuides();
       else if (v.name === "all") { allStudents = await api.listAll(); renderAll(); }
       else if (v.name === "student") { student = await api.getStudent(v.studentId); renderStudent(); }
       else if (v.name === "print") { student = await api.getStudent(v.studentId); renderPrint(); }
     } catch (ex) { failed(ex); }
+    updateNotice();
   }
 
   // If the login has gone (expired, or logged out elsewhere), the database treats requests as
@@ -129,8 +144,9 @@
   async function reload() {
     if (dragging || document.querySelector("dialog[open]")) return scheduleReload();
     try {
-      if (view.name === "board") { visits = await api.listActive(); renderBoard(); }
-      else if (view.name === "plan") { [visit, visits] = await Promise.all([api.getVisit(view.visitId), api.listActive()]); renderPlan(); }
+      if (view.name === "board") { [visits] = await Promise.all([api.listActive(), loadStaffing()]); renderBoard(); }
+      else if (view.name === "plan") { [visit, visits] = await Promise.all([api.getVisit(view.visitId), api.listActive(), loadStaffing()]); renderPlan(); }
+      else if (view.name === "individual") { visit = await api.getVisit(view.visitId); renderIndividual(); }
       else if (view.name === "student") { student = await api.getStudent(view.studentId); renderStudent(); }
     } catch (ex) { /* try again on the next change or poll */ }
   }
@@ -139,14 +155,14 @@
   const sessionsFor = (v, day) => v.sessions.filter(s => s.day === day).sort((a, b) => a.slot - b.slot);
   const at = (v, day, slot) => v.sessions.find(s => s.day === day && s.slot === slot);
   const titleOf = s => s.kind === "independent" && s.activity && RP.MODULES[s.activity] ? RP.MODULES[s.activity].title : s.title;
-  const teacherTicks = s => ["intro", "group", "one_to_one"].includes(s.kind);
+  const teacherTicks = s => ["group", "one_to_one"].includes(s.kind);
   const individualsOn = (v, day) => v.sessions.filter(s => s.day === day && s.kind === "one_to_one").sort((a, b) => a.slot - b.slot);
 
   // Individual sessions in the same slot today as another student's: the teacher can't do both.
   function clashes(v) {
     const out = {};
     individualsOn(v, v.current_day).filter(s => s.slot <= RP.LAST_SLOT).forEach(s => {
-      const others = visits.filter(o => o.id !== v.id).filter(o => { const x = at(o, o.current_day, s.slot); return x && x.kind === "one_to_one"; });
+      const others = visits.filter(o => o.id !== v.id && !o.paused && o.kind !== "followup").filter(o => { const x = at(o, o.current_day, s.slot); return x && x.kind === "one_to_one"; });
       if (others.length) out[s.slot] = others.map(o => RP.formatCode(o.student.code));
     });
     return out;
@@ -156,7 +172,7 @@
 
   function statusText(s) {
     if (s.kind === "independent" && !s.activity) return "Not chosen yet";
-    if (s.kind === "debrief") return s.status === "done" ? "Survey done" + (s.result && s.result.survey ? ` · ${s.result.total}/${s.result.max || 50}` : "") : s.status === "in_progress" ? "Survey started" : "Survey not done";
+    if (s.kind === "debrief" || s.kind === "intro" || s.kind === "survey") return s.status === "done" ? "Survey done" + (s.result && s.result.survey ? ` · ${s.result.total}/${s.result.max || 50}` : "") : s.status === "in_progress" ? "Survey started" : "Survey not done";
     if (s.status === "done") return "Done" + (s.result && RP.resultText(s.result) ? " · " + RP.resultText(s.result) : "");
     if (s.status === "in_progress") return "In progress";
     return "Not started";
@@ -169,56 +185,91 @@
   // ---------------------------------------------------------------- board
   function renderBoard() {
     const now = RP.currentSlot();
+    const programs = visits.filter(v => v.kind !== "followup");
+    const followups = visits.filter(v => v.kind === "followup");
     const helpCount = visits.filter(v => v.help_requested_at).length;
     document.title = (helpCount ? `(${helpCount}) ` : "") + "Teacher | Reset Program";
 
-    // One click to tick the current whole-group or group session for everyone.
-    let bulk = "";
+    // One click to tick the current group session for everyone, and present it on the projector.
+    let bulk = "", present = "";
     if (typeof now === "number") {
-      const due = visits.map(v => at(v, v.current_day, now)).filter(s => s && ["intro", "group"].includes(s.kind) && s.status !== "done");
+      const due = programs.filter(v => !v.paused).map(v => at(v, v.current_day, now)).filter(s => s && s.kind === "group" && s.status !== "done");
       if (due.length) {
         const names = [...new Set(due.map(titleOf))].join(" / ");
         bulk = `<button class="btn primary" data-bulk>Tick “${h(names)}” done for ${due.length} student${due.length > 1 ? "s" : ""}</button>`;
       }
+      const running = [...new Set(programs.map(v => at(v, v.current_day, now)).filter(s => s && s.kind === "group").map(s => s.activity))]
+        .map(id => RP.groupSession(id)).filter(g => g && g.slides);
+      present = running.map(g => `<button class="btn" data-present="${g.id}">Present: ${h(g.title)}</button>`).join("");
     }
+    const staffNow = typeof now === "number" && staffing[now] ? staffing[now] : "";
 
     app().innerHTML = `
       <div class="page">
         <div class="page-head">
-          <h1>Students in the program</h1>
-          <div class="page-actions">${bulk}<button class="btn" data-go-new>New student</button></div>
+          <div>
+            <h1>Students in the program</h1>
+            <p class="muted staff-now">${typeof now === "number" ? `Session ${now} (${RP.formatTime(RP.slotTimes(now).start)}) · Staff: <strong>${h(staffNow || "not set")}</strong> · <button class="link-btn" data-go-runsheet>Run sheet</button>` : ""}</p>
+          </div>
+          <div class="page-actions">${present}${bulk}<button class="btn" data-go-new>New student</button></div>
         </div>
-        ${visits.length ? `<div class="board">${visits.map(card).join("")}</div>` :
+        ${programs.length ? `<div class="board">${programs.map(card).join("")}</div>` :
           `<div class="card empty"><p>No students in the program right now.</p><button class="btn primary" data-go-new>Add a new student</button> <button class="btn" data-go-lookup>Find a returning student</button></div>`}
+        ${followups.length ? `<h2 class="section-title">Follow-up surveys open</h2><div class="board">${followups.map(followupCard).join("")}</div>` : ""}
       </div>`;
 
     app().querySelectorAll("[data-go-new]").forEach(b => b.onclick = () => show({ name: "new" }));
     const gl = $("[data-go-lookup]"); if (gl) gl.onclick = () => show({ name: "all" });
+    const rs = $("[data-go-runsheet]"); if (rs) rs.onclick = () => show({ name: "runsheet" });
+    app().querySelectorAll("[data-present]").forEach(b => b.onclick = () => showPresent(b.dataset.present));
     const bb = $("[data-bulk]");
     if (bb) bb.onclick = async () => {
       bb.disabled = true;
-      for (const v of visits) {
+      for (const v of programs.filter(v => !v.paused)) {
         const s = at(v, v.current_day, now);
-        if (s && ["intro", "group"].includes(s.kind) && s.status !== "done") await setDone(s, true);
+        if (s && s.kind === "group" && s.status !== "done") await setDone(s, true);
       }
       reload();
     };
 
     app().querySelectorAll("[data-card]").forEach(el => {
       const v = visits.find(v => v.id === el.dataset.card);
-      el.querySelector("[data-plan]").onclick = () => show({ name: "plan", visitId: v.id, from: "board" });
-      el.querySelector("[data-record-page]").onclick = () => show({ name: "student", studentId: v.student.id, from: "board" });
-      const help = el.querySelector("[data-clear-help]");
-      if (help) help.onclick = async () => { await api.updateVisit(v.id, { help_requested_at: null }); reload(); };
-      const d2 = el.querySelector("[data-day2]");
-      if (d2) d2.onclick = async () => { if (confirm(`Move ${RP.formatCode(v.student.code)} to Day 2?`)) { await api.updateVisit(v.id, { current_day: 2 }); reload(); } };
-      el.querySelector("[data-laptop]").onclick = () => toStudentView(v.student.code);
-      el.querySelector("[data-finish]").onclick = () => finish(v);
+      const on = (sel, fn) => { const b = el.querySelector(sel); if (b) b.onclick = fn; };
+      on("[data-plan]", () => show({ name: "plan", visitId: v.id, from: "board" }));
+      on("[data-record-page]", () => show({ name: "student", studentId: v.student.id, from: "board" }));
+      on("[data-clear-help]", async () => { await api.updateVisit(v.id, { help_requested_at: null }); reload(); });
+      on("[data-day2]", async () => { if (confirm(`Move ${RP.formatCode(v.student.code)} to Day 2?`)) { await api.updateVisit(v.id, { current_day: 2 }); reload(); } });
+      on("[data-laptop]", () => toStudentView(v.student.code));
+      on("[data-finish]", () => finish(v));
+      on("[data-pause]", () => setPaused(v, !v.paused));
+      el.querySelectorAll("[data-ind]").forEach(b => b.onclick = () => show({ name: "individual", visitId: v.id, sessionId: b.dataset.ind, from: "board" }));
       el.querySelectorAll("[data-tick]").forEach(b => b.onclick = async () => {
         const s = v.sessions.find(s => s.id === b.dataset.tick);
         b.disabled = true; await setDone(s, s.status !== "done"); reload();
       });
     });
+  }
+
+  async function setPaused(v, paused) {
+    const msg = paused
+      ? `Pause the program for ${RP.formatCode(v.student.code)}? Their code will show "paused" until you resume it, for example if they're away.`
+      : `Resume the program for ${RP.formatCode(v.student.code)}?`;
+    if (!confirm(msg)) return;
+    try { await api.updateVisit(v.id, { paused }); reload(); } catch (ex) { alert(ex.message); }
+  }
+
+  function followupCard(v) {
+    const s = v.sessions.find(x => x.kind === "survey");
+    return `
+      <article class="stu-card followup" data-card="${v.id}">
+        <header><div class="code">${h(RP.formatCode(v.student.code))}</div><div class="muted">Follow-up</div></header>
+        <div class="row">${s && s.status === "done" ? `<span class="ok-text">✓ Survey done · ${s.result ? s.result.total + "/" + (s.result.max || 50) : ""}</span>` : `<span class="muted">${s && s.status === "in_progress" ? "Survey started" : "Survey not started"}</span>`}</div>
+        <footer>
+          <button class="btn small" data-record-page>Record</button>
+          <button class="btn small" data-laptop>Student view on this laptop</button>
+          <button class="btn small danger" data-finish>Close follow-up</button>
+        </footer>
+      </article>`;
   }
 
   function card(v) {
@@ -235,8 +286,9 @@
     const finished = v.sessions.filter(s => s.kind === "independent" && s.status === "done");
     const missing = RP.missingCore(v.sessions);
     return `
-      <article class="stu-card${v.help_requested_at ? " needs-help" : ""}" data-card="${v.id}">
+      <article class="stu-card${v.help_requested_at ? " needs-help" : ""}${v.paused ? " paused" : ""}" data-card="${v.id}">
         ${v.help_requested_at ? `<div class="help-banner">Needs help <button class="btn small" data-clear-help>Clear</button></div>` : ""}
+        ${v.paused ? `<div class="paused-banner">Paused <button class="btn small" data-pause>Resume</button></div>` : ""}
         <header>
           <div class="code">${h(RP.formatCode(v.student.code))}</div>
           <div class="muted">${v.student.year_level ? "Year " + v.student.year_level + " · " : ""}<strong>Day ${v.current_day}</strong></div>
@@ -247,8 +299,9 @@
           `<span class="muted">${typeof now === "object" && now.brk ? h(now.brk) : "Outside program hours"}</span>`}</div>
         ${inds.length ? inds.map(one => {
           const t = RP.slotTimes(one.slot);
-          return `<div class="row"><span>${t ? RP.formatTime(t.start) + " " : ""}${h(titleOf(one).replace(/^Individual:\s*/, "Individual: "))}</span>
+          return `<div class="row"><button class="link-btn" data-ind="${one.id}">${t ? RP.formatTime(t.start) + " " : ""}${h(titleOf(one).replace(/^Individual:\s*/, "Individual: "))}</button>
             <button class="btn small${one.status === "done" ? " ok" : ""}" data-tick="${one.id}">${one.status === "done" ? "✓ Done" : "Mark done"}</button>
+            ${t && staffing[one.slot] ? `<span class="muted">with ${h(staffing[one.slot])}</span>` : ""}
             ${clash[one.slot] ? `<span class="warn">Clashes with ${h(clash[one.slot].join(", "))}</span>` : ""}</div>`;
         }).join("") : `<div class="row"><span class="warn">No individual session planned for today</span></div>`}
         ${finished.length ? `<div class="row results"><span class="muted">Finished:</span> ${finished.map(s => `${h(titleOf(s))}${s.result && RP.resultText(s.result) ? ` <span class="muted">(${h(RP.resultText(s.result))})</span>` : ""}`).join(", ")}</div>` : ""}
@@ -258,12 +311,18 @@
           <button class="btn small" data-record-page>Record</button>
           ${v.current_day === 1 ? `<button class="btn small" data-day2>Move to Day 2</button>` : ""}
           <button class="btn small" data-laptop>Student view on this laptop</button>
+          ${v.paused ? "" : `<button class="btn small" data-pause>Pause</button>`}
           <button class="btn small danger" data-finish>Finish program</button>
         </footer>
       </article>`;
   }
 
   async function finish(v) {
+    if (v.kind === "followup") {
+      if (!confirm(`Close the follow-up survey for ${RP.formatCode(v.student.code)}? Their code will stop working again.`)) return;
+      await api.updateVisit(v.id, { active: false, help_requested_at: null });
+      return view.name === "board" ? reload() : show(view);
+    }
     const missing = RP.missingCore(v.sessions);
     const msg = `Finish the program for ${RP.formatCode(v.student.code)}?\n\nTheir code will stop working on the laptops. Their record is kept for next time.` +
       (missing.length ? `\n\nCore group sessions not ticked: ${missing.map(g => g.title).join(", ")}.` : "");
@@ -334,7 +393,7 @@
 
   // ---------------------------------------------------------------- summaries
   const isModule = a => /^module-\d+$/.test(a || "");
-  const latestVisit = st => (st.visits || []).slice().sort((a, b) => b.start_date.localeCompare(a.start_date) || b.created_at.localeCompare(a.created_at))[0];
+  const latestVisit = st => (st.visits || []).filter(v => v.kind !== "followup").sort((a, b) => b.start_date.localeCompare(a.start_date) || b.created_at.localeCompare(a.created_at))[0];
   const visitsNewestFirst = st => (st.visits || []).slice().sort((a, b) => b.start_date.localeCompare(a.start_date) || b.created_at.localeCompare(a.created_at));
 
   function summary(v) {
@@ -351,24 +410,36 @@
       coreTotal: core.length,
       ones: done.filter(s => s.kind === "one_to_one").length,
       onesPlanned: v.sessions.filter(s => s.kind === "one_to_one").length,
-      survey1: surveyTotal(v, 1),
-      survey2: surveyTotal(v, 2)
+      surveys: surveyTotals(v),
+      readingLevels: [...new Set(done.map(s => s.result && s.result.readingLevel).filter(Boolean))].sort()
     };
   }
 
-  function surveyTotal(v, day) {
-    const s = v.sessions.find(x => x.kind === "debrief" && x.day === day && x.status === "done" && x.result && x.result.survey);
-    return s ? s.result.total : null;
+  // Survey totals out of 50 in a program: { d1am: 28, d1pm: 31, ... }.
+  function surveyTotals(v) {
+    const out = {};
+    v.sessions.forEach(x => { const id = RP.surveyResultId(x.result); if (id && x.status === "done") out[id] = x.result.total; });
+    return out;
   }
+  // "28 → 39 (+11)": first and last survey of the program.
   function surveyText(sum) {
-    if (sum.survey1 == null && sum.survey2 == null) return "";
-    const a = sum.survey1 == null ? "–" : sum.survey1, b = sum.survey2 == null ? "–" : sum.survey2;
-    const change = sum.survey1 != null && sum.survey2 != null ? ` (${sum.survey2 - sum.survey1 >= 0 ? "+" : ""}${sum.survey2 - sum.survey1})` : "";
-    return `${a} → ${b}${change}`;
+    const ids = RP.SURVEY_ORDER.filter(id => id !== "followup" && sum.surveys[id] != null);
+    if (!ids.length) return "";
+    const a = sum.surveys[ids[0]], b = sum.surveys[ids[ids.length - 1]];
+    if (ids.length === 1) return `${RP.SURVEY_SHORT[ids[0]]} ${a}`;
+    return `${a} → ${b} (${b - a >= 0 ? "+" : ""}${b - a})`;
+  }
+
+  function answerTitle(s) {
+    const id = RP.surveyIdFor(s);
+    if (id && RP.SURVEYS[id]) return RP.SURVEYS[id].title + (s.result && s.result.survey ? ` (${s.result.total}/${s.result.max || 50})` : "");
+    return titleOf(s) + (s.result && s.result.readingLevel ? ` (reading level ${s.result.readingLevel})` : "");
   }
 
   function statusLabel(v) {
     if (!v) return `<span class="muted">No program</span>`;
+    if (v.kind === "followup") return v.active ? `<span class="tag">Follow-up survey open</span>` : `<span class="tag done-tag">Follow-up</span>`;
+    if (v.active && v.paused) return `<span class="tag paused-tag">Paused</span>`;
     return v.active ? `<span class="tag">In program · Day ${v.current_day}</span>` : `<span class="tag done-tag">Finished</span>`;
   }
 
@@ -397,8 +468,18 @@
       <div class="page">
         <div class="page-head">
           <h1>All students</h1>
-          <div class="page-actions"><button class="btn" data-csv>Download spreadsheet</button><button class="btn primary" data-go-new>New student</button></div>
+          <div class="page-actions"><button class="btn" data-csv>Download spreadsheet</button><button class="btn" data-old>Delete old records</button><button class="btn primary" data-go-new>New student</button></div>
         </div>
+        <form class="card warn-card old-records" data-old-form hidden onsubmit="return false">
+          <h2>Delete old records</h2>
+          <p>Permanently deletes every student whose most recent program or follow-up started before this date, with all their programs, answers and surveys. Students in the program now are never deleted. Download the spreadsheet first if you want to keep a copy.</p>
+          <div class="actions">
+            <label class="field inline">Started before <input type="date" name="before"></label>
+            <button class="btn" data-old-find>Find</button>
+            <span data-old-count class="muted"></span>
+            <button class="btn danger" data-old-delete hidden>Delete</button>
+          </div>
+        </form>
         <form class="card filters" data-filters onsubmit="return false">
           <label class="field">Code <input name="q" class="code-input small" maxlength="9" autocomplete="off" placeholder="Search" value="${h(filters.q)}"></label>
           <label class="field">Year <select name="year"><option value="">All</option>${[7, 8, 9, 10, 11, 12].map(y => `<option value="${y}"${filters.year === String(y) ? " selected" : ""}>Year ${y}</option>`).join("")}</select></label>
@@ -418,6 +499,32 @@
     $("[data-reset-filters]").onclick = () => { Object.keys(filters).forEach(k => filters[k] = ""); renderAll(); };
     $("[data-go-new]").onclick = () => show({ name: "new" });
     $("[data-csv]").onclick = downloadCsv;
+    const oldForm = $("[data-old-form]");
+    let oldList = [];
+    $("[data-old]").onclick = () => { oldForm.hidden = !oldForm.hidden; };
+    $("[data-old-find]").onclick = () => {
+      const before = oldForm.before.value;
+      if (!before) { oldForm.before.focus(); return; }
+      oldList = allStudents.filter(st => {
+        const vs = st.visits || [];
+        if (vs.some(v => v.active)) return false;
+        const last = vs.map(v => v.start_date).sort().pop() || st.created_at.slice(0, 10);
+        return last < before;
+      });
+      $("[data-old-count]").textContent = `${oldList.length} student${oldList.length === 1 ? "" : "s"} found.`;
+      const del = $("[data-old-delete]");
+      del.hidden = !oldList.length;
+      del.textContent = `Delete ${oldList.length} student${oldList.length === 1 ? "" : "s"}`;
+    };
+    $("[data-old-delete]").onclick = async () => {
+      if (!confirm(`Permanently delete ${oldList.length} student${oldList.length === 1 ? "" : "s"} and all their records? This can't be undone.`)) return;
+      const typed = prompt('Type DELETE to confirm:');
+      if (typed !== "DELETE") { alert("Nothing was deleted."); return; }
+      try {
+        for (const st of oldList) { await api.deleteStudent(st.id); if (laptopCode() === st.code) clearLaptop(); }
+        show({ name: "all" });
+      } catch (ex) { failed(ex); }
+    };
     renderRecords();
   }
 
@@ -428,7 +535,7 @@
       <p class="muted">${list.length} student${list.length === 1 ? "" : "s"} · ${programs} program${programs === 1 ? "" : "s"}${list.length < allStudents.length ? ` (filtered from ${allStudents.length})` : ""}. Click a student to see their full record.</p>
       ${list.length ? `
       <div class="table-wrap"><table class="records">
-        <thead><tr><th>Code</th><th>Year</th><th>Latest program</th><th>Status</th><th>Programs</th><th>Modules</th><th>Numeracy</th><th>Literacy</th><th>Core sessions</th><th>Individual</th><th>Survey D1 → D2</th></tr></thead>
+        <thead><tr><th>Code</th><th>Year</th><th>Latest program</th><th>Status</th><th>Programs</th><th>Modules</th><th>Numeracy</th><th>Literacy</th><th>Core sessions</th><th>Individual</th><th>Survey start → end</th></tr></thead>
         <tbody>${list.map(st => {
           const v = latestVisit(st), sum = v ? summary(v) : null;
           return `<tr data-student="${st.id}" tabindex="0">
@@ -455,13 +562,14 @@
 
   // One row per program, for matching to names offline and for reports.
   function downloadCsv() {
-    const rows = [["Code", "Year level", "Program start", "Status", "Current day", "Modules completed", "Numeracy", "Literacy", "Other electives", "Core group sessions", "Individual sessions done", "Survey Day 1 (/50)", "Survey Day 2 (/50)", "Survey change"]];
+    const rows = [["Code", "Year level", "Program start", "Status", "Current day", "Modules completed", "Numeracy", "Literacy", "Other electives", "Core group sessions", "Individual sessions done", "Reading levels chosen",
+      ...RP.SURVEY_ORDER.map(id => `Survey ${RP.SURVEY_SHORT[id]} (/50)`), "Survey change (D1 start to D2 end)"]];
     filtered().forEach(st => visitsNewestFirst(st).forEach(v => {
       const sum = summary(v);
-      rows.push([RP.formatCode(st.code), st.year_level || "", v.start_date, v.active ? "In program" : "Finished", v.active ? v.current_day : "",
-        sum.modules.join(" "), sum.numeracy, sum.literacy, sum.other.join("; "), `${sum.coreDone}/${sum.coreTotal}`, `${sum.ones}/${sum.onesPlanned}`,
-        sum.survey1 == null ? "" : sum.survey1, sum.survey2 == null ? "" : sum.survey2,
-        sum.survey1 != null && sum.survey2 != null ? sum.survey2 - sum.survey1 : ""]);
+      rows.push([RP.formatCode(st.code), st.year_level || "", v.start_date, v.kind === "followup" ? "Follow-up" : v.paused && v.active ? "Paused" : v.active ? "In program" : "Finished", v.active ? v.current_day : "",
+        sum.modules.join(" "), sum.numeracy, sum.literacy, sum.other.join("; "), `${sum.coreDone}/${sum.coreTotal}`, `${sum.ones}/${sum.onesPlanned}`, sum.readingLevels.join(" "),
+        ...RP.SURVEY_ORDER.map(id => sum.surveys[id] == null ? "" : sum.surveys[id]),
+        sum.surveys.d1am != null && sum.surveys.d2pm != null ? sum.surveys.d2pm - sum.surveys.d1am : ""]);
     }));
     const csv = rows.map(r => r.map(c => /[",\n]/.test(String(c)) ? `"${String(c).replace(/"/g, '""')}"` : c).join(",")).join("\r\n");
     const a = document.createElement("a");
@@ -486,7 +594,8 @@
               <select data-year><option value="">Not set</option>${[7, 8, 9, 10, 11, 12].map(y => `<option value="${y}"${st.year_level === y ? " selected" : ""}>Year ${y}</option>`).join("")}</select>
             </label>
             ${active ? "" : `<label class="field inline">Today's rotation <select data-rot>${Object.keys(RP.ROTATIONS).map(r => `<option>${r}</option>`).join("")}</select></label>
-              <button class="btn primary" data-restart>Start a new program</button>`}
+              <button class="btn primary" data-restart>Start a new program</button>
+              ${list.some(v => v.kind !== "followup") ? `<button class="btn" data-followup title="About 4–6 weeks after they go back to class">Start follow-up survey</button>` : ""}`}
             <button class="btn danger" data-delete-student>Delete student</button>
           </div>
         </div>
@@ -503,6 +612,15 @@
       const r2 = keys[(keys.indexOf(r1) + 1) % keys.length];
       try { const id = await api.startVisit(st.id, RP.buildDay(1, r1).concat(RP.buildDay(2, r2))); show({ name: "plan", visitId: id, from: "student", studentId: st.id }); }
       catch (ex) { restart.disabled = false; failed(ex); }
+    };
+    const fu = $("[data-followup]");
+    if (fu) fu.onclick = async () => {
+      if (!confirm(`Open the follow-up survey for ${RP.formatCode(st.code)}? Their code will work again, showing only the survey. Close it from the dashboard when they've done it.`)) return;
+      fu.disabled = true;
+      try {
+        await api.startVisit(st.id, [{ day: 1, slot: 1, kind: "survey", activity: "followup", title: "Follow-up survey" }], { kind: "followup" });
+        reload();
+      } catch (ex) { fu.disabled = false; alert(ex.message); }
     };
     $("[data-delete-student]").onclick = async () => {
       const typed = prompt(`This permanently deletes ${RP.formatCode(st.code)} and every program and result they have. It can't be undone.\n\nType the code to confirm:`);
@@ -527,6 +645,7 @@
         catch (ex) { alert(/unique|duplicate/i.test(ex.message) ? "This student already has a program running. Finish that one first." : ex.message); }
       });
       on("[data-finish]", () => finish(Object.assign({ student: st }, v)));
+      on("[data-pause]", () => setPaused(Object.assign({ student: st }, v), !v.paused));
       on("[data-delete-program]", async () => {
         if (!confirm(`Delete the program starting ${RP.formatDate(v.start_date)}? Its plan, ticks and results are removed permanently. The student stays on the list.`)) return;
         try { await api.deleteVisit(v.id); reload(); } catch (ex) { failed(ex); }
@@ -535,9 +654,23 @@
   }
 
   function programCard(v) {
+    if (v.kind === "followup") {
+      const fs = v.sessions.find(x => x.kind === "survey");
+      return `
+        <section class="card program" data-program="${v.id}">
+          <div class="program-head">
+            <h2>Follow-up survey ${RP.formatDate(v.start_date)} ${statusLabel(v)}</h2>
+            <div class="page-actions">
+              ${v.active ? `<button class="btn small" data-finish>Close follow-up</button>` : ""}
+              <button class="btn small danger" data-delete-program>Delete</button>
+            </div>
+          </div>
+          ${fs && fs.status === "done" ? `<p>Score <strong>${fs.result.total}/${fs.result.max || 50}</strong></p>${answerBlock(fs, false)}` : `<p class="muted">Not done yet.</p>`}
+        </section>`;
+    }
     const sum = summary(v);
     const certs = v.sessions.filter(s => s.kind === "independent" && s.status === "done" && s.activity && RP.MODULES[s.activity]);
-    const answered = v.sessions.filter(s => (s.kind === "independent" || s.kind === "debrief") && s.status === "done" && s.state && s.state.responses && s.state.responses.length)
+    const answered = v.sessions.filter(s => ["independent", "debrief", "intro", "survey"].includes(s.kind) && s.status === "done" && s.state && s.state.responses && s.state.responses.length)
       .sort((a, b) => a.day - b.day || a.slot - b.slot);
     const anyActive = (student.visits || []).some(x => x.active);
     const dayList = day => `
@@ -560,7 +693,7 @@
             <button class="btn small primary" data-edit>Edit program</button>
             <button class="btn small" data-certs ${certs.length ? "" : "disabled"}>Print certificates${certs.length ? ` (${certs.length})` : ""}</button>
             <button class="btn small" data-record>Print program record</button>
-            ${v.active ? `<button class="btn small" data-finish>Finish program</button>` : (anyActive ? "" : `<button class="btn small" data-reopen>Reopen</button>`)}
+            ${v.active ? `<button class="btn small" data-pause>${v.paused ? "Resume" : "Pause"}</button><button class="btn small" data-finish>Finish program</button>` : (anyActive ? "" : `<button class="btn small" data-reopen>Reopen</button>`)}
             <button class="btn small danger" data-delete-program>Delete program</button>
           </div>
         </div>
@@ -570,15 +703,336 @@
           <span><span class="muted">Literacy</span> ${h(sum.literacy || "–")}</span>
           <span><span class="muted">Core sessions</span> ${sum.coreDone}/${sum.coreTotal}</span>
           <span><span class="muted">Individual</span> ${sum.ones}/${sum.onesPlanned}</span>
-          ${surveyText(sum) ? `<span><span class="muted">Survey D1 → D2</span> ${h(surveyText(sum))}</span>` : ""}
+          ${Object.keys(sum.surveys).length ? `<span><span class="muted">Surveys</span> ${RP.SURVEY_ORDER.filter(id => sum.surveys[id] != null).map(id => `${h(RP.SURVEY_SHORT[id])} <strong>${sum.surveys[id]}</strong>`).join(" · ")}</span>` : ""}
+          ${sum.readingLevels.length ? `<span><span class="muted">Reading level</span> ${sum.readingLevels.join(", ")}</span>` : ""}
           ${sum.other.length ? `<span><span class="muted">Other</span> ${h(sum.other.join(", "))}</span>` : ""}
         </div>
         ${answered.length ? `<div class="answers">
           <h3>Written answers and surveys</h3>
-          ${answered.map(s => `<details class="answer-block"><summary>${h(s.kind === "debrief" && RP.SURVEYS[s.day] ? RP.SURVEYS[s.day].title + (s.result && s.result.survey ? ` (${s.result.total}/${s.result.max || 50})` : "") : titleOf(s))} <span class="muted">· submitted ${RP.formatDate(s.completed_at || s.updated_at)}</span></summary>${RP.worksheetRows(s.state.responses)}</details>`).join("")}
+          ${answered.map(s => `<details class="answer-block"><summary>${h(answerTitle(s))} <span class="muted">· submitted ${RP.formatDate(s.completed_at || s.updated_at)}</span></summary>${RP.worksheetRows(s.state.responses)}</details>`).join("")}
         </div>` : ""}
         <details><summary>Day-by-day</summary><div class="record-days">${dayList(1)}${dayList(2)}</div></details>
       </section>`;
+  }
+
+  // ---------------------------------------------------------------- individual sessions
+  // Everything the staff member needs for one student's individual session, from what the
+  // student has already submitted. Notes are kept in Sentral, not here.
+  const responsesOf = (v, pred) => v.sessions.filter(x => x.status === "done" && pred(x) && x.state && x.state.responses && x.state.responses.length)
+    .sort((a, b) => a.day - b.day || a.slot - b.slot);
+  const surveyIn = (v, id) => v.sessions.find(x => x.status === "done" && RP.surveyResultId(x.result) === id);
+  const answerBlock = (s, open) => `<details class="answer-block"${open ? " open" : ""}><summary>${h(answerTitle(s))} <span class="muted">· ${RP.formatDate(s.completed_at || s.updated_at)}</span></summary>${RP.worksheetRows(s.state.responses)}</details>`;
+  // Find an answer in a module's responses by the start of its prompt.
+  function answerFor(v, activity, prompt) {
+    const s = v.sessions.find(x => x.activity === activity && x.status === "done" && x.state && x.state.responses);
+    if (!s) return "";
+    for (const sec of s.state.responses) for (const r of sec.rows) if (r.label.replace(/\*\*/g, "").startsWith(prompt)) return r.text || "";
+    return "";
+  }
+
+  function renderIndividual() {
+    const v = visit, s = v && v.sessions.find(x => x.id === view.sessionId);
+    if (!s) { show({ name: "board" }); return; }
+    const ind = RP.individualSession(s.activity);
+    const t = RP.slotTimes(s.slot);
+    const staff = t && s.day === v.current_day ? staffing[s.slot] : "";
+    let info = "";
+    const surveys = ids => ids.map(id => surveyIn(v, id)).filter(Boolean);
+    const shown = list => list.length ? list.map(x => answerBlock(x, false)).join("") : `<p class="muted">Nothing submitted yet.</p>`;
+    if (s.activity === "ind-review") {
+      info = `<h3>Surveys</h3>${shown(surveys(["d1am", "d1pm"]))}
+        <h3>Module answers</h3>${shown(responsesOf(v, x => ["module-1", "my-chain"].includes(x.activity)))}`;
+    } else if (s.activity === "ind-success") {
+      info = `<h3>Surveys</h3>${shown(surveys(["d1am", "d1pm", "d2am"]))}
+        <h3>Module answers</h3>${shown(responsesOf(v, x => ["module-6", "goal-builder", "asking-for-help"].includes(x.activity)))}`;
+    } else {
+      info = `<h3>Surveys</h3>${shown(surveys(RP.SURVEY_ORDER))}`;
+    }
+    const back = view.from === "board" ? "In the program" : "Plan";
+    app().innerHTML = `
+      <div class="page">
+        <div class="no-print">
+          <button class="link-btn" data-back>← ${back}</button>
+          <div class="page-head">
+            <div>
+              <h1>${h((ind ? ind.title : s.title).replace(/^Individual:\s*/, ""))}</h1>
+              <p class="muted">${h(RP.formatCode(v.student.code))}${v.student.year_level ? ` · Year ${v.student.year_level}` : ""} · Day ${s.day}${t ? ` · ${RP.formatTime(t.start)}–${RP.formatTime(t.end)}` : ""}${staff ? ` · with <strong>${h(staff)}</strong>` : ""}</p>
+            </div>
+            <div class="page-actions"><button class="btn${s.status === "done" ? " ok" : " primary"}" data-tick>${s.status === "done" ? "✓ Done (undo)" : "Mark done"}</button></div>
+          </div>
+          ${ind && ind.guide ? `<details class="card guide" open><summary><h2>How to run it</h2></summary><div class="guide-body">${RP.md(ind.guide)}</div></details>` : ""}
+          <div class="card">${info}</div>
+        </div>
+        ${s.activity === "ind-success" ? returnPlan(v) : ""}
+      </div>`;
+    $("[data-back]").onclick = () => view.from === "board" ? show({ name: "board" }) : show({ name: "plan", visitId: v.id, from: view.from });
+    $("[data-tick]").onclick = async () => { await setDone(s, s.status !== "done"); show(view); };
+    const rp = $("[data-print-plan]");
+    if (rp) {
+      const name = $("[data-plan-name]");
+      name.oninput = () => { $("[data-plan-name-out]").textContent = name.value.trim() || " "; };
+      app().querySelectorAll("[data-plan-field]").forEach(t => { t.oninput = () => { app().querySelector(`[data-plan-out="${t.dataset.planField}"]`).textContent = t.value; }; });
+      rp.onclick = () => { if (!name.value.trim()) { name.focus(); name.classList.add("wrong"); setTimeout(() => name.classList.remove("wrong"), 600); return; } window.print(); };
+    }
+  }
+
+  // The Return to class plan: filled in from the student's Module 6 answers where they have them,
+  // edited together in the session, then printed to sign. Nothing here is saved.
+  function returnPlan(v) {
+    const fields = [
+      { id: "signs", label: "My early warning signs", value: answerFor(v, "module-6", "My early warning signs") },
+      { id: "strategies", label: "Strategies I'll use when I notice them", value: [answerFor(v, "module-6", "When I notice these signs"), answerFor(v, "module-6", "**Wellbeing:**") || answerFor(v, "module-6", "Wellbeing:")].filter(Boolean).join("\n") },
+      { id: "goals", label: "My goals for the first two weeks back", value: [answerFor(v, "module-6", "My first goal"), answerFor(v, "module-6", "Behaviour:"), answerFor(v, "module-6", "Learning:")].filter(Boolean).join("\n") },
+      { id: "staff", label: "Staff I can approach for support", value: answerFor(v, "module-6", "If I need help") },
+      { id: "conflict", label: "If conflict happens, I will", value: answerFor(v, "module-6", "If conflict occurs") },
+      { id: "support", label: "What staff will do to support me", value: answerFor(v, "module-6", "One thing staff can do") },
+      { id: "responsibility", label: "What I'll take responsibility for", value: answerFor(v, "module-6", "One thing I will take responsibility") }
+    ];
+    return `
+      <div class="card no-print">
+        <h2>Return to class plan</h2>
+        <p class="muted">${v.sessions.some(x => x.activity === "module-6" && x.status === "done") ? "Filled in from their Module 6 answers. Edit it together, then print it to sign." : "They haven't finished Module 6 yet, so fill it in together."} Nothing here is saved.</p>
+        <label class="field">Student's name (for printing only) <input data-plan-name maxlength="40" autocomplete="off"></label>
+        ${fields.map(f => `<label class="field">${h(f.label)}<textarea rows="2" data-plan-field="${f.id}">${h(f.value)}</textarea></label>`).join("")}
+        <div class="actions"><button class="btn primary" data-print-plan>Print to sign</button></div>
+      </div>
+      <div class="print-area return-plan">
+        <div class="ws-head">
+          <div><div class="cert-school">Thomas Reddall High School · Reset Program</div><h2>Return to class plan</h2></div>
+          <div class="ws-meta">Name: <strong data-plan-name-out>&nbsp;</strong><br>${RP.longDate(new Date().toISOString())}</div>
+        </div>
+        ${fields.map(f => `<div class="ws-row"><div class="ws-label">${h(f.label)}</div><div class="ws-answer" data-plan-out="${f.id}">${h(f.value)}</div></div>`).join("")}
+        <div class="sheet-sign"><span>Student: ______________________</span><span>Staff: ______________________</span><span>Date: ____________</span></div>
+        <p class="cert-motto">"Focusing on our Future"</p>
+      </div>`;
+  }
+
+  // ---------------------------------------------------------------- run sheet
+  // Who's staffing each session, and what every student is doing, for printing.
+  function renderRunsheet(date, staff) {
+    const progs = visits.filter(v => v.kind !== "followup");
+    const isToday = date === todayIso();
+    const cell = (v, slot) => {
+      if (v.paused) return `<td class="muted">Paused</td>`;
+      const x = at(v, v.current_day, slot);
+      if (!x) return "<td></td>";
+      return `<td class="rs-${x.kind}">${h(titleOf(x).replace(/^Individual:\s*/, "Individual: "))}</td>`;
+    };
+    app().innerHTML = `
+      <div class="page wide">
+        <div class="page-head">
+          <div><h1>Run sheet</h1><p class="muted no-print">Type who's running each session. It saves as you go. Students are shown as they are today.</p></div>
+          <div class="page-actions no-print">
+            <label class="field inline">Date <input type="date" data-date value="${date}"></label>
+            <button class="btn primary" data-print-rs>Print</button>
+          </div>
+        </div>
+        <div class="print-only"><strong>Reset Program run sheet · ${RP.formatDate(date)}</strong></div>
+        ${api.needsUpdate ? `<div class="card warn-card"><p>Staffing can't be saved until <code>supabase/update-2.sql</code> has been run in Supabase.</p></div>` : ""}
+        <div class="table-wrap"><table class="records runsheet">
+          <thead><tr><th>Time</th><th>Staff</th>${progs.map(v => `<th>${h(RP.formatCode(v.student.code))}<br><span class="muted">Day ${v.current_day}</span></th>`).join("")}</tr></thead>
+          <tbody>${RP.TIMETABLE.map(t => t.brk
+            ? `<tr class="rs-break"><td>${RP.formatTime(t.start)}</td><td colspan="${progs.length + 1}">${h(t.brk)}</td></tr>`
+            : `<tr><td class="rs-time">${RP.formatTime(t.start)}–${RP.formatTime(t.end)}</td>
+                <td><input class="rs-staff" data-staff="${t.slot}" value="${h(staff[t.slot] || "")}" maxlength="80" placeholder="Staff member" aria-label="Staff for ${RP.formatTime(t.start)}"><span class="print-only">${h(staff[t.slot] || "")}</span></td>
+                ${progs.map(v => cell(v, t.slot)).join("")}</tr>`).join("")}</tbody>
+        </table></div>
+        ${progs.length ? "" : `<p class="muted">No students in the program right now.</p>`}
+        ${isToday ? "" : `<p class="muted">Showing ${RP.formatDate(date)}. Student plans are shown as they are today.</p>`}
+      </div>`;
+    $("[data-date]").onchange = e => show({ name: "runsheet", date: e.target.value || todayIso() });
+    $("[data-print-rs]").onclick = () => window.print();
+    let timers = {};
+    app().querySelectorAll("[data-staff]").forEach(inp => inp.oninput = () => {
+      const slot = Number(inp.dataset.staff);
+      inp.nextElementSibling.textContent = inp.value;
+      clearTimeout(timers[slot]);
+      timers[slot] = setTimeout(async () => {
+        try { await api.setStaffing(date, slot, inp.value.trim()); inp.classList.add("saved"); setTimeout(() => inp.classList.remove("saved"), 800); if (isToday) staffing[slot] = inp.value.trim(); }
+        catch (ex) { alert(ex.message); }
+      }, 500);
+    });
+  }
+
+  // ---------------------------------------------------------------- reports
+  const reportFilter = { from: "", to: "" };
+  function programsInRange() {
+    const out = [];
+    allStudents.forEach(st => (st.visits || []).filter(v => v.kind !== "followup").forEach(v => {
+      if (reportFilter.from && v.start_date < reportFilter.from) return;
+      if (reportFilter.to && v.start_date > reportFilter.to) return;
+      const fu = (st.visits || []).filter(x => x.kind === "followup").map(x => surveyIn(x, "followup")).filter(Boolean)[0];
+      out.push({ st, v, fu });
+    }));
+    return out.sort((a, b) => a.v.start_date.localeCompare(b.v.start_date));
+  }
+  const mean = xs => xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
+  const fmt = (x, d = 1) => x == null ? "–" : (Math.round(x * 10 ** d) / 10 ** d).toString();
+
+  function reportData() {
+    const rows = programsInRange().map(r => {
+      const res = {};
+      RP.SURVEY_ORDER.forEach(id => { const x = id === "followup" ? r.fu : surveyIn(r.v, id); if (x) res[id] = x; });
+      return Object.assign(r, { res });
+    });
+    const both = rows.filter(r => r.res.d1am && r.res.d2pm);
+    const perQ = RP.SURVEY_STATEMENTS.map((q, k) => {
+      const pre = mean(both.map(r => r.res.d1am.result.ratings[k]).filter(Boolean));
+      const post = mean(both.map(r => r.res.d2pm.result.ratings[k]).filter(Boolean));
+      return { q, pre, post, change: pre != null && post != null ? post - pre : null };
+    });
+    const avgBy = id => mean(rows.map(r => r.res[id] && r.res[id].result.total).filter(x => x != null));
+    const answersTo = (id, prompt) => rows.map(r => r.res[id] && r.res[id].state && r.res[id].state.responses)
+      .filter(Boolean).flatMap(secs => secs.flatMap(sec => sec.rows)).filter(x => x.label === prompt && x.text).map(x => x.text);
+    return {
+      rows, both, perQ, avgBy,
+      pre: mean(both.map(r => r.res.d1am.result.total)), post: mean(both.map(r => r.res.d2pm.result.total)),
+      completedPrograms: rows.filter(r => !r.v.active).length,
+      helpful: answersTo("d2pm", "Which part of the program was most helpful to you?"),
+      support: answersTo("d2pm", "What additional support, if any, would help you at school?")
+    };
+  }
+
+  function renderReports() {
+    const d = reportData();
+    const improved = d.perQ.filter(x => x.change != null).sort((a, b) => b.change - a.change).slice(0, 3);
+    const pct = d.rows.length ? Math.round(100 * d.both.length / d.rows.length) : 0;
+    app().innerHTML = `
+      <div class="page">
+        <div class="page-head">
+          <h1>Reports</h1>
+          <div class="page-actions no-print">
+            <button class="btn" data-dl-summary>Download summary</button>
+            <button class="btn" data-dl-responses>Download all survey responses</button>
+            <button class="btn primary" data-print-report>Print</button>
+          </div>
+        </div>
+        <form class="card filters no-print" onsubmit="return false">
+          <label class="field">Programs started from <input type="date" name="from" value="${h(reportFilter.from)}"></label>
+          <label class="field">to <input type="date" name="to" value="${h(reportFilter.to)}"></label>
+          <span class="muted">Use the term's start and end dates for a term report.</span>
+        </form>
+        <div class="stat-grid">
+          <div class="stat"><div class="stat-num">${d.rows.length}</div><div class="stat-label">programs started</div></div>
+          <div class="stat"><div class="stat-num">${d.completedPrograms}</div><div class="stat-label">finished</div></div>
+          <div class="stat"><div class="stat-num">${pct}%</div><div class="stat-label">did the first and last survey (${d.both.length})</div></div>
+          <div class="stat"><div class="stat-num">${fmt(d.pre)} → ${fmt(d.post)}</div><div class="stat-label">average score out of 50, Day 1 start → Day 2 end</div></div>
+          <div class="stat"><div class="stat-num">${d.pre != null ? (d.post - d.pre >= 0 ? "+" : "") + fmt(d.post - d.pre) : "–"}</div><div class="stat-label">average change</div></div>
+        </div>
+        <div class="card">
+          <h2>Average score by survey</h2>
+          <p>${RP.SURVEY_ORDER.map(id => `${h(RP.SURVEY_SHORT[id])}: <strong>${fmt(d.avgBy(id))}</strong> <span class="muted">(${d.rows.filter(r => r.res[id]).length})</span>`).join(" · ")}</p>
+          <p class="muted">Scores are self-reported confidence and understanding. A higher score doesn't by itself prove behaviour has changed; look at attendance and further suspensions too.</p>
+        </div>
+        <div class="card">
+          <h2>Change per question <span class="muted">(students who did both the Day 1 start and Day 2 end surveys)</span></h2>
+          ${improved.length ? `<p>Most improved: ${improved.map(x => `<strong>${h(x.q)}</strong> (${x.change >= 0 ? "+" : ""}${fmt(x.change)})`).join("; ")}</p>` : ""}
+          <div class="table-wrap"><table class="records"><thead><tr><th>Statement</th><th>Day 1 start</th><th>Day 2 end</th><th>Change</th></tr></thead>
+          <tbody>${d.perQ.map((x, k) => `<tr><td>${k + 1}. ${h(x.q)}</td><td>${fmt(x.pre)}</td><td>${fmt(x.post)}</td><td>${x.change == null ? "–" : (x.change >= 0 ? "+" : "") + fmt(x.change)}</td></tr>`).join("")}</tbody></table></div>
+        </div>
+        <div class="card">
+          <h2>Each student</h2>
+          <div class="table-wrap"><table class="records"><thead><tr><th>Code</th><th>Year</th><th>Started</th>${RP.SURVEY_ORDER.map(id => `<th>${h(RP.SURVEY_SHORT[id])}</th>`).join("")}<th>Change</th></tr></thead>
+          <tbody>${d.rows.map(r => `<tr data-student="${r.st.id}"><td class="code-cell">${h(RP.formatCode(r.st.code))}</td><td>${r.st.year_level || ""}</td><td>${RP.formatDate(r.v.start_date)}</td>
+            ${RP.SURVEY_ORDER.map(id => `<td>${r.res[id] ? r.res[id].result.total : ""}</td>`).join("")}
+            <td>${r.res.d1am && r.res.d2pm ? (r.res.d2pm.result.total - r.res.d1am.result.total >= 0 ? "+" : "") + (r.res.d2pm.result.total - r.res.d1am.result.total) : ""}</td></tr>`).join("")}</tbody></table></div>
+        </div>
+        <div class="card">
+          <h2>Most helpful part of the program</h2>
+          ${d.helpful.length ? `<ul>${d.helpful.map(x => `<li>${h(x)}</li>`).join("")}</ul>` : `<p class="muted">No answers yet.</p>`}
+          <h2>Additional support students asked for</h2>
+          ${d.support.length ? `<ul>${d.support.map(x => `<li>${h(x)}</li>`).join("")}</ul>` : `<p class="muted">No answers yet.</p>`}
+        </div>
+      </div>`;
+    const form = app().querySelector(".filters");
+    ["from", "to"].forEach(k => form[k].onchange = () => { reportFilter[k] = form[k].value; renderReports(); });
+    app().querySelectorAll("[data-student]").forEach(tr => tr.onclick = () => show({ name: "student", studentId: tr.dataset.student, from: "all" }));
+    $("[data-print-report]").onclick = () => window.print();
+    $("[data-dl-summary]").onclick = () => {
+      const rows = [["Measure", "Value"],
+        ["Programs started", d.rows.length], ["Programs finished", d.completedPrograms],
+        ["Did Day 1 start and Day 2 end surveys", d.both.length], ["% did both", pct + "%"],
+        ["Average score Day 1 start (/50)", fmt(d.pre)], ["Average score Day 2 end (/50)", fmt(d.post)],
+        ["Average change", d.pre != null ? fmt(d.post - d.pre) : ""],
+        ...RP.SURVEY_ORDER.map(id => [`Average score ${RP.SURVEY_SHORT[id]} (/50)`, fmt(d.avgBy(id))]),
+        [], ["Statement", "Day 1 start", "Day 2 end", "Change"],
+        ...d.perQ.map(x => [x.q, fmt(x.pre, 2), fmt(x.post, 2), x.change == null ? "" : fmt(x.change, 2)]),
+        [], ["Most helpful part of the program"], ...d.helpful.map(x => [x]),
+        [], ["Additional support students asked for"], ...d.support.map(x => [x])];
+      downloadRows(rows, `reset-program-report-${reportFilter.from || "all"}-to-${reportFilter.to || todayIso()}.csv`);
+    };
+    $("[data-dl-responses]").onclick = () => {
+      const prompts = [...new Set(RP.SURVEY_ORDER.flatMap(id => RP.SURVEYS[id].items.filter(it => it.type === "write").flatMap(it => it.prompts)))];
+      const rows = [["Code", "Year level", "Program start", "Survey", "Completed", "Total (/50)", ...RP.SURVEY_STATEMENTS.map((q, k) => `Q${k + 1} ${q}`), ...prompts]];
+      d.rows.forEach(r => RP.SURVEY_ORDER.forEach(id => {
+        const x = r.res[id]; if (!x) return;
+        const written = {};
+        (x.state && x.state.responses || []).forEach(sec => sec.rows.forEach(row => { written[row.label] = row.text; }));
+        rows.push([RP.formatCode(r.st.code), r.st.year_level || "", r.v.start_date, RP.SURVEY_SHORT[id], (x.completed_at || x.updated_at || "").slice(0, 10), x.result.total,
+          ...RP.SURVEY_STATEMENTS.map((q, k) => x.result.ratings[k] || ""), ...prompts.map(p => written[p] || "")]);
+      }));
+      downloadRows(rows, `reset-program-survey-responses-${todayIso()}.csv`);
+    };
+  }
+
+  function downloadRows(rows, filename) {
+    const csv = rows.map(r => r.map(c => /[",\n]/.test(String(c)) ? `"${String(c).replace(/"/g, '""')}"` : c).join(",")).join("\r\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv" }));
+    a.download = filename;
+    document.body.appendChild(a); a.click(); a.remove();
+  }
+
+  // ---------------------------------------------------------------- present view
+  // A group session's slides on the projector, with a countdown timer for the staff member.
+  function showPresent(id) {
+    const g = RP.groupSession(id);
+    if (!g || !g.slides) return;
+    let k = 0, left = 0, ticking = null;
+    const box = document.createElement("div");
+    box.className = "present";
+    document.body.appendChild(box);
+    const draw = () => {
+      const sl = g.slides[k];
+      const mm = String(Math.floor(left / 60)).padStart(1, "0"), ss = String(left % 60).padStart(2, "0");
+      box.innerHTML = `
+        <div class="present-top">
+          <span class="present-brand">${RP.logo(44, "#ffffff")}<span>${h(g.title)}</span></span>
+          <span class="present-timer${left && left <= 60 ? " soon" : ""}">${left ? `${mm}:${ss}` : ""}
+            <button data-t="300">+5 min</button><button data-t="60">+1 min</button><button data-t="0">${ticking ? "Stop" : "Clear"}</button></span>
+          <span>${k + 1} / ${g.slides.length} <button data-close>Close ✕</button></span>
+        </div>
+        <div class="present-slide">
+          <h1>${h(sl.title)}</h1>
+          ${sl.points && sl.points.length ? `<ul>${sl.points.map(p => `<li>${RP.inlineMd(p)}</li>`).join("")}</ul>` : ""}
+          ${sl.note ? `<p class="present-note">${RP.inlineMd(sl.note)}</p>` : ""}
+        </div>
+        <div class="present-nav"><button data-prev ${k === 0 ? "disabled" : ""}>← Back</button><span class="present-motto">"Focusing on our Future"</span><button data-next ${k === g.slides.length - 1 ? "disabled" : ""}>Next →</button></div>`;
+      box.querySelector("[data-prev]").onclick = () => { if (k > 0) { k--; draw(); } };
+      box.querySelector("[data-next]").onclick = () => { if (k < g.slides.length - 1) { k++; draw(); } };
+      box.querySelector("[data-close]").onclick = close;
+      box.querySelectorAll("[data-t]").forEach(b => b.onclick = () => {
+        const add = Number(b.dataset.t);
+        if (!add) { clearInterval(ticking); ticking = null; left = 0; draw(); return; }
+        left += add;
+        if (!ticking) ticking = setInterval(() => { left = Math.max(0, left - 1); if (!left) { clearInterval(ticking); ticking = null; } draw(); }, 1000);
+        draw();
+      });
+    };
+    const keys = e => {
+      if (e.key === "ArrowRight" || e.key === " " || e.key === "PageDown") { if (k < g.slides.length - 1) { k++; draw(); } e.preventDefault(); }
+      if (e.key === "ArrowLeft" || e.key === "PageUp") { if (k > 0) { k--; draw(); } e.preventDefault(); }
+      if (e.key === "Escape") close();
+    };
+    function close() {
+      clearInterval(ticking);
+      document.removeEventListener("keydown", keys);
+      if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+      box.remove();
+    }
+    document.addEventListener("keydown", keys);
+    draw();
+    if (box.requestFullscreen) box.requestFullscreen().catch(() => {});
   }
 
   // ---------------------------------------------------------------- session guides
@@ -587,9 +1041,10 @@
       const slot = Object.keys(RP.ROTATIONS[r]).find(k => RP.ROTATIONS[r][k] === id);
       return slot ? `Rotation ${r}, ${RP.formatTime(RP.slotTimes(Number(slot)).start)}` : null;
     }).filter(Boolean).join(" · ");
-    const guide = (title, tags, about, body) => `
+    const guide = (title, tags, about, body, actions) => `
       <details class="card guide">
         <summary><h2>${h(title)}</h2> ${tags}</summary>
+        ${actions ? `<div class="actions no-print">${actions}</div>` : ""}
         ${about ? `<p class="guide-about"><strong>Students see:</strong> ${RP.inlineMd(about)}</p>` : ""}
         <div class="guide-body">${RP.md(body || "No guide yet.")}</div>
       </details>`;
@@ -601,7 +1056,8 @@
         </div>
         <h2 class="section-title">Group sessions</h2>
         ${RP.GROUP_SESSIONS.filter(g => !g.movement).map(g => guide(g.title,
-          `${g.core ? `<span class="tag core">core</span>` : ""} ${when(g.id) ? `<span class="tag">${h(when(g.id))}</span>` : `<span class="tag">not in a rotation</span>`}`, g.about, g.guide)).join("")}
+          `${g.core ? `<span class="tag core">core</span>` : ""} ${when(g.id) ? `<span class="tag">${h(when(g.id))}</span>` : `<span class="tag">not in a rotation</span>`}`, g.about, g.guide,
+          g.slides ? `<button class="btn small" data-present="${g.id}">Present on the projector</button>` : "")).join("")}
         <h2 class="section-title">Individual sessions</h2>
         <div class="card"><p>Drag these into an independent session in a student's plan. The other students keep working on their own. You can only be with one student at a time, so the plan editor and dashboard warn you about clashes.</p></div>
         ${(RP.INDIVIDUAL_SESSIONS || []).map(x => guide(x.title.replace(/^Individual:\s*/, ""), x.day ? `<span class="tag">Day ${x.day}</span>` : `<span class="tag">Either day</span>`, x.about, x.guide)).join("")}
@@ -609,6 +1065,7 @@
         <div class="card"><p>Still being worked out. They're available to drag into a plan (under "Movement" in the plan editor) but aren't in the rotations or counted as core.</p></div>
       </div>`;
     $("[data-print-guides]").onclick = () => { app().querySelectorAll("details.guide").forEach(d => d.open = true); window.print(); };
+    app().querySelectorAll("[data-present]").forEach(b => b.onclick = () => showPresent(b.dataset.present));
   }
 
   // ---------------------------------------------------------------- printing
@@ -673,7 +1130,7 @@
           ${sum.other.length ? `<div><strong>Other electives:</strong> ${h(sum.other.join(", "))}</div>` : ""}
           <div><strong>Core group sessions:</strong> ${sum.coreDone} of ${sum.coreTotal}${missing.length ? ` (not done: ${h(missing.map(g => g.title).join(", "))})` : ""}</div>
           <div><strong>Individual sessions:</strong> ${sum.ones} of ${sum.onesPlanned} done</div>
-          ${surveyText(sum) ? `<div><strong>Survey (out of 50), Day 1 → Day 2:</strong> ${h(surveyText(sum))}</div>` : ""}
+          ${Object.keys(sum.surveys).length ? `<div><strong>Surveys (out of 50):</strong> ${RP.SURVEY_ORDER.filter(id => sum.surveys[id] != null).map(id => `${h(RP.SURVEY_SHORT[id])} ${sum.surveys[id]}`).join(" · ")}</div>` : ""}
         </div>
         <div class="sheet-days">${day(1)}${day(2)}</div>
         <div class="sheet-sign"><span>Teacher: ______________________</span><span>Signature: ______________________</span><span>Date: ____________</span></div>
@@ -768,6 +1225,7 @@
       const s = v.sessions.find(s => s.id === b.dataset.tick);
       b.disabled = true; await setDone(s, s.status !== "done"); reload();
     });
+    app().querySelectorAll("[data-open-ind]").forEach(b => b.onclick = () => show({ name: "individual", visitId: v.id, sessionId: b.dataset.openInd, from: view.from }));
     app().querySelectorAll("[data-mark]").forEach(b => b.onclick = async () => {
       const s = v.sessions.find(s => s.id === b.dataset.mark);
       if (!confirm(`Mark "${titleOf(s)}" as done? Use this if they completed it another way, such as on paper.`)) return;
@@ -823,7 +1281,7 @@
     const m = s.kind === "independent" && s.activity && RP.MODULES[s.activity];
     let controls = "";
     if (teacherTicks(s)) {
-      controls = `<button class="btn small${s.status === "done" ? " ok" : ""}" data-tick="${s.id}">${s.status === "done" ? "✓ Done" : "Mark done"}</button>`;
+      controls = `${s.kind === "one_to_one" ? `<button class="btn small" data-open-ind="${s.id}">Open</button>` : ""}<button class="btn small${s.status === "done" ? " ok" : ""}" data-tick="${s.id}">${s.status === "done" ? "✓ Done" : "Mark done"}</button>`;
     } else if (m) {
       if (s.status === "not_started" && m.levels) {
         const lv = s.state && s.state.level;

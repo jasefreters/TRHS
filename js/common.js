@@ -191,3 +191,75 @@ RP.logo = function (size, colour) {
     <path d="M5 62v4c15-5 30-4 45 4c15-8 30-9 45-4v-4"/>
   </svg>`;
 };
+
+// ---- Read aloud (Chrome's built-in speech; works on Chromebooks) ----
+RP.speech = (function () {
+  let speaking = null;
+  const supported = "speechSynthesis" in window;
+  function voice() {
+    const vs = supported ? speechSynthesis.getVoices() : [];
+    return vs.find(v => v.lang === "en-AU") || vs.find(v => v.lang === "en-GB") || vs.find(v => /^en/.test(v.lang)) || null;
+  }
+  function stop() {
+    if (!supported) return;
+    speechSynthesis.cancel();
+    if (speaking) { speaking.textContent = "🔊 Read aloud"; speaking.classList.remove("on"); }
+    speaking = null;
+  }
+  function say(text, btn) {
+    if (!supported || !text.trim()) return;
+    stop();
+    const u = new SpeechSynthesisUtterance(text.replace(/\s+/g, " ").trim());
+    const v = voice(); if (v) { u.voice = v; u.lang = v.lang; }
+    u.rate = 0.95;
+    u.onend = () => { if (speaking === btn) stop(); };
+    if (btn) { speaking = btn; btn.textContent = "⏹ Stop"; btn.classList.add("on"); }
+    speechSynthesis.speak(u);
+  }
+  // The readable text of an element: headings, paragraphs, questions and choices, without buttons.
+  function textOf(el) {
+    const copy = el.cloneNode(true);
+    copy.querySelectorAll("button:not(.choice):not(.level-card):not(.sort-card):not(.tile), input, textarea, select, .no-read, .actions").forEach(x => x.remove());
+    return copy.innerText || copy.textContent || "";
+  }
+  return {
+    supported, stop, say, textOf,
+    button: () => supported ? `<button class="btn ghost read-aloud" data-read-aloud type="button">🔊 Read aloud</button>` : "",
+    bind(root, getEl) {
+      const b = root.querySelector("[data-read-aloud]");
+      if (b) b.onclick = () => (speaking === b ? stop() : say(textOf(getEl()), b));
+    }
+  };
+})();
+
+// ---- Reading levels ----
+// Students pick a reading level (1–5) when they start a module; it's saved with their result.
+// Items can give an "easy" version (levels 1–2), "more" detail (levels 4–5) and a "deeper"
+// question (level 5). Level 1 also reads each page aloud automatically.
+RP.READING_LEVELS = [
+  { level: 1, title: "Level 1", about: "Short and simple, and read aloud to you" },
+  { level: 2, title: "Level 2", about: "Short and simple" },
+  { level: 3, title: "Level 3", about: "Standard" },
+  { level: 4, title: "Level 4", about: "A bit more detail" },
+  { level: 5, title: "Level 5", about: "More detail and extra thinking questions" }
+];
+RP.atLevel = function (item, level) {
+  let it = item;
+  if (level && level <= 2 && item.easy) it = Object.assign({}, item, item.easy);
+  if (level && level >= 4 && item.more && it.type === "read") it = Object.assign({}, it, { text: it.text + "\n\n" + item.more });
+  return it;
+};
+
+// ---- Sending work (Chromebooks can't print; Save as PDF and email both work) ----
+RP.mailtoFor = function (cert) {
+  const lines = [`${cert.title}${cert.levelTitle ? " · " + cert.levelTitle : ""}`, cert.date];
+  if (cert.outOf) lines.push(`${cert.score} out of ${cert.outOf} correct first time`);
+  (cert.worksheet || []).forEach(sec => {
+    lines.push("");
+    if (sec.heading) lines.push(sec.heading.toUpperCase());
+    sec.rows.forEach(r => lines.push(`${r.label.replace(/\*\*/g, "")}\n${r.text || "(left blank)"}`));
+  });
+  let body = lines.join("\n");
+  if (body.length > 1800) body = body.slice(0, 1800) + "\n…";
+  return `mailto:?subject=${encodeURIComponent("Reset Program: " + cert.title)}&body=${encodeURIComponent(body)}`;
+};

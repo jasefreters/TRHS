@@ -59,6 +59,8 @@ create table public.visits (
   start_date date not null default current_date,
   current_day smallint not null default 1 check (current_day in (1, 2)),
   active boolean not null default true,
+  kind text not null default 'program' constraint visits_kind_check check (kind in ('program', 'followup')),
+  paused boolean not null default false,
   help_requested_at timestamptz,
   created_at timestamptz not null default now()
 );
@@ -70,7 +72,7 @@ create table public.sessions (
   visit_id uuid not null references public.visits(id) on delete cascade,
   day smallint not null check (day in (1, 2)),
   slot smallint not null check (slot between 1 and 20),
-  kind text not null check (kind in ('intro', 'group', 'independent', 'one_to_one', 'break', 'debrief', 'free')),
+  kind text not null constraint sessions_kind_check check (kind in ('intro', 'group', 'independent', 'one_to_one', 'break', 'debrief', 'free', 'survey')),
   activity text,                 -- which module, e.g. 'numeracy' or 'self-regulation'
   title text not null,
   status text not null default 'not_started' check (status in ('not_started', 'in_progress', 'done')),
@@ -84,6 +86,14 @@ create table public.sessions (
 );
 create index sessions_visit on public.sessions (visit_id);
 
+-- Which staff member is running each session on each date.
+create table public.staffing (
+  date date not null,
+  slot smallint not null check (slot between 1 and 10),
+  staff text not null default '' check (length(staff) <= 80),
+  primary key (date, slot)
+);
+
 -- ---------------------------------------------------------------------------
 -- Access rules. Staff (logged in and listed in public.staff) can do everything.
 -- Students never read tables directly; they only use the student_* functions below,
@@ -93,11 +103,13 @@ alter table public.staff enable row level security;
 alter table public.students enable row level security;
 alter table public.visits enable row level security;
 alter table public.sessions enable row level security;
+alter table public.staffing enable row level security;
 
 create policy staff_read_staff on public.staff for select to authenticated using (public.is_staff());
 create policy staff_all_students on public.students for all to authenticated using (public.is_staff()) with check (public.is_staff());
 create policy staff_all_visits on public.visits for all to authenticated using (public.is_staff()) with check (public.is_staff());
 create policy staff_all_sessions on public.sessions for all to authenticated using (public.is_staff()) with check (public.is_staff());
+create policy staff_all_staffing on public.staffing for all to authenticated using (public.is_staff()) with check (public.is_staff());
 
 -- ---------------------------------------------------------------------------
 -- Student functions (called from the laptop with the student's code)
@@ -123,6 +135,8 @@ begin
   return jsonb_build_object(
     'current_day', v.current_day,
     'help', v.help_requested_at is not null,
+    'paused', v.paused,
+    'kind', v.kind,
     'sessions', coalesce((
       select jsonb_agg(
         jsonb_build_object(
@@ -155,7 +169,7 @@ begin
       completed_at = case when p_status = 'done' then now() else completed_at end
   where id = p_session
     and visit_id = v_visit
-    and kind in ('intro', 'independent', 'free', 'debrief')
+    and kind in ('intro', 'independent', 'free', 'debrief', 'survey')
     and status <> 'done';
   return found;
 end $$;
