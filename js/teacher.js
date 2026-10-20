@@ -22,11 +22,12 @@
     app().innerHTML = `
       <div class="entry">
         <form class="entry-card" data-login>
-          ${RP.sunburst(96, "#2e7fd1")}
+          <span class="entry-logo">${RP.logo(120)}</span>
           <h1>Teacher login</h1>
           <label class="field">School email <input type="email" name="email" autocomplete="username" required></label>
-          <label class="field">Password <input type="password" name="password" autocomplete="current-password" required></label>
-          <label class="field inline small"><input type="checkbox" data-show-pw> Show password</label>
+          <label class="field">Password
+            <span class="pw-wrap"><input type="password" name="password" autocomplete="current-password" required><button type="button" class="pw-toggle" data-show-pw aria-label="Show password" aria-pressed="false">👁 Show</button></span>
+          </label>
           <button class="btn primary big" type="submit">Log in</button>
           <p class="error" aria-live="polite">${h(message || "")}</p>
           <p class="muted small"><a href="index.html">Back to the student view</a></p>
@@ -34,7 +35,14 @@
       </div>`;
     const form = $("[data-login]");
     form.email.focus();
-    $("[data-show-pw]").onchange = e => { form.password.type = e.target.checked ? "text" : "password"; };
+    $("[data-show-pw]").onclick = e => {
+      const show = form.password.type === "password";
+      form.password.type = show ? "text" : "password";
+      e.currentTarget.textContent = show ? "🙈 Hide" : "👁 Show";
+      e.currentTarget.setAttribute("aria-pressed", show);
+      e.currentTarget.setAttribute("aria-label", show ? "Hide password" : "Show password");
+      form.password.focus();
+    };
     form.onsubmit = async e => {
       e.preventDefault();
       const err = form.querySelector(".error");
@@ -66,6 +74,7 @@
       <button class="nav-btn" data-nav="board">In the program</button>
       <button class="nav-btn" data-nav="all">All students</button>
       <button class="nav-btn" data-nav="new">New student</button>
+      <button class="nav-btn" data-nav="guides">Session guides</button>
       ${laptop ? `<span class="laptop-note">This laptop: ${h(RP.formatCode(laptop))} <button class="link-btn" data-clear-laptop>Clear</button></span>` : ""}
       <span class="laptop-note" data-who></span>
       <button class="nav-btn lock" data-lock>Lock</button>`;
@@ -90,8 +99,9 @@
     renderNav();
     try {
       if (v.name === "board") { visits = await api.listActive(); renderBoard(); }
-      else if (v.name === "plan") { visit = await api.getVisit(v.visitId); renderPlan(); }
+      else if (v.name === "plan") { [visit, visits] = await Promise.all([api.getVisit(v.visitId), api.listActive()]); renderPlan(); }
       else if (v.name === "new") renderNew();
+      else if (v.name === "guides") renderGuides();
       else if (v.name === "all") { allStudents = await api.listAll(); renderAll(); }
       else if (v.name === "student") { student = await api.getStudent(v.studentId); renderStudent(); }
       else if (v.name === "print") { student = await api.getStudent(v.studentId); renderPrint(); }
@@ -120,7 +130,7 @@
     if (dragging || document.querySelector("dialog[open]")) return scheduleReload();
     try {
       if (view.name === "board") { visits = await api.listActive(); renderBoard(); }
-      else if (view.name === "plan") { visit = await api.getVisit(view.visitId); renderPlan(); }
+      else if (view.name === "plan") { [visit, visits] = await Promise.all([api.getVisit(view.visitId), api.listActive()]); renderPlan(); }
       else if (view.name === "student") { student = await api.getStudent(view.studentId); renderStudent(); }
     } catch (ex) { /* try again on the next change or poll */ }
   }
@@ -129,10 +139,24 @@
   const sessionsFor = (v, day) => v.sessions.filter(s => s.day === day).sort((a, b) => a.slot - b.slot);
   const at = (v, day, slot) => v.sessions.find(s => s.day === day && s.slot === slot);
   const titleOf = s => s.kind === "independent" && s.activity && RP.MODULES[s.activity] ? RP.MODULES[s.activity].title : s.title;
-  const teacherTicks = s => ["intro", "group", "debrief", "one_to_one"].includes(s.kind);
+  const teacherTicks = s => ["intro", "group", "one_to_one"].includes(s.kind);
+  const individualsOn = (v, day) => v.sessions.filter(s => s.day === day && s.kind === "one_to_one").sort((a, b) => a.slot - b.slot);
+
+  // Individual sessions in the same slot today as another student's: the teacher can't do both.
+  function clashes(v) {
+    const out = {};
+    individualsOn(v, v.current_day).filter(s => s.slot <= RP.LAST_SLOT).forEach(s => {
+      const others = visits.filter(o => o.id !== v.id).filter(o => { const x = at(o, o.current_day, s.slot); return x && x.kind === "one_to_one"; });
+      if (others.length) out[s.slot] = others.map(o => RP.formatCode(o.student.code));
+    });
+    return out;
+  }
+  // Individual sessions expected for a day (review on Day 1, success plan on Day 2) that aren't in the plan.
+  const missingIndividual = (v, day) => (RP.INDIVIDUAL_SESSIONS || []).filter(x => x.day === day && !v.sessions.some(s => s.day === day && s.activity === x.id));
 
   function statusText(s) {
     if (s.kind === "independent" && !s.activity) return "Not chosen yet";
+    if (s.kind === "debrief") return s.status === "done" ? "Survey done" + (s.result && s.result.survey ? ` · ${s.result.total}/${s.result.max || 50}` : "") : s.status === "in_progress" ? "Survey started" : "Survey not done";
     if (s.status === "done") return "Done" + (s.result && RP.resultText(s.result) ? " · " + RP.resultText(s.result) : "");
     if (s.status === "in_progress") return "In progress";
     return "Not started";
@@ -151,7 +175,7 @@
     // One click to tick the current whole-group or group session for everyone.
     let bulk = "";
     if (typeof now === "number") {
-      const due = visits.map(v => at(v, v.current_day, now)).filter(s => s && ["intro", "group", "debrief"].includes(s.kind) && s.status !== "done");
+      const due = visits.map(v => at(v, v.current_day, now)).filter(s => s && ["intro", "group"].includes(s.kind) && s.status !== "done");
       if (due.length) {
         const names = [...new Set(due.map(titleOf))].join(" / ");
         bulk = `<button class="btn primary" data-bulk>Tick “${h(names)}” done for ${due.length} student${due.length > 1 ? "s" : ""}</button>`;
@@ -175,7 +199,7 @@
       bb.disabled = true;
       for (const v of visits) {
         const s = at(v, v.current_day, now);
-        if (s && ["intro", "group", "debrief"].includes(s.kind) && s.status !== "done") await setDone(s, true);
+        if (s && ["intro", "group"].includes(s.kind) && s.status !== "done") await setDone(s, true);
       }
       reload();
     };
@@ -206,7 +230,8 @@
       return `<span class="mini k-${s.kind} st-${s.status}${now === s.slot ? " now" : ""}" title="${h(RP.formatTime(t.start) + " " + titleOf(s) + ": " + statusText(s))}">${icon}</span>`;
     }).join("");
     const cur = typeof now === "number" ? at(v, v.current_day, now) : null;
-    const one = at(v, v.current_day, RP.ONE_TO_ONE_SLOT);
+    const inds = individualsOn(v, v.current_day);
+    const clash = clashes(v);
     const finished = v.sessions.filter(s => s.kind === "independent" && s.status === "done");
     const missing = RP.missingCore(v.sessions);
     return `
@@ -220,7 +245,12 @@
         <div class="now-line">${cur ? `<span class="muted">Now:</span> ${h(titleOf(cur))} <span class="muted">· ${h(statusText(cur))}</span>
           ${teacherTicks(cur) ? `<button class="btn small" data-tick="${cur.id}">${cur.status === "done" ? "Undo tick" : "Tick done"}</button>` : ""}` :
           `<span class="muted">${typeof now === "object" && now.brk ? h(now.brk) : "Outside program hours"}</span>`}</div>
-        ${one ? `<div class="row"><span>1:1 (Day ${v.current_day})</span> <button class="btn small${one.status === "done" ? " ok" : ""}" data-tick="${one.id}">${one.status === "done" ? "✓ Done" : "Mark done"}</button></div>` : ""}
+        ${inds.length ? inds.map(one => {
+          const t = RP.slotTimes(one.slot);
+          return `<div class="row"><span>${t ? RP.formatTime(t.start) + " " : ""}${h(titleOf(one).replace(/^Individual:\s*/, "Individual: "))}</span>
+            <button class="btn small${one.status === "done" ? " ok" : ""}" data-tick="${one.id}">${one.status === "done" ? "✓ Done" : "Mark done"}</button>
+            ${clash[one.slot] ? `<span class="warn">Clashes with ${h(clash[one.slot].join(", "))}</span>` : ""}</div>`;
+        }).join("") : `<div class="row"><span class="warn">No individual session planned for today</span></div>`}
         ${finished.length ? `<div class="row results"><span class="muted">Finished:</span> ${finished.map(s => `${h(titleOf(s))}${s.result && RP.resultText(s.result) ? ` <span class="muted">(${h(RP.resultText(s.result))})</span>` : ""}`).join(", ")}</div>` : ""}
         <div class="row core">${missing.length ? `<span class="muted">Core still to do:</span> ${missing.map(g => h(g.title)).join(", ")}` : `<span class="ok-text">✓ All core group sessions done</span>`}</div>
         <footer>
@@ -319,8 +349,22 @@
       other: done.filter(s => s.kind === "independent" && s.activity && !isModule(s.activity) && !["numeracy", "literacy"].includes(s.activity)).map(titleOf),
       coreDone: core.filter(g => done.some(s => s.kind === "group" && s.activity === g.id)).length,
       coreTotal: core.length,
-      ones: done.filter(s => s.kind === "one_to_one").length
+      ones: done.filter(s => s.kind === "one_to_one").length,
+      onesPlanned: v.sessions.filter(s => s.kind === "one_to_one").length,
+      survey1: surveyTotal(v, 1),
+      survey2: surveyTotal(v, 2)
     };
+  }
+
+  function surveyTotal(v, day) {
+    const s = v.sessions.find(x => x.kind === "debrief" && x.day === day && x.status === "done" && x.result && x.result.survey);
+    return s ? s.result.total : null;
+  }
+  function surveyText(sum) {
+    if (sum.survey1 == null && sum.survey2 == null) return "";
+    const a = sum.survey1 == null ? "–" : sum.survey1, b = sum.survey2 == null ? "–" : sum.survey2;
+    const change = sum.survey1 != null && sum.survey2 != null ? ` (${sum.survey2 - sum.survey1 >= 0 ? "+" : ""}${sum.survey2 - sum.survey1})` : "";
+    return `${a} → ${b}${change}`;
   }
 
   function statusLabel(v) {
@@ -384,7 +428,7 @@
       <p class="muted">${list.length} student${list.length === 1 ? "" : "s"} · ${programs} program${programs === 1 ? "" : "s"}${list.length < allStudents.length ? ` (filtered from ${allStudents.length})` : ""}. Click a student to see their full record.</p>
       ${list.length ? `
       <div class="table-wrap"><table class="records">
-        <thead><tr><th>Code</th><th>Year</th><th>Latest program</th><th>Status</th><th>Programs</th><th>Modules</th><th>Numeracy</th><th>Literacy</th><th>Core movement</th><th>1:1s</th></tr></thead>
+        <thead><tr><th>Code</th><th>Year</th><th>Latest program</th><th>Status</th><th>Programs</th><th>Modules</th><th>Numeracy</th><th>Literacy</th><th>Core sessions</th><th>Individual</th><th>Survey D1 → D2</th></tr></thead>
         <tbody>${list.map(st => {
           const v = latestVisit(st), sum = v ? summary(v) : null;
           return `<tr data-student="${st.id}" tabindex="0">
@@ -397,7 +441,8 @@
             <td>${sum ? h(sum.numeracy) : ""}</td>
             <td>${sum ? h(sum.literacy) : ""}</td>
             <td>${sum ? `${sum.coreDone}/${sum.coreTotal}` : ""}</td>
-            <td>${sum ? `${sum.ones}/2` : ""}</td>
+            <td>${sum ? `${sum.ones}/${sum.onesPlanned}` : ""}</td>
+            <td>${sum ? h(surveyText(sum)) : ""}</td>
           </tr>`;
         }).join("")}</tbody>
       </table></div>` : `<div class="card empty"><p>No students match.</p></div>`}`;
@@ -410,11 +455,13 @@
 
   // One row per program, for matching to names offline and for reports.
   function downloadCsv() {
-    const rows = [["Code", "Year level", "Program start", "Status", "Current day", "Modules completed", "Numeracy", "Literacy", "Other electives", "Core movement sessions", "1:1s done"]];
+    const rows = [["Code", "Year level", "Program start", "Status", "Current day", "Modules completed", "Numeracy", "Literacy", "Other electives", "Core group sessions", "Individual sessions done", "Survey Day 1 (/50)", "Survey Day 2 (/50)", "Survey change"]];
     filtered().forEach(st => visitsNewestFirst(st).forEach(v => {
       const sum = summary(v);
       rows.push([RP.formatCode(st.code), st.year_level || "", v.start_date, v.active ? "In program" : "Finished", v.active ? v.current_day : "",
-        sum.modules.join(" "), sum.numeracy, sum.literacy, sum.other.join("; "), `${sum.coreDone}/${sum.coreTotal}`, `${sum.ones}/2`]);
+        sum.modules.join(" "), sum.numeracy, sum.literacy, sum.other.join("; "), `${sum.coreDone}/${sum.coreTotal}`, `${sum.ones}/${sum.onesPlanned}`,
+        sum.survey1 == null ? "" : sum.survey1, sum.survey2 == null ? "" : sum.survey2,
+        sum.survey1 != null && sum.survey2 != null ? sum.survey2 - sum.survey1 : ""]);
     }));
     const csv = rows.map(r => r.map(c => /[",\n]/.test(String(c)) ? `"${String(c).replace(/"/g, '""')}"` : c).join(",")).join("\r\n");
     const a = document.createElement("a");
@@ -490,7 +537,8 @@
   function programCard(v) {
     const sum = summary(v);
     const certs = v.sessions.filter(s => s.kind === "independent" && s.status === "done" && s.activity && RP.MODULES[s.activity]);
-    const answered = certs.filter(s => s.state && s.state.responses && s.state.responses.length).sort((a, b) => a.day - b.day || a.slot - b.slot);
+    const answered = v.sessions.filter(s => (s.kind === "independent" || s.kind === "debrief") && s.status === "done" && s.state && s.state.responses && s.state.responses.length)
+      .sort((a, b) => a.day - b.day || a.slot - b.slot);
     const anyActive = (student.visits || []).some(x => x.active);
     const dayList = day => `
       <div class="record-day">
@@ -520,16 +568,47 @@
           <span><span class="muted">Modules</span> ${modulePills(sum)}</span>
           <span><span class="muted">Numeracy</span> ${h(sum.numeracy || "–")}</span>
           <span><span class="muted">Literacy</span> ${h(sum.literacy || "–")}</span>
-          <span><span class="muted">Core movement</span> ${sum.coreDone}/${sum.coreTotal}</span>
-          <span><span class="muted">1:1s</span> ${sum.ones}/2</span>
+          <span><span class="muted">Core sessions</span> ${sum.coreDone}/${sum.coreTotal}</span>
+          <span><span class="muted">Individual</span> ${sum.ones}/${sum.onesPlanned}</span>
+          ${surveyText(sum) ? `<span><span class="muted">Survey D1 → D2</span> ${h(surveyText(sum))}</span>` : ""}
           ${sum.other.length ? `<span><span class="muted">Other</span> ${h(sum.other.join(", "))}</span>` : ""}
         </div>
         ${answered.length ? `<div class="answers">
-          <h3>Written answers</h3>
-          ${answered.map(s => `<details class="answer-block"><summary>${h(titleOf(s))} <span class="muted">· submitted ${RP.formatDate(s.completed_at || s.updated_at)}</span></summary>${RP.worksheetRows(s.state.responses)}</details>`).join("")}
+          <h3>Written answers and surveys</h3>
+          ${answered.map(s => `<details class="answer-block"><summary>${h(s.kind === "debrief" && RP.SURVEYS[s.day] ? RP.SURVEYS[s.day].title + (s.result && s.result.survey ? ` (${s.result.total}/${s.result.max || 50})` : "") : titleOf(s))} <span class="muted">· submitted ${RP.formatDate(s.completed_at || s.updated_at)}</span></summary>${RP.worksheetRows(s.state.responses)}</details>`).join("")}
         </div>` : ""}
         <details><summary>Day-by-day</summary><div class="record-days">${dayList(1)}${dayList(2)}</div></details>
       </section>`;
+  }
+
+  // ---------------------------------------------------------------- session guides
+  function renderGuides() {
+    const when = id => Object.keys(RP.ROTATIONS).map(r => {
+      const slot = Object.keys(RP.ROTATIONS[r]).find(k => RP.ROTATIONS[r][k] === id);
+      return slot ? `Rotation ${r}, ${RP.formatTime(RP.slotTimes(Number(slot)).start)}` : null;
+    }).filter(Boolean).join(" · ");
+    const guide = (title, tags, about, body) => `
+      <details class="card guide">
+        <summary><h2>${h(title)}</h2> ${tags}</summary>
+        ${about ? `<p class="guide-about"><strong>Students see:</strong> ${RP.inlineMd(about)}</p>` : ""}
+        <div class="guide-body">${RP.md(body || "No guide yet.")}</div>
+      </details>`;
+    app().innerHTML = `
+      <div class="page narrow">
+        <div class="page-head"><h1>Session guides</h1><div class="page-actions"><button class="btn" data-print-guides>Print all</button></div></div>
+        <div class="card">
+          <p><strong>Running groups with up to 5 students and one staff member.</strong> Laptops closed and to the side. Sit in a circle or around one table so everyone can see and be heard. Give every student a job (reader, timer, card holder) so no one sits out. Use made-up examples; never ask a student to share their own incident in front of the group. Keep each activity short (5–10 minutes) and finish with one thing each student will take away. Tick the session done for everyone from the dashboard when it ends.</p>
+        </div>
+        <h2 class="section-title">Group sessions</h2>
+        ${RP.GROUP_SESSIONS.filter(g => !g.movement).map(g => guide(g.title,
+          `${g.core ? `<span class="tag core">core</span>` : ""} ${when(g.id) ? `<span class="tag">${h(when(g.id))}</span>` : `<span class="tag">not in a rotation</span>`}`, g.about, g.guide)).join("")}
+        <h2 class="section-title">Individual sessions</h2>
+        <div class="card"><p>Drag these into an independent session in a student's plan. The other students keep working on their own. You can only be with one student at a time, so the plan editor and dashboard warn you about clashes.</p></div>
+        ${(RP.INDIVIDUAL_SESSIONS || []).map(x => guide(x.title.replace(/^Individual:\s*/, ""), x.day ? `<span class="tag">Day ${x.day}</span>` : `<span class="tag">Either day</span>`, x.about, x.guide)).join("")}
+        <h2 class="section-title">Movement breaks</h2>
+        <div class="card"><p>Still being worked out. They're available to drag into a plan (under "Movement" in the plan editor) but aren't in the rotations or counted as core.</p></div>
+      </div>`;
+    $("[data-print-guides]").onclick = () => { app().querySelectorAll("details.guide").forEach(d => d.open = true); window.print(); };
   }
 
   // ---------------------------------------------------------------- printing
@@ -592,8 +671,9 @@
           <div><strong>Modules completed:</strong> ${sum.modules.length ? sum.modules.map(n => "Module " + n).join(", ") : "none"}</div>
           <div><strong>Numeracy:</strong> ${h(sum.numeracy || "not completed")} &nbsp; <strong>Literacy:</strong> ${h(sum.literacy || "not completed")}</div>
           ${sum.other.length ? `<div><strong>Other electives:</strong> ${h(sum.other.join(", "))}</div>` : ""}
-          <div><strong>Core movement sessions:</strong> ${sum.coreDone} of ${sum.coreTotal}${missing.length ? ` (not done: ${h(missing.map(g => g.title).join(", "))})` : ""}</div>
-          <div><strong>1:1s with teacher:</strong> ${sum.ones} of 2</div>
+          <div><strong>Core group sessions:</strong> ${sum.coreDone} of ${sum.coreTotal}${missing.length ? ` (not done: ${h(missing.map(g => g.title).join(", "))})` : ""}</div>
+          <div><strong>Individual sessions:</strong> ${sum.ones} of ${sum.onesPlanned} done</div>
+          ${surveyText(sum) ? `<div><strong>Survey (out of 50), Day 1 → Day 2:</strong> ${h(surveyText(sum))}</div>` : ""}
         </div>
         <div class="sheet-days">${day(1)}${day(2)}</div>
         <div class="sheet-sign"><span>Teacher: ______________________</span><span>Signature: ______________________</span><span>Date: ____________</span></div>
@@ -631,12 +711,17 @@
         </div>
         <p class="muted">${pick ? `<strong>Click a session to place “${h(pick.title)}”.</strong> <button class="link-btn" data-unpick>Cancel</button>` : "Drag an activity onto a session, or click an activity and then click a session."}
           ${missing.length ? ` <span class="warn">Core group sessions not done yet: ${missing.map(g => h(g.title)).join(", ")}.</span>` : ""}</p>
+        ${planWarnings(v)}
         <div class="plan-layout">
           <aside class="palette">
             <h3>Electives <span class="muted">(on their own)</span></h3>
             ${electives().map(m => chip("elective", m.id, m.title, m.sample ? ` <span class="tag">sample</span>` : "")).join("")}
+            <h3>Individual sessions</h3>
+            ${(RP.INDIVIDUAL_SESSIONS || []).map(x => chip("individual", x.id, x.title.replace(/^Individual:\s*/, ""), x.day ? ` <span class="tag">Day ${x.day}</span>` : "")).join("")}
             <h3>Group sessions</h3>
-            ${RP.GROUP_SESSIONS.map(g => chip("group", g.id, g.title, g.core ? ` <span class="tag core">core</span>` : "")).join("")}
+            ${RP.GROUP_SESSIONS.filter(g => !g.movement).map(g => chip("group", g.id, g.title, g.core ? ` <span class="tag core">core</span>` : "")).join("")}
+            <h3>Movement <span class="muted">(being worked out)</span></h3>
+            ${RP.GROUP_SESSIONS.filter(g => g.movement).map(g => chip("group", g.id, g.title.replace(/^Movement:\s*/, ""))).join("")}
             <h3>Other</h3>
             ${chip("free", "free", "Free choice")}
             ${chip("clear", "clear", "Empty (choose later)")}
@@ -702,6 +787,14 @@
     app().querySelectorAll("[data-apply]").forEach(b => b.onclick = () => applyRotation(Number(b.dataset.apply), b.previousElementSibling.value));
   }
 
+  function planWarnings(v) {
+    const notes = [];
+    const clash = v.active ? clashes(v) : {};
+    Object.keys(clash).forEach(slot => notes.push(`Today's individual session at ${RP.formatTime(RP.slotTimes(Number(slot)).start)} clashes with ${clash[slot].join(", ")}. You can only be with one student at a time.`));
+    [1, 2].forEach(day => missingIndividual(v, day).forEach(x => notes.push(`Day ${day} doesn't have "${x.title.replace(/^Individual:\s*/, "")}" yet. Drag it into one of their independent sessions.`)));
+    return notes.length ? `<div class="card warn-card">${notes.map(n => `<p>⚠ ${h(n)}</p>`).join("")}</div>` : "";
+  }
+
   function planDay(v, day) {
     const now = RP.currentSlot();
     const rot = rotationOf(v, day);
@@ -756,13 +849,14 @@
     let patch;
     if (item.type === "elective") patch = { kind: "independent", activity: item.id, title: RP.MODULES[item.id].title };
     else if (item.type === "group") patch = { kind: "group", activity: item.id, title: RP.groupSession(item.id).title };
+    else if (item.type === "individual") patch = { kind: "one_to_one", activity: item.id, title: RP.individualSession(item.id).title };
     else if (item.type === "free") patch = { kind: "free", activity: null, title: "Free choice" };
     else patch = { kind: "independent", activity: null, title: "Elective" };
     if (s.kind === patch.kind && s.activity === patch.activity) { pick = null; renderPlan(); return; }
     if (s.status !== "not_started" && !confirm(`"${titleOf(s)}" has already been started. Replace it? Its progress will be cleared.`)) return;
     Object.assign(patch, { status: "not_started", result: null, state: null, completed_at: null });
     pick = null;
-    try { await api.updateSession(s.id, patch); visit = await api.getVisit(visit.id); renderPlan(); }
+    try { await api.updateSession(s.id, patch); [visit, visits] = await Promise.all([api.getVisit(visit.id), api.listActive()]); renderPlan(); }
     catch (ex) { failed(ex); }
   }
 

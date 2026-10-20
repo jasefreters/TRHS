@@ -59,25 +59,33 @@ RP.groupSession = id => RP.GROUP_SESSIONS.find(g => g.id === id);
 
 RP.KIND_LABEL = {
   intro: "Whole group", debrief: "Whole group", group: "Group", independent: "On your own",
-  free: "Free choice", one_to_one: "1:1", break: "Break"
+  free: "Free choice", one_to_one: "Individual", break: "Break"
 };
 
 // A fresh day using one of the rotations: fixed morning and debrief, the rotation's group
-// sessions, the default electives and the day's 1:1.
+// sessions, and the default electives in the free slots. Individual sessions are dragged in by
+// the teacher, so they're not placed here (they'd clash between students).
 RP.buildDay = function (day, rotation) {
   const groups = RP.ROTATIONS[rotation] || {};
-  const electives = (RP.DEFAULT_ELECTIVES || {})[day] || {};
+  const free = [];
+  for (let slot = RP.FIRST_SLOT + 1; slot < RP.LAST_SLOT; slot++) if (!groups[slot]) free.push(slot);
+  let electives = ((RP.DEFAULT_ELECTIVES || {})[day] || []).filter(id => RP.MODULES[id]);
+  if (electives.length > free.length) electives = electives.slice(0, free.length - 1).concat(electives.slice(-1));
   const rows = [];
   for (let slot = RP.FIRST_SLOT; slot <= RP.LAST_SLOT; slot++) {
     if (slot === RP.FIRST_SLOT) rows.push({ day, slot, kind: "intro", activity: null, title: "Morning session" });
     else if (slot === RP.LAST_SLOT) rows.push({ day, slot, kind: "debrief", activity: null, title: "Afternoon debrief" });
     else if (groups[slot]) rows.push({ day, slot, kind: "group", activity: groups[slot], title: RP.groupSession(groups[slot]).title });
-    else if (RP.MODULES[electives[slot]]) rows.push({ day, slot, kind: "independent", activity: electives[slot], title: RP.MODULES[electives[slot]].title });
-    else rows.push({ day, slot, kind: "independent", activity: null, title: "Elective" });
+    else {
+      const id = electives[free.indexOf(slot)];
+      rows.push(id ? { day, slot, kind: "independent", activity: id, title: RP.MODULES[id].title }
+        : { day, slot, kind: "independent", activity: null, title: "Elective" });
+    }
   }
-  rows.push({ day, slot: RP.ONE_TO_ONE_SLOT, kind: "one_to_one", activity: null, title: RP.ONE_TO_ONE[day].title });
   return rows;
 };
+
+RP.individualSession = id => (RP.INDIVIDUAL_SESSIONS || []).find(x => x.id === id);
 
 // Core group sessions not yet done across both days.
 RP.missingCore = function (sessions) {
@@ -89,6 +97,7 @@ RP.resultText = function (r) {
   if (!r) return "";
   const parts = [];
   if (r.byTeacher && !r.outOf) return "marked done by teacher";
+  if (r.survey) return `survey ${r.total}/${r.max || 50}`;
   if (r.levelTitle) parts.push(r.levelTitle);
   if (r.outOf) parts.push(r.score + "/" + r.outOf);
   return parts.join(", ");
@@ -126,7 +135,7 @@ RP.certificateMarkup = function (cert) {
   const h = RP.h;
   return `
     <div class="certificate">
-      <div class="cert-burst">${RP.sunburst(120, "#2e7fd1")}</div>
+      <div class="cert-burst">${RP.logo(130)}</div>
       <div class="cert-school">Thomas Reddall High School</div>
       <div class="cert-heading">Certificate of Completion</div>
       <div class="cert-small">This certificate is awarded to</div>
@@ -134,6 +143,7 @@ RP.certificateMarkup = function (cert) {
       <div class="cert-small">for completing</div>
       <div class="cert-module">${h(cert.title)}${cert.levelTitle ? ` · ${h(cert.levelTitle)}` : ""}</div>
       ${cert.outOf ? `<div class="cert-score">${cert.score} out of ${cert.outOf} correct first time</div>` : ""}
+      <div class="cert-motto">"Focusing on our Future"</div>
       <div class="cert-foot"><span>Reset Program</span><span>${h(cert.date)}</span></div>
     </div>`;
 };
@@ -161,4 +171,23 @@ RP.worksheetMarkup = function (cert) {
       </div>
       ${RP.worksheetRows(cert.worksheet)}
     </div>`;
+};
+
+// School logo: the sun rising over an open book, drawn as lines so it stays sharp at any size.
+RP.logo = function (size, colour) {
+  let rays = "";
+  for (let i = 0; i <= 12; i++) {
+    const a = Math.PI * (0.06 + 0.88 * i / 12), long = i % 2 === 0;
+    const r1 = 17, r2 = long ? 44 : 31;
+    const p = r => [(50 - Math.cos(a) * r).toFixed(1), (52 - Math.sin(a) * r).toFixed(1)];
+    const [x1, y1] = p(r1), [x2, y2] = p(r2);
+    rays += `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"/>`;
+  }
+  return `<svg class="logo" width="${size}" height="${Math.round(size * 0.72)}" viewBox="0 0 100 72" aria-hidden="true" fill="none" stroke="${colour || "currentColor"}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+    ${rays}
+    <path d="M37 52a13 13 0 0 1 26 0"/>
+    <path d="M10 58c14-6 28-6 40 3c12-9 26-9 40-3"/>
+    <path d="M14 63c12-5 25-5 36 3c11-8 24-8 36-3"/>
+    <path d="M5 62v4c15-5 30-4 45 4c15-8 30-9 45-4v-4"/>
+  </svg>`;
 };

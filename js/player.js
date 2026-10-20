@@ -10,7 +10,10 @@
     { type: "order", q, cards: [...in the right order], explain }  put cards in order
     { type: "scale", q, labels: [...] }                    rate yourself (no right answer, not kept)
     { type: "select", q, options: [...], pick: 3, other: true }  choose what fits you
-    { type: "write", title, q, prompts: [...] }             write your own answers
+    { type: "write", title, q, prompts: [...], chain: true }  write your own answers (chain: drawn as
+                                                           linked steps, for chain analysis)
+    { type: "rating", title, q, statements: [...], low, high }  rate each statement 1–5 (surveys)
+    { type: "breathe", title, text, rounds: 3 }            guided box breathing (4 in, 4 hold, 4 out, 4 hold)
 
   What students choose in "select" and write in "write" stays on the laptop while they work. When
   they finish the module it is saved with the module (state.responses) for the teacher to read,
@@ -191,9 +194,30 @@ RP.Player = (function () {
       } else if (it.type === "write") {
         const a = answers[i] || (answers[i] = []);
         body = `${it.title ? `<h2>${h(it.title)}</h2>` : ""}${it.q ? `<div class="reading">${RP.md(it.q)}</div>` : ""}
-          ${it.prompts.map((p, k) => `<label class="field write"><span>${inlineMd(p)}</span><textarea rows="3" data-write="${k}" maxlength="1500">${h(a[k] || "")}</textarea></label>`).join("")}
+          <div class="${it.chain ? "chain" : ""}">
+          ${it.prompts.map((p, k) => `<label class="field write${it.chain ? " link" : ""}"><span>${inlineMd(p)}</span><textarea rows="${it.chain ? 2 : 3}" data-write="${k}" maxlength="1500">${h(a[k] || "")}</textarea></label>`).join("")}
+          </div>
           <p class="muted small">You can leave any box blank. When you finish the module, your answers are sent to your teacher.</p>
           <div class="actions"><button class="btn primary" data-next>Next</button></div>`;
+      }
+      if (it.type === "rating") {
+        const a = answers[i] || (answers[i] = []);
+        body = `${it.title ? `<h2>${h(it.title)}</h2>` : ""}<p>${RP.inlineMd(it.q || "")}</p>
+          <p class="muted rating-key"><strong>1</strong> = ${h(it.low || "Strongly disagree")} · <strong>5</strong> = ${h(it.high || "Strongly agree")}</p>
+          <ol class="rating-list">${it.statements.map((st, k) => `
+            <li class="rating-row">
+              <span class="rating-text">${h(st)}</span>
+              <span class="rating-buttons" role="group" aria-label="${h(st)}">${[1, 2, 3, 4, 5].map(v => `<button class="rate${a[k] === v ? " picked" : ""}" data-rate="${k}:${v}" aria-pressed="${a[k] === v}">${v}</button>`).join("")}</span>
+            </li>`).join("")}</ol>
+          <p class="muted" data-rating-left></p>
+          <div class="actions"><button class="btn primary" data-next>Next</button></div>`;
+      } else if (it.type === "breathe") {
+        body = `${it.title ? `<h2>${h(it.title)}</h2>` : ""}<div class="reading">${RP.md(it.text || "")}</div>
+          <div class="breathe">
+            <div class="breathe-box"><div class="breathe-dot" data-dot></div><div class="breathe-label" data-phase>Ready?</div></div>
+            <div class="breathe-count" data-count>${it.rounds || 3} rounds of 16 seconds</div>
+          </div>
+          <div class="actions"><button class="btn" data-breathe>Start</button><button class="btn primary" data-next>Next</button></div>`;
       }
       el.innerHTML = `<div class="player">${header()}<div class="player-body">${body}</div></div>`;
       bindHeader();
@@ -351,6 +375,47 @@ RP.Player = (function () {
         update();
       }
 
+      if (it.type === "rating") {
+        const a = answers[i];
+        const update = () => {
+          const left = it.statements.length - it.statements.filter((st, k) => a[k]).length;
+          el.querySelector("[data-rating-left]").textContent = left ? `${left} still to answer.` : "All answered.";
+          next.disabled = left > 0;
+          keepAnswers();
+        };
+        el.querySelectorAll("[data-rate]").forEach(b => b.onclick = () => {
+          const [k, v] = b.dataset.rate.split(":").map(Number);
+          a[k] = v;
+          b.parentElement.querySelectorAll(".rate").forEach(x => { x.classList.toggle("picked", x === b); x.setAttribute("aria-pressed", x === b); });
+          update();
+        });
+        update();
+      }
+
+      if (it.type === "breathe") {
+        const phases = ["Breathe in", "Hold", "Breathe out", "Hold"], seconds = 4, rounds = it.rounds || 3;
+        const dot = el.querySelector("[data-dot]"), label = el.querySelector("[data-phase]"), count = el.querySelector("[data-count]");
+        const start = el.querySelector("[data-breathe]");
+        let timer = null;
+        start.onclick = () => {
+          clearInterval(timer);
+          let t = 0;
+          const total = rounds * phases.length * seconds;
+          const step = () => {
+            if (!document.body.contains(dot)) { clearInterval(timer); return; }
+            if (t >= total) { clearInterval(timer); label.textContent = "Well done"; count.textContent = "How do you feel now?"; dot.className = "breathe-dot"; start.textContent = "Again"; return; }
+            const phase = Math.floor(t / seconds) % 4;
+            label.textContent = phases[phase];
+            count.textContent = `${seconds - (t % seconds)} · round ${Math.floor(t / (seconds * 4)) + 1} of ${rounds}`;
+            dot.className = "breathe-dot p" + phase;
+            t++;
+          };
+          step();
+          timer = setInterval(step, 1000);
+          start.textContent = "Restart";
+        };
+      }
+
       if (it.type === "write") {
         const a = answers[i];
         el.querySelectorAll("[data-write]").forEach(t => t.oninput = () => { a[Number(t.dataset.write)] = t.value; keepAnswers(); });
@@ -364,6 +429,9 @@ RP.Player = (function () {
       return items.map((it, i) => {
         const a = answers[i];
         if (it.type === "write") return { heading: it.title || "", note: it.q ? it.q.split("\n")[0] : "", rows: it.prompts.map((p, k) => ({ label: p, text: (a && a[k]) || "" })) };
+        if (it.type === "rating") {
+          return { heading: it.title || "", rows: it.statements.map((st, k) => ({ label: st, text: a && a[k] ? `${a[k]} / 5` : "" })) };
+        }
         if (it.type === "select") {
           const chosen = a ? a.picked.slice().sort((x, y) => x - y).map(k => it.options[k]).concat(a.other.trim() ? [a.other.trim()] : []) : [];
           return { heading: it.title || "", rows: [{ label: it.q, text: chosen.join("; ") }] };
@@ -380,6 +448,11 @@ RP.Player = (function () {
         result.score = items.map((it, i) => scored(it) && state.firstTry[i] === true).filter(Boolean).length;
       }
       if (module.levels) { result.level = state.level; result.levelTitle = levelTitle(state.level); }
+      if (module.survey) {
+        const ri = items.findIndex(it => it.type === "rating");
+        const ratings = ri >= 0 ? items[ri].statements.map((st, k) => (answers[ri] || [])[k] || null) : [];
+        Object.assign(result, { survey: module.survey, ratings, total: ratings.reduce((n, v) => n + (v || 0), 0), max: ratings.length * 5 });
+      }
       opts.onFinish(result, state, worksheet(items));
     }
 

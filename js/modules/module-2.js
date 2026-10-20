@@ -74,6 +74,11 @@ These reactions are automatic. Learning to notice them early gives you the chanc
       ]
     },
     {
+      type: "breathe", title: "Try it: box breathing",
+      text: `Slow breathing tells your body it's safe, so your thinking brain can switch back on. Follow the dot around the square: **breathe in** for 4, **hold** for 4, **breathe out** for 4, **hold** for 4.`,
+      rounds: 3
+    },
+    {
       type: "select", title: "My regulation toolkit",
       q: "Choose **three** strategies to practise when emotions become intense.",
       options: [

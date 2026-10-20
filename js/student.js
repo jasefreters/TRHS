@@ -106,7 +106,7 @@
     $("#app").innerHTML = `
       <div class="entry">
         <div class="entry-card">
-          ${RP.sunburst(96, "#2e7fd1")}
+          <span class="entry-logo">${RP.logo(120)}</span>
           <h1>Welcome to the Reset Program</h1>
           <p>Type the code your teacher gave you.</p>
           <form data-entry>
@@ -176,7 +176,7 @@
       }
       const s = bySlot(t.slot);
       if (!s) return "";
-      const title = s.kind === "independent" && s.activity && RP.MODULES[s.activity] ? RP.MODULES[s.activity].title : s.title;
+      const title = s.kind === "independent" && s.activity && RP.MODULES[s.activity] ? RP.MODULES[s.activity].title : s.title.replace(/^Individual:\s*/, "");
       return `
         <li>
           <button class="slot k-${s.kind}${selected === t.slot ? " selected" : ""}${now === t.slot ? " now" : ""}${s.status === "done" ? " is-done" : ""}" data-slot="${t.slot}">
@@ -232,14 +232,24 @@
         <div class="actions">${s.status === "done" ? doneNote : `<button class="btn primary big" data-read>I've read this</button>`}</div>`;
     } else if (s.kind === "group") {
       const g = RP.groupSession(s.activity);
-      html = head(s.title, g && g.module ? `Group · Module ${g.module} movement` : "Group") +
+      html = head(s.title, "Group") +
         `<div class="card laptop-away big-note"><div class="laptop-icon" aria-hidden="true">💻 ➜ 👥</div>${RP.md(RP.CONTENT.group)}</div>
         ${g && g.about ? `<div class="card">${RP.md(g.about)}</div>` : ""}${doneNote}`;
     } else if (s.kind === "debrief") {
-      html = head("Afternoon debrief", "Whole group") + `<div class="card laptop-away big-note"><div class="laptop-icon" aria-hidden="true">💻 ➜ 👥</div>${RP.md(RP.CONTENT.debrief)}</div>${doneNote}`;
+      const survey = RP.SURVEYS[s.day];
+      html = head("Afternoon debrief", "Whole group") + `<div class="card">${RP.md(RP.CONTENT.debrief)}</div>
+        ${survey ? `<div class="card survey-card">
+          <h2>${h(survey.title)}</h2>
+          ${s.status === "done"
+            ? `<p class="done-note">✓ Done. Thank you for filling it in.</p>`
+            : `<p>Your teacher will tell you when to start. It takes about 5 minutes.</p>
+               <div class="actions"><button class="btn primary big" data-survey>${s.status === "in_progress" ? "Keep going" : "Start the survey"}</button></div>`}
+        </div>` : ""}`;
     } else if (s.kind === "one_to_one") {
-      html = head(s.title, "1:1") + `<div class="card">${RP.md(RP.ONE_TO_ONE[plan.current_day].about)}</div>
-        <p class="muted">There's no set time. Keep working on your activities and your teacher will come and get you.</p>${doneNote}`;
+      const ind = RP.individualSession(s.activity);
+      html = head(s.title.replace(/^Individual:\s*/, ""), "Individual session with your teacher") +
+        `<div class="card">${RP.md(ind ? ind.about : (RP.ONE_TO_ONE[s.day] || RP.ONE_TO_ONE[1]).about)}</div>
+        <p class="muted">${s.slot === RP.ONE_TO_ONE_SLOT ? "There's no set time. Keep working on your activities and your teacher will come and get you." : "If your teacher is still busy when this session starts, keep working on your last activity until they're ready."}</p>${doneNote}`;
     } else if (s.kind === "free" || (s.kind === "independent" && !s.activity && allElectivesDone())) {
       html = head(RP.CONTENT.freeChoice.title, "Free choice") + `<div class="card">${RP.md(RP.CONTENT.freeChoice.text)}</div>`;
     } else if (s.kind === "independent" && !s.activity) {
@@ -272,6 +282,29 @@
     if (go) go.onclick = () => openModule(s);
     const cert = main.querySelector("[data-cert]");
     if (cert) cert.onclick = () => { mode = "cert"; renderSidebar(); showCertificate(certFor(s)); };
+    const survey = main.querySelector("[data-survey]");
+    if (survey) survey.onclick = () => openSurvey(s);
+  }
+
+  // The end-of-day survey in the debrief. Answers are sent when it's submitted.
+  function openSurvey(s) {
+    mode = "module";
+    const survey = RP.SURVEYS[s.day];
+    if (s.status === "not_started") queueSave(s.id, "in_progress", null, s.state || {});
+    renderSidebar();
+    const answersKey = "rp-answers:" + s.id;
+    RP.Player.open({
+      el: $("#main"), module: survey, session: s,
+      answers: { get: () => store.get(answersKey), set: a => store.set(answersKey, a) },
+      save: (status, result, state) => queueSave(s.id, status, result, state),
+      onExit: () => { mode = "plan"; renderSidebar(); renderMain(); },
+      onFinish: (result, state, worksheet) => {
+        queueSave(s.id, "done", result, Object.assign({}, state, { responses: worksheet }));
+        store.set(answersKey, null);
+        mode = "plan";
+        renderSidebar(); renderMain();
+      }
+    });
   }
 
   function allElectivesDone() {

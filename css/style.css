@@ -1,21 +1,25 @@
 :root {
-  --maroon: #8b1230;
-  --maroon-dark: #6a0c24;
-  --maroon-soft: #fbeef1;
-  --blue: #2c7fd0;
-  --blue-soft: #e8f2fc;
-  --navy: #10305f;
+  /* School colours, from the Thomas Reddall colour hierarchy. They are colours only: the
+     circles image is a palette guide, not a logo, and is never shown on the site. */
+  --maroon: #5c0a26;        /* primary */
+  --maroon-dark: #42061b;
+  --maroon-soft: #f8ebef;
+  --blue: #3d96da;          /* primary: light blue, for fills and accents */
+  --blue-soft: #e7f1fb;
+  --navy: #161b3b;          /* primary: dark navy */
+  --royal: #233b7d;         /* secondary: royal blue, for links and text on white */
+  --grey-dark: #3c3c3c;
   --green: #1d8a4c;
   --green-soft: #e5f5ec;
   --red: #c62828;
   --amber: #f39c12;
-  --ink: #1b2433;
-  --muted: #5b6577;
-  --line: #d9e2ee;
+  --ink: #1b2033;
+  --muted: #5d6472;
+  --line: #d9e1ec;
   --bg: #f2f6fb;
   --card: #ffffff;
   --radius: 14px;
-  --shadow: 0 2px 10px rgba(16, 48, 95, .08);
+  --shadow: 0 2px 10px rgba(22, 27, 59, .08);
 }
 
 * { box-sizing: border-box; }
@@ -30,7 +34,7 @@ h1, h2, h3 { line-height: 1.2; margin: 0 0 .5em; color: var(--navy); }
 h1 { font-size: 1.8rem; }
 h2 { font-size: 1.35rem; }
 p { margin: 0 0 .8em; }
-a { color: var(--blue); }
+a { color: var(--royal); }
 [hidden] { display: none !important; }
 .muted { color: var(--muted); }
 .small { font-size: .875rem; }
@@ -55,7 +59,7 @@ a { color: var(--blue); }
 .btn.small { font-size: .85rem; padding: .3em .75em; }
 .btn.danger { color: var(--red); }
 .btn.ok { background: var(--green-soft); border-color: var(--green); color: var(--green); }
-.link-btn { font: inherit; background: none; border: 0; color: var(--blue); cursor: pointer; padding: 0; text-decoration: underline; }
+.link-btn { font: inherit; background: none; border: 0; color: var(--royal); cursor: pointer; padding: 0; text-decoration: underline; }
 .actions { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; margin-top: 1.2rem; }
 .field { display: flex; flex-direction: column; gap: .3rem; font-weight: 600; color: var(--navy); margin-bottom: 1rem; }
 .field.inline { flex-direction: row; align-items: center; gap: .5rem; margin: 0; font-weight: 500; }
@@ -68,7 +72,7 @@ input:focus, select:focus, button:focus-visible { outline: 3px solid rgba(44, 12
 .demo-banner { background: #fff3cd; color: #6b4e00; text-align: center; padding: .35rem 1rem; font-size: .9rem; }
 .topbar {
   display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
-  background: linear-gradient(100deg, var(--maroon-dark), var(--maroon) 60%, #a3173b);
+  background: linear-gradient(100deg, var(--maroon-dark), var(--maroon) 55%, #7a1236 80%, var(--navy) 80.3%, var(--navy));
   color: #fff; padding: .55rem 1.25rem; min-height: 64px;
 }
 body.help-on .topbar { background: var(--amber); }
@@ -246,7 +250,8 @@ body.has-plan .app { display: grid; grid-template-columns: minmax(280px, 340px) 
 
 /* plan editor */
 .plan-layout { display: grid; grid-template-columns: 250px 1fr; gap: 1.2rem; align-items: start; }
-.palette { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1rem; position: sticky; top: 1rem; display: flex; flex-direction: column; gap: .4rem; }
+.palette { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1rem; position: sticky; top: 1rem; display: flex; flex-direction: column; gap: .4rem; max-height: calc(100vh - 2rem); overflow-y: auto; }
+.palette .chip { flex: none; }
 .palette h3 { font-size: .95rem; margin: .6rem 0 .1rem; }
 .palette h3:first-child { margin-top: 0; }
 .chip { font: inherit; font-size: .92rem; text-align: left; cursor: grab; border-radius: 10px; padding: .45em .75em; border: 2px solid var(--line); background: var(--blue-soft); color: var(--navy); font-weight: 600; }
@@ -398,4 +403,57 @@ textarea:focus { outline: 3px solid rgba(44, 127, 208, .35); outline-offset: 1px
   .print-cert:last-child { break-after: auto; }
   .record-sheet { box-shadow: none; padding: 0; page: portrait; }
   @page portrait { size: A4 portrait; margin: 12mm; }
+}
+
+/* ---------- logo and branding ---------- */
+.brand-burst .logo { display: block; }
+.entry-logo { color: var(--royal); display: inline-block; margin-bottom: .4rem; }
+.cert-burst { color: var(--royal); }
+.cert-motto { font-style: italic; color: var(--maroon); font-weight: 600; margin-top: .3rem; }
+
+/* ---------- login ---------- */
+.pw-wrap { display: flex; align-items: stretch; }
+.pw-wrap input { flex: 1; border-top-right-radius: 0; border-bottom-right-radius: 0; min-width: 0; }
+.pw-toggle { font: inherit; font-size: .9rem; font-weight: 600; cursor: pointer; border: 1.5px solid var(--line); border-left: 0; border-radius: 0 10px 10px 0; background: var(--bg); color: var(--royal); padding: 0 .8rem; white-space: nowrap; }
+.pw-toggle:hover { background: var(--blue-soft); }
+
+/* ---------- surveys, breathing, chains ---------- */
+.survey-card { border-left: 6px solid var(--blue); }
+.rating-key { margin-top: -.4rem; }
+.rating-list { list-style: none; counter-reset: r; padding: 0; margin: .8rem 0 0; display: flex; flex-direction: column; gap: .5rem; }
+.rating-row { counter-increment: r; display: flex; align-items: center; gap: 1rem; justify-content: space-between; flex-wrap: wrap; background: var(--bg); border-radius: 12px; padding: .6rem .8rem; }
+.rating-text { flex: 1; min-width: 240px; font-size: 1.05rem; }
+.rating-text::before { content: counter(r) ". "; font-weight: 700; color: var(--royal); }
+.rating-buttons { display: flex; gap: .35rem; }
+.rate { font: inherit; font-weight: 700; width: 2.6rem; height: 2.6rem; border-radius: 50%; border: 2px solid var(--line); background: #fff; color: var(--navy); cursor: pointer; }
+.rate:hover { border-color: var(--blue); }
+.rate.picked { background: var(--royal); border-color: var(--royal); color: #fff; }
+.breathe { display: flex; flex-direction: column; align-items: center; gap: .8rem; margin: 1.2rem 0; }
+.breathe-box { position: relative; width: 220px; height: 220px; border: 4px solid var(--blue); border-radius: 18px; display: grid; place-items: center; background: var(--blue-soft); }
+.breathe-label { font-size: 1.5rem; font-weight: 700; color: var(--navy); text-align: center; }
+.breathe-count { color: var(--muted); font-weight: 600; }
+.breathe-dot { position: absolute; width: 22px; height: 22px; border-radius: 50%; background: var(--maroon); left: -13px; bottom: -13px; transition: left 4s linear, bottom 4s linear; }
+.breathe-dot.p0 { left: -13px; bottom: calc(100% - 9px); }
+.breathe-dot.p1 { left: calc(100% - 9px); bottom: calc(100% - 9px); }
+.breathe-dot.p2 { left: calc(100% - 9px); bottom: -13px; }
+.breathe-dot.p3 { left: -13px; bottom: -13px; }
+.chain { display: flex; flex-direction: column; gap: 0; margin-top: .8rem; }
+.field.write.link { position: relative; margin: 0 0 1.4rem; padding: .7rem .9rem; border: 3px solid var(--blue); border-radius: 18px; background: #fff; }
+.field.write.link:not(:last-child)::after { content: ""; position: absolute; left: 50%; bottom: -1.45rem; width: 14px; height: 1.4rem; margin-left: -7px; border: 3px solid var(--maroon); border-radius: 8px; }
+
+/* ---------- teacher warnings and guides ---------- */
+.warn-card { border-left: 6px solid var(--amber); background: #fffaf0; }
+.warn-card p { margin: .2rem 0; color: #7a4b00; font-weight: 600; }
+.section-title { margin-top: 1.6rem; }
+details.guide > summary { cursor: pointer; list-style: none; display: flex; flex-wrap: wrap; gap: .5rem; align-items: center; }
+details.guide > summary::-webkit-details-marker { display: none; }
+details.guide > summary h2 { margin: 0; font-size: 1.2rem; }
+details.guide > summary::before { content: "▸"; color: var(--royal); font-weight: 800; }
+details.guide[open] > summary::before { content: "▾"; }
+.guide-about { margin-top: .8rem; color: var(--muted); }
+.guide-body { margin-top: .6rem; }
+.guide-body li { margin-bottom: .35rem; }
+@media print {
+  details.guide { break-inside: avoid; box-shadow: none; border: 1px solid var(--line); }
+  body.teacher #nav, .page-actions { display: none !important; }
 }
