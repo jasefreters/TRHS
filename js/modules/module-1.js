@@ -14,7 +14,7 @@ About 25–30 minutes. There are no wrong answers.`,
 
 You only need to share what you're comfortable with. You can leave any question blank.
 
-Your written answers stay on this laptop. They aren't saved on the website. At the end you'll print them as a worksheet to take to your 1:1 with your teacher.`
+When you finish the module, your answers are sent to your teacher, who will talk them through with you in your 1:1. Please don't write other students' names.`
     },
     { type: "scale", q: "Check-in: how are you feeling about being back at school?", labels: ["Worried", "Unsure", "Okay", "Ready", "Good"] },
     {
@@ -72,7 +72,7 @@ Take your time with the next two pages. Answer as honestly as you can, and skip 
       type: "read", title: "Key message",
       text: `**A mistake does not define who you are.** Taking responsibility and making different choices can help you move forward.
 
-Next you'll get your certificate and your worksheet to print.`
+Next you'll see your certificate and your answers.`
     }
   ]
 });

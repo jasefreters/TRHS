@@ -30,10 +30,11 @@
     if (s) Object.assign(s, { status: box[sessionId].status, result: box[sessionId].result || s.result, state: box[sessionId].state || s.state });
     flush();
   }
-  let flushing = false;
+  let flushing = false, flushAgain = false;
   async function flush() {
-    if (flushing || !code) return;
-    flushing = true;
+    if (!code) return;
+    if (flushing) { flushAgain = true; return; }
+    flushing = true; flushAgain = false;
     try {
       const box = store.get(OUTBOX) || {};
       for (const id of Object.keys(box)) {
@@ -45,7 +46,11 @@
       setOffline(false);
     } catch (err) {
       setOffline(true);
-    } finally { flushing = false; }
+      flushAgain = false; // offline: the timer and the "online" event will try again
+    } finally {
+      flushing = false;
+      if (flushAgain) flush();
+    }
   }
   function overlayOutbox(p) {
     const box = store.get(OUTBOX) || {};
@@ -139,8 +144,6 @@
     const now = RP.currentSlot();
     clockSlot = now;
     selected = slotForClock(now);
-    const cert = store.get("rp-cert");
-    if (cert && cert.code === code) { mode = "cert"; showCertificate(cert); }
     renderSidebar();
     if (mode === "plan") renderMain();
     updateHelp();
@@ -247,7 +250,10 @@
         html = head(s.title) + `<div class="card">This activity isn't available on this website yet. Press <strong>I need help</strong>.</div>`;
       } else if (s.status === "done") {
         html = head(m.title, "On your own") + `
-          <div class="card finished"><p class="done-note big">✓ Finished${s.result && RP.resultText(s.result) ? ` · ${h(RP.resultText(s.result))}` : ""}</p></div>
+          <div class="card finished">
+            <p class="done-note big">✓ Finished${s.result && RP.resultText(s.result) ? ` · ${h(RP.resultText(s.result))}` : ""}</p>
+            <div class="actions"><button class="btn primary" data-cert>View my certificate${s.state && s.state.responses && s.state.responses.length ? " and answers" : ""}</button></div>
+          </div>
           ${allElectivesDone() ? `<div class="card"><h2>${h(RP.CONTENT.freeChoice.title)}</h2>${RP.md(RP.CONTENT.freeChoice.text)}</div>` : `<p class="muted">Pick your next activity from the plan on the left.</p>`}`;
       } else {
         html = head(m.title, "On your own") + `
@@ -264,6 +270,8 @@
     if (read) read.onclick = () => { queueSave(s.id, "done"); renderSidebar(); renderMain(); };
     const go = main.querySelector("[data-start]");
     if (go) go.onclick = () => openModule(s);
+    const cert = main.querySelector("[data-cert]");
+    if (cert) cert.onclick = () => { mode = "cert"; renderSidebar(); showCertificate(certFor(s)); };
   }
 
   function allElectivesDone() {
@@ -279,25 +287,33 @@
     const answersKey = "rp-answers:" + s.id;
     RP.Player.open({
       el: $("#main"), module: m, session: s,
-      // Written answers stay on this laptop only, until the worksheet is printed.
+      // Written answers stay on this laptop while the student works; they're sent when the module is finished.
       answers: { get: () => store.get(answersKey), set: a => store.set(answersKey, a) },
       save: (status, result, state) => queueSave(s.id, status, result, state),
       onExit: () => { mode = "plan"; renderSidebar(); renderMain(); },
       onFinish: (result, state, worksheet) => {
-        queueSave(s.id, "done", result, state);
-        const cert = Object.assign({ code, sessionId: s.id, title: m.title, worksheet, date: new Date().toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" }) }, result);
-        store.set("rp-cert", cert);
+        const finalState = Object.assign({}, state, worksheet.length ? { responses: worksheet } : {});
+        queueSave(s.id, "done", result, finalState);
+        s.completed_at = new Date().toISOString();
+        store.set(answersKey, null);
         mode = "cert";
         renderSidebar();
-        showCertificate(cert);
+        showCertificate(Object.assign(certFor(s), { justFinished: true }));
       }
     });
   }
 
+  function certFor(s) {
+    const m = RP.MODULES[s.activity];
+    return Object.assign({
+      title: m ? m.title : s.title,
+      date: RP.longDate(s.completed_at || new Date().toISOString()),
+      worksheet: (s.state && s.state.responses) || []
+    }, s.result || {});
+  }
+
   function showCertificate(cert) {
     RP.Player.certificate($("#main"), cert, () => {
-      store.set("rp-cert", null);
-      store.set("rp-answers:" + cert.sessionId, null);
       mode = "plan";
       renderSidebar(); renderMain();
     });

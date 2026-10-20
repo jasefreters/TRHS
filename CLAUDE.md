@@ -9,9 +9,10 @@ Static site on GitHub Pages (`main`, root) with a Supabase database. Plain HTML/
 - **Day shape:** 10 sessions. Session 1 (8:20–8:50) is the whole-group morning session with the social story; session 10 (2:05–2:35) is the whole-group afternoon debrief; sessions 2–9 are half-periods for group sessions and independent electives. The 1:1 has no fixed time (stored as slot 11).
 - **Two-day rotation:** the room alternates group-session rotations, so students on Day 1 and Day 2 share group sessions. Every core group session must be done within the student's two days.
 - **Electives are done independently** on the laptop, so the teacher is free for 1:1s. Group sessions tell students to put the laptop aside; the teacher ticks them off.
-- **Certificates appear once**, straight after an elective is finished. A finished elective can't be redone unless the teacher clicks **Let them redo**.
+- A finished elective can't be redone unless the teacher clicks **Let them redo**.
 - **Records kept for returning students:** electives finished, level and score, group sessions done.
-- **Written reflections are never stored online.** `write` and `select` answers live in the laptop's browser only until the certificate page is closed; they print as a worksheet for the teacher. Module writing prompts are optional (students can leave boxes blank), as the staff notes ask not to force disclosure.
+- **Written answers go to the teacher once submitted.** `write` and `select` answers stay on the laptop while the student works, then are saved with the module when it's finished (`sessions.state.responses`), locked, and shown on the student's certificate page and the teacher's record page. Students are told their teacher will read them. Prompts stay optional, as the staff notes ask not to force disclosure.
+- **Certificates can be reopened** by the student from their plan, and reprinted by teachers. Names are typed at print time and never saved.
 - **Modules:** each school module has a teacher-led movement half (group session, `move-1`…`move-6`, all core) and a reflection half (independent elective `module-1`…`module-6`). Keep the school's wording when editing them.
 
 ## Before publishing

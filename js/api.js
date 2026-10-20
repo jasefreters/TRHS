@@ -56,12 +56,24 @@ window.RP = window.RP || {};
         .eq("active", true).order("created_at")),
 
       getVisit: async id => check(await sb.from("visits")
-        .select(`id, start_date, current_day, active, help_requested_at, student:students(id, code, year_level), sessions(${SESSION_FIELDS})`)
+        .select(`id, student_id, start_date, current_day, active, help_requested_at, student:students(id, code, year_level), sessions(${SESSION_FIELDS})`)
         .eq("id", id).maybeSingle()),
 
       findStudent: async code => check(await sb.from("students")
         .select(`id, code, year_level, created_at, visits(id, start_date, active, current_day, sessions(${SESSION_FIELDS}))`)
         .eq("code", RP.normaliseCode(code)).maybeSingle()),
+
+      listAll: async () => check(await sb.from("students")
+        .select(`id, code, year_level, created_at, visits(id, start_date, active, current_day, created_at, sessions(${SESSION_FIELDS}))`)
+        .order("created_at", { ascending: false })),
+
+      getStudent: async id => check(await sb.from("students")
+        .select(`id, code, year_level, created_at, visits(id, start_date, active, current_day, created_at, sessions(${SESSION_FIELDS}))`)
+        .eq("id", id).maybeSingle()),
+
+      updateStudent: async (id, patch) => check(await sb.from("students").update(patch).eq("id", id).select("id").single()),
+      async deleteStudent(id) { const { error } = await sb.from("students").delete().eq("id", id); if (error) throw new Error(error.message); },
+      async deleteVisit(id) { const { error } = await sb.from("visits").delete().eq("id", id); if (error) throw new Error(error.message); },
 
       createStudent: async yearLevel => check(await sb.from("students")
         .insert({ year_level: yearLevel || null }).select("id, code, year_level").single()),
@@ -154,6 +166,34 @@ window.RP = window.RP || {};
         if (!s) return null;
         return clone(Object.assign({}, s, { visits: db.visits.filter(v => v.student_id === s.id).map(v => withSessions(db, v)) }));
       },
+      async listAll() {
+        const db = load();
+        return clone(db.students.slice().sort((a, b) => b.created_at.localeCompare(a.created_at))
+          .map(s => Object.assign({}, s, { visits: db.visits.filter(v => v.student_id === s.id).map(v => withSessions(db, v)) })));
+      },
+      async getStudent(id) {
+        const db = load(), s = db.students.find(s => s.id === id);
+        return s ? clone(Object.assign({}, s, { visits: db.visits.filter(v => v.student_id === s.id).map(v => withSessions(db, v)) })) : null;
+      },
+      async updateStudent(id, patch) {
+        const db = load(), s = db.students.find(s => s.id === id);
+        if (!s) throw new Error("Student not found");
+        Object.assign(s, patch); store(db); return { id };
+      },
+      async deleteStudent(id) {
+        const db = load();
+        const vids = db.visits.filter(v => v.student_id === id).map(v => v.id);
+        db.sessions = db.sessions.filter(x => !vids.includes(x.visit_id));
+        db.visits = db.visits.filter(v => v.student_id !== id);
+        db.students = db.students.filter(s => s.id !== id);
+        store(db);
+      },
+      async deleteVisit(id) {
+        const db = load();
+        db.sessions = db.sessions.filter(x => x.visit_id !== id);
+        db.visits = db.visits.filter(v => v.id !== id);
+        store(db);
+      },
       async createStudent(yearLevel) {
         const db = load(), s = { id: RP.uuid(), code: newCode(), year_level: yearLevel || null, created_at: new Date().toISOString() };
         db.students.push(s); store(db); return clone(s);
@@ -176,6 +216,9 @@ window.RP = window.RP || {};
       async updateVisit(id, patch) {
         const db = load(), v = db.visits.find(v => v.id === id);
         if (!v) throw new Error("Visit not found");
+        if (patch.active && db.visits.some(o => o.id !== id && o.student_id === v.student_id && o.active)) {
+          throw new Error('duplicate key value violates unique constraint "visits_one_active_per_student"');
+        }
         Object.assign(v, patch); store(db); return { id };
       },
       subscribe(onChange) { listeners.add(onChange); return () => listeners.delete(onChange); }

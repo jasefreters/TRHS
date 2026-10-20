@@ -88,6 +88,7 @@ RP.missingCore = function (sessions) {
 RP.resultText = function (r) {
   if (!r) return "";
   const parts = [];
+  if (r.byTeacher && !r.outOf) return "marked done by teacher";
   if (r.levelTitle) parts.push(r.levelTitle);
   if (r.outOf) parts.push(r.score + "/" + r.outOf);
   return parts.join(", ");
@@ -117,4 +118,47 @@ RP.uuid = function () {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, c => {
     const r = (Math.random() * 16) | 0; return (c === "x" ? r : (r & 3) | 8).toString(16);
   });
+};
+
+// Certificate markup, shared by the student page and the teacher's reprints. The name is typed
+// on the page at print time and never saved.
+RP.certificateMarkup = function (cert) {
+  const h = RP.h;
+  return `
+    <div class="certificate">
+      <div class="cert-burst">${RP.sunburst(120, "#2e7fd1")}</div>
+      <div class="cert-school">Thomas Reddall High School</div>
+      <div class="cert-heading">Certificate of Completion</div>
+      <div class="cert-small">This certificate is awarded to</div>
+      <div class="cert-name" data-cert-name>&nbsp;</div>
+      <div class="cert-small">for completing</div>
+      <div class="cert-module">${h(cert.title)}${cert.levelTitle ? ` · ${h(cert.levelTitle)}` : ""}</div>
+      ${cert.outOf ? `<div class="cert-score">${cert.score} out of ${cert.outOf} correct first time</div>` : ""}
+      <div class="cert-foot"><span>Reset Program</span><span>${h(cert.date)}</span></div>
+    </div>`;
+};
+RP.longDate = iso => new Date(iso).toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" });
+
+RP.inlineMd = s => RP.md(s).replace(/^<p>|<\/p>$/g, "");
+
+// A module's written answers: [{ heading, rows: [{ label, text }] }], saved with the module
+// when the student finishes it. Used on the student's certificate page and the teacher's record.
+RP.worksheetRows = function (sheet) {
+  const h = RP.h;
+  return (sheet || []).map(sec => `
+    <section class="ws-section">
+      ${sec.heading ? `<h3>${h(sec.heading)}</h3>` : ""}
+      ${sec.rows.map(r => `<div class="ws-row"><div class="ws-label">${RP.inlineMd(r.label)}</div><div class="ws-answer">${r.text ? h(r.text) : `<span class="muted">(left blank)</span>`}</div></div>`).join("")}
+    </section>`).join("");
+};
+RP.worksheetMarkup = function (cert) {
+  const h = RP.h;
+  return `
+    <div class="worksheet">
+      <div class="ws-head">
+        <div><div class="cert-school">Thomas Reddall High School · Reset Program</div><h2>${h(cert.title)}: my answers</h2></div>
+        <div class="ws-meta">Name: <strong data-ws-name>&nbsp;</strong><br>${h(cert.date)}</div>
+      </div>
+      ${RP.worksheetRows(cert.worksheet)}
+    </div>`;
 };

@@ -12,15 +12,16 @@
     { type: "select", q, options: [...], pick: 3, other: true }  choose what fits you
     { type: "write", title, q, prompts: [...] }             write your own answers
 
-  What students choose in "select" and write in "write" stays on the laptop only (never in the
-  database). It goes on a printable worksheet with the certificate and is then cleared.
+  What students choose in "select" and write in "write" stays on the laptop while they work. When
+  they finish the module it is saved with the module (state.responses) for the teacher to read,
+  and shown with the certificate.
 */
 window.RP = window.RP || {};
 
 RP.Player = (function () {
   const h = s => RP.h(s);
   const scored = it => ["mc", "input", "sort", "order"].includes(it.type);
-  const inlineMd = s => RP.md(s).replace(/^<p>|<\/p>$/g, "");
+  const inlineMd = RP.inlineMd;
 
   function itemsFor(module, level) {
     if (!module.levels) return module.items;
@@ -191,7 +192,7 @@ RP.Player = (function () {
         const a = answers[i] || (answers[i] = []);
         body = `${it.title ? `<h2>${h(it.title)}</h2>` : ""}${it.q ? `<div class="reading">${RP.md(it.q)}</div>` : ""}
           ${it.prompts.map((p, k) => `<label class="field write"><span>${inlineMd(p)}</span><textarea rows="3" data-write="${k}" maxlength="1500">${h(a[k] || "")}</textarea></label>`).join("")}
-          <p class="muted small">You can leave any box blank. Your answers stay on this laptop and go on your worksheet at the end.</p>
+          <p class="muted small">You can leave any box blank. When you finish the module, your answers are sent to your teacher.</p>
           <div class="actions"><button class="btn primary" data-next>Next</button></div>`;
       }
       el.innerHTML = `<div class="player">${header()}<div class="player-body">${body}</div></div>`;
@@ -386,45 +387,25 @@ RP.Player = (function () {
     else { if (state.index == null) state.index = 0; showItem(); }
   }
 
-  // Shown once, straight after finishing. The name is typed here and never saved.
+  // Shown straight after finishing, and again whenever the student opens a finished module.
+  // The name is typed here and never saved.
   function certificate(el, cert, onDone) {
     const sheet = cert.worksheet && cert.worksheet.length ? cert.worksheet : null;
     el.innerHTML = `
       <div class="cert-wrap">
         <div class="cert-controls no-print">
-          <h2>Well done! You finished ${h(cert.title)}.</h2>
-          <label class="field">Type your name for your certificate${sheet ? " and worksheet" : ""}
+          <h2>${cert.justFinished ? "Well done! You finished" : "Your certificate for"} ${h(cert.title)}${cert.justFinished ? "." : ""}</h2>
+          <label class="field">Type your name for your certificate${sheet ? " and answers" : ""}
             <input data-name autocomplete="off" maxlength="40">
           </label>
-          <p class="muted">Your name ${sheet ? "and answers aren't" : "isn't"} saved anywhere. ${sheet ? "Print your certificate and worksheet now and take the worksheet to your teacher." : "Print your certificate or save it as a PDF now."} This page only appears once.</p>
+          <p class="muted">Your name isn't saved anywhere. ${sheet ? "Your answers have been sent to your teacher. " : ""}You can come back to this page any time from your plan.</p>
           <div class="actions">
             <button class="btn primary" data-print>Print or save as PDF</button>
-            <button class="btn ghost" data-done>I'm finished</button>
+            <button class="btn ghost" data-done>Back to my plan</button>
           </div>
         </div>
-        <div class="certificate" id="certificate">
-          <div class="cert-burst">${RP.sunburst(120, "#2e7fd1")}</div>
-          <div class="cert-school">Thomas Reddall High School</div>
-          <div class="cert-heading">Certificate of Completion</div>
-          <div class="cert-small">This certificate is awarded to</div>
-          <div class="cert-name" data-cert-name>&nbsp;</div>
-          <div class="cert-small">for completing</div>
-          <div class="cert-module">${h(cert.title)}${cert.levelTitle ? ` · ${h(cert.levelTitle)}` : ""}</div>
-          ${cert.outOf ? `<div class="cert-score">${cert.score} out of ${cert.outOf} correct first time</div>` : ""}
-          <div class="cert-foot"><span>Reset Program</span><span>${h(cert.date)}</span></div>
-        </div>
-        ${sheet ? `
-        <div class="worksheet">
-          <div class="ws-head">
-            <div><div class="cert-school">Thomas Reddall High School · Reset Program</div><h2>${h(cert.title)}: my worksheet</h2></div>
-            <div class="ws-meta">Name: <strong data-ws-name></strong><br>${h(cert.date)}</div>
-          </div>
-          ${sheet.map(sec => `
-            <section class="ws-section">
-              ${sec.heading ? `<h3>${h(sec.heading)}</h3>` : ""}
-              ${sec.rows.map(r => `<div class="ws-row"><div class="ws-label">${inlineMd(r.label)}</div><div class="ws-answer">${r.text ? h(r.text) : `<span class="muted">(left blank)</span>`}</div></div>`).join("")}
-            </section>`).join("")}
-        </div>` : ""}
+        ${RP.certificateMarkup(cert)}
+        ${sheet ? RP.worksheetMarkup(cert) : ""}
       </div>`;
     const name = el.querySelector("[data-name]"), out = el.querySelector("[data-cert-name]"), wsName = el.querySelector("[data-ws-name]");
     name.oninput = () => { out.textContent = name.value.trim() || " "; if (wsName) wsName.textContent = name.value.trim(); };
@@ -433,10 +414,7 @@ RP.Player = (function () {
       if (!name.value.trim()) { name.focus(); name.classList.add("wrong"); setTimeout(() => name.classList.remove("wrong"), 600); return; }
       window.print();
     };
-    el.querySelector("[data-done]").onclick = () => {
-      if (!confirm(sheet ? "Close this page? Your certificate and worksheet won't appear again." : "Close the certificate? It won't appear again.")) return;
-      onDone();
-    };
+    el.querySelector("[data-done]").onclick = onDone;
   }
 
   return { open, certificate };

@@ -9,6 +9,9 @@
   let view = { name: "board" };
   let visits = [];         // active visits on the board
   let visit = null;        // visit open in the plan editor
+  let allStudents = [];    // everyone, for the All students list
+  let student = null;      // student open on their record page
+  const filters = { q: "", year: "", status: "", from: "" };
   let pick = null;         // palette item chosen for click-to-place
   let dragging = false;
   let unsubscribe = null;
@@ -49,16 +52,17 @@
   function renderNav() {
     const laptop = laptopCode();
     $("#nav").innerHTML = `
-      <button class="nav-btn" data-nav="board">Students</button>
+      <button class="nav-btn" data-nav="board">In the program</button>
+      <button class="nav-btn" data-nav="all">All students</button>
       <button class="nav-btn" data-nav="new">New student</button>
-      <button class="nav-btn" data-nav="lookup">Returning student</button>
       ${laptop ? `<span class="laptop-note">This laptop: ${h(RP.formatCode(laptop))} <button class="link-btn" data-clear-laptop>Clear</button></span>` : ""}
       <button class="nav-btn lock" data-lock>Lock</button>`;
     $("#nav").querySelectorAll("[data-nav]").forEach(b => b.onclick = () => show({ name: b.dataset.nav }));
     $("[data-lock]").onclick = async () => { await api.signOut(); if (unsubscribe) unsubscribe(); unsubscribe = null; renderLogin(); };
     const clear = $("[data-clear-laptop]");
     if (clear) clear.onclick = () => { clearLaptop(); renderNav(); };
-    $("#nav").querySelectorAll("[data-nav]").forEach(b => b.classList.toggle("active", b.dataset.nav === view.name || (view.name === "plan" && b.dataset.nav === "board")));
+    $("#nav").querySelectorAll("[data-nav]").forEach(b => b.classList.toggle("active", b.dataset.nav === view.name ||
+      (["plan", "student", "print"].includes(view.name) && b.dataset.nav === (view.from === "board" ? "board" : "all"))));
   }
 
   function laptopCode() { try { return JSON.parse(localStorage.getItem("rp-code")); } catch (e) { return null; } }
@@ -75,7 +79,9 @@
       if (v.name === "board") { visits = await api.listActive(); renderBoard(); }
       else if (v.name === "plan") { visit = await api.getVisit(v.visitId); renderPlan(); }
       else if (v.name === "new") renderNew();
-      else if (v.name === "lookup") renderLookup();
+      else if (v.name === "all") { allStudents = await api.listAll(); renderAll(); }
+      else if (v.name === "student") { student = await api.getStudent(v.studentId); renderStudent(); }
+      else if (v.name === "print") { student = await api.getStudent(v.studentId); renderPrint(); }
     } catch (ex) { failed(ex); }
   }
 
@@ -95,6 +101,7 @@
     try {
       if (view.name === "board") { visits = await api.listActive(); renderBoard(); }
       else if (view.name === "plan") { visit = await api.getVisit(view.visitId); renderPlan(); }
+      else if (view.name === "student") { student = await api.getStudent(view.studentId); renderStudent(); }
     } catch (ex) { /* try again on the next change or poll */ }
   }
 
@@ -138,11 +145,11 @@
           <div class="page-actions">${bulk}<button class="btn" data-go-new>New student</button></div>
         </div>
         ${visits.length ? `<div class="board">${visits.map(card).join("")}</div>` :
-          `<div class="card empty"><p>No students in the program right now.</p><button class="btn primary" data-go-new>Add a new student</button> <button class="btn" data-go-lookup>Returning student</button></div>`}
+          `<div class="card empty"><p>No students in the program right now.</p><button class="btn primary" data-go-new>Add a new student</button> <button class="btn" data-go-lookup>Find a returning student</button></div>`}
       </div>`;
 
     app().querySelectorAll("[data-go-new]").forEach(b => b.onclick = () => show({ name: "new" }));
-    const gl = $("[data-go-lookup]"); if (gl) gl.onclick = () => show({ name: "lookup" });
+    const gl = $("[data-go-lookup]"); if (gl) gl.onclick = () => show({ name: "all" });
     const bb = $("[data-bulk]");
     if (bb) bb.onclick = async () => {
       bb.disabled = true;
@@ -155,7 +162,8 @@
 
     app().querySelectorAll("[data-card]").forEach(el => {
       const v = visits.find(v => v.id === el.dataset.card);
-      el.querySelector("[data-plan]").onclick = () => show({ name: "plan", visitId: v.id });
+      el.querySelector("[data-plan]").onclick = () => show({ name: "plan", visitId: v.id, from: "board" });
+      el.querySelector("[data-record-page]").onclick = () => show({ name: "student", studentId: v.student.id, from: "board" });
       const help = el.querySelector("[data-clear-help]");
       if (help) help.onclick = async () => { await api.updateVisit(v.id, { help_requested_at: null }); reload(); };
       const d2 = el.querySelector("[data-day2]");
@@ -197,6 +205,7 @@
         <div class="row core">${missing.length ? `<span class="muted">Core still to do:</span> ${missing.map(g => h(g.title)).join(", ")}` : `<span class="ok-text">✓ All core group sessions done</span>`}</div>
         <footer>
           <button class="btn primary small" data-plan>Plan &amp; ticks</button>
+          <button class="btn small" data-record-page>Record</button>
           ${v.current_day === 1 ? `<button class="btn small" data-day2>Move to Day 2</button>` : ""}
           <button class="btn small" data-laptop>Student view on this laptop</button>
           <button class="btn small danger" data-finish>Finish program</button>
@@ -210,7 +219,7 @@
       (missing.length ? `\n\nCore group sessions not ticked: ${missing.map(g => g.title).join(", ")}.` : "");
     if (!confirm(msg)) return;
     await api.updateVisit(v.id, { active: false, help_requested_at: null });
-    if (view.name === "plan") show({ name: "board" }); else reload();
+    if (view.name === "plan" && view.from !== "student") show({ name: "board" }); else reload();
   }
 
   async function toStudentView(code) {
@@ -267,69 +276,305 @@
           <div class="actions"><button class="btn primary big" data-setup>Set up their plan</button></div>
         </div>
       </div>`;
-    $("[data-setup]").onclick = () => show({ name: "plan", visitId });
+    $("[data-setup]").onclick = () => show({ name: "plan", visitId, from: "board" });
   }
 
-  // ---------------------------------------------------------------- returning student
-  function renderLookup(message, found) {
-    app().innerHTML = `
-      <div class="page narrow">
-        <h1>Returning student</h1>
-        <form class="card form inline" data-lookup>
-          <label class="field">Student code <input name="code" class="code-input small" maxlength="9" autocomplete="off" placeholder="XXXX-XXXX"></label>
-          <button class="btn primary" type="submit">Find</button>
-        </form>
-        <p class="error">${h(message || "")}</p>
-        <div id="found"></div>
-      </div>`;
-    const form = $("[data-lookup]");
-    form.code.oninput = () => { form.code.value = RP.formatCode(form.code.value); };
-    form.code.focus();
-    form.onsubmit = async e => {
-      e.preventDefault();
-      try {
-        const s = await api.findStudent(form.code.value);
-        if (!s) { renderLookup("No student has that code."); return; }
-        renderHistory(s);
-      } catch (ex) { failed(ex); }
+  // ---------------------------------------------------------------- summaries
+  const isModule = a => /^module-\d+$/.test(a || "");
+  const latestVisit = st => (st.visits || []).slice().sort((a, b) => b.start_date.localeCompare(a.start_date) || b.created_at.localeCompare(a.created_at))[0];
+  const visitsNewestFirst = st => (st.visits || []).slice().sort((a, b) => b.start_date.localeCompare(a.start_date) || b.created_at.localeCompare(a.created_at));
+
+  function summary(v) {
+    const done = v.sessions.filter(s => s.status === "done");
+    const results = id => done.filter(s => s.activity === id).map(s => RP.resultText(s.result) || "done").join("; ");
+    const core = RP.GROUP_SESSIONS.filter(g => g.core);
+    return {
+      modules: [...new Set(done.filter(s => s.kind === "independent" && isModule(s.activity)).map(s => Number(s.activity.split("-")[1])))].sort((a, b) => a - b),
+      moduleCount: Object.keys(RP.MODULES).filter(isModule).length,
+      numeracy: results("numeracy"),
+      literacy: results("literacy"),
+      other: done.filter(s => s.kind === "independent" && s.activity && !isModule(s.activity) && !["numeracy", "literacy"].includes(s.activity)).map(titleOf),
+      coreDone: core.filter(g => done.some(s => s.kind === "group" && s.activity === g.id)).length,
+      coreTotal: core.length,
+      ones: done.filter(s => s.kind === "one_to_one").length
     };
-    if (found) renderHistory(found);
   }
 
-  function renderHistory(s) {
-    const visitsSorted = (s.visits || []).slice().sort((a, b) => b.start_date.localeCompare(a.start_date));
-    const active = visitsSorted.find(v => v.active);
-    $("#found").innerHTML = `
-      <div class="card">
-        <h2>${h(RP.formatCode(s.code))} ${s.year_level ? `<span class="muted">· Year ${s.year_level}</span>` : ""}</h2>
-        ${visitsSorted.length ? visitsSorted.map(v => {
-          const done = v.sessions.filter(x => x.status === "done");
-          const el = done.filter(x => x.kind === "independent");
-          const gr = done.filter(x => x.kind === "group");
-          return `<div class="history">
-            <h3>${RP.formatDate(v.start_date)} ${v.active ? `<span class="tag">In the program now</span>` : ""}</h3>
-            <p><span class="muted">Electives finished:</span> ${el.length ? el.map(x => `${h(titleOf(x))}${x.result && RP.resultText(x.result) ? ` (${h(RP.resultText(x.result))})` : ""}`).join(", ") : "none"}</p>
-            <p><span class="muted">Group sessions:</span> ${gr.length ? gr.map(x => h(x.title)).join(", ") : "none"}</p>
-          </div>`;
-        }).join("") : `<p class="muted">No previous programs.</p>`}
-        <div class="actions">
-          ${active ? `<button class="btn primary" data-open="${active.id}">Open their current plan</button>` :
-            `<label class="field inline">Today's rotation <select data-rot>${Object.keys(RP.ROTATIONS).map(r => `<option>${r}</option>`).join("")}</select></label>
-             <button class="btn primary" data-restart>Start a new program</button>`}
+  function statusLabel(v) {
+    if (!v) return `<span class="muted">No program</span>`;
+    return v.active ? `<span class="tag">In program · Day ${v.current_day}</span>` : `<span class="tag done-tag">Finished</span>`;
+  }
+
+  function modulePills(sum) {
+    let out = "";
+    for (let n = 1; n <= sum.moduleCount; n++) out += `<span class="pill${sum.modules.includes(n) ? " on" : ""}" title="Module ${n}${sum.modules.includes(n) ? " done" : ""}">${n}</span>`;
+    return `<span class="pills">${out}</span>`;
+  }
+
+  // ---------------------------------------------------------------- all students
+  function filtered() {
+    const q = RP.normaliseCode(filters.q);
+    return allStudents.filter(st => {
+      const v = latestVisit(st);
+      if (q && !st.code.includes(q)) return false;
+      if (filters.year && String(st.year_level || "") !== filters.year) return false;
+      if (filters.status === "active" && !(st.visits || []).some(x => x.active)) return false;
+      if (filters.status === "finished" && (!v || (st.visits || []).some(x => x.active))) return false;
+      if (filters.from && (!v || v.start_date < filters.from)) return false;
+      return true;
+    });
+  }
+
+  function renderAll() {
+    app().innerHTML = `
+      <div class="page">
+        <div class="page-head">
+          <h1>All students</h1>
+          <div class="page-actions"><button class="btn" data-csv>Download spreadsheet</button><button class="btn primary" data-go-new>New student</button></div>
         </div>
+        <form class="card filters" data-filters onsubmit="return false">
+          <label class="field">Code <input name="q" class="code-input small" maxlength="9" autocomplete="off" placeholder="Search" value="${h(filters.q)}"></label>
+          <label class="field">Year <select name="year"><option value="">All</option>${[7, 8, 9, 10, 11, 12].map(y => `<option value="${y}"${filters.year === String(y) ? " selected" : ""}>Year ${y}</option>`).join("")}</select></label>
+          <label class="field">Status <select name="status">
+            <option value="">All</option>
+            <option value="active"${filters.status === "active" ? " selected" : ""}>In the program now</option>
+            <option value="finished"${filters.status === "finished" ? " selected" : ""}>Finished</option>
+          </select></label>
+          <label class="field">Program started on or after <input type="date" name="from" value="${h(filters.from)}"></label>
+          <button class="link-btn" type="button" data-reset-filters>Clear filters</button>
+        </form>
+        <div id="records"></div>
       </div>`;
-    const open = $("[data-open]");
-    if (open) open.onclick = () => show({ name: "plan", visitId: open.dataset.open });
+    const form = $("[data-filters]");
+    form.q.oninput = () => { form.q.value = RP.formatCode(form.q.value); filters.q = form.q.value; renderRecords(); };
+    ["year", "status", "from"].forEach(k => form[k].onchange = () => { filters[k] = form[k].value; renderRecords(); });
+    $("[data-reset-filters]").onclick = () => { Object.keys(filters).forEach(k => filters[k] = ""); renderAll(); };
+    $("[data-go-new]").onclick = () => show({ name: "new" });
+    $("[data-csv]").onclick = downloadCsv;
+    renderRecords();
+  }
+
+  function renderRecords() {
+    const list = filtered();
+    const programs = list.reduce((n, st) => n + (st.visits || []).length, 0);
+    $("#records").innerHTML = `
+      <p class="muted">${list.length} student${list.length === 1 ? "" : "s"} · ${programs} program${programs === 1 ? "" : "s"}${list.length < allStudents.length ? ` (filtered from ${allStudents.length})` : ""}. Click a student to see their full record.</p>
+      ${list.length ? `
+      <div class="table-wrap"><table class="records">
+        <thead><tr><th>Code</th><th>Year</th><th>Latest program</th><th>Status</th><th>Programs</th><th>Modules</th><th>Numeracy</th><th>Literacy</th><th>Core movement</th><th>1:1s</th></tr></thead>
+        <tbody>${list.map(st => {
+          const v = latestVisit(st), sum = v ? summary(v) : null;
+          return `<tr data-student="${st.id}" tabindex="0">
+            <td class="code-cell">${h(RP.formatCode(st.code))}</td>
+            <td>${st.year_level || ""}</td>
+            <td>${v ? RP.formatDate(v.start_date) : ""}</td>
+            <td>${statusLabel(v && (st.visits.find(x => x.active) || v))}</td>
+            <td>${(st.visits || []).length}</td>
+            <td>${sum ? modulePills(sum) : ""}</td>
+            <td>${sum ? h(sum.numeracy) : ""}</td>
+            <td>${sum ? h(sum.literacy) : ""}</td>
+            <td>${sum ? `${sum.coreDone}/${sum.coreTotal}` : ""}</td>
+            <td>${sum ? `${sum.ones}/2` : ""}</td>
+          </tr>`;
+        }).join("")}</tbody>
+      </table></div>` : `<div class="card empty"><p>No students match.</p></div>`}`;
+    $("#records").querySelectorAll("[data-student]").forEach(tr => {
+      const open = () => show({ name: "student", studentId: tr.dataset.student, from: "all" });
+      tr.onclick = open;
+      tr.onkeydown = e => { if (e.key === "Enter") open(); };
+    });
+  }
+
+  // One row per program, for matching to names offline and for reports.
+  function downloadCsv() {
+    const rows = [["Code", "Year level", "Program start", "Status", "Current day", "Modules completed", "Numeracy", "Literacy", "Other electives", "Core movement sessions", "1:1s done"]];
+    filtered().forEach(st => visitsNewestFirst(st).forEach(v => {
+      const sum = summary(v);
+      rows.push([RP.formatCode(st.code), st.year_level || "", v.start_date, v.active ? "In program" : "Finished", v.active ? v.current_day : "",
+        sum.modules.join(" "), sum.numeracy, sum.literacy, sum.other.join("; "), `${sum.coreDone}/${sum.coreTotal}`, `${sum.ones}/2`]);
+    }));
+    const csv = rows.map(r => r.map(c => /[",\n]/.test(String(c)) ? `"${String(c).replace(/"/g, '""')}"` : c).join(",")).join("\r\n");
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob(["﻿" + csv], { type: "text/csv" }));
+    a.download = `reset-program-records-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+  }
+
+  // ---------------------------------------------------------------- one student's record
+  function renderStudent() {
+    if (!student) { app().innerHTML = `<div class="page"><div class="card empty"><p>That student has been deleted.</p><button class="btn" data-back>All students</button></div></div>`; $("[data-back]").onclick = () => show({ name: "all" }); return; }
+    const st = student, list = visitsNewestFirst(st), active = list.find(v => v.active);
+    app().innerHTML = `
+      <div class="page">
+        <div class="page-head">
+          <div>
+            <button class="link-btn" data-back>← ${view.from === "board" ? "In the program" : "All students"}</button>
+            <h1>${h(RP.formatCode(st.code))}</h1>
+          </div>
+          <div class="page-actions">
+            <label class="field inline">Year level
+              <select data-year><option value="">Not set</option>${[7, 8, 9, 10, 11, 12].map(y => `<option value="${y}"${st.year_level === y ? " selected" : ""}>Year ${y}</option>`).join("")}</select>
+            </label>
+            ${active ? "" : `<label class="field inline">Today's rotation <select data-rot>${Object.keys(RP.ROTATIONS).map(r => `<option>${r}</option>`).join("")}</select></label>
+              <button class="btn primary" data-restart>Start a new program</button>`}
+            <button class="btn danger" data-delete-student>Delete student</button>
+          </div>
+        </div>
+        <p class="muted">First seen ${RP.formatDate(st.created_at)} · ${list.length} program${list.length === 1 ? "" : "s"}. Written answers appear once a module is finished.</p>
+        ${list.length ? list.map(programCard).join("") : `<div class="card empty"><p>No programs yet.</p></div>`}
+      </div>`;
+
+    $("[data-back]").onclick = () => show({ name: view.from === "board" ? "board" : "all" });
+    $("[data-year]").onchange = async e => { await api.updateStudent(st.id, { year_level: e.target.value ? Number(e.target.value) : null }); reload(); };
     const restart = $("[data-restart]");
     if (restart) restart.onclick = async () => {
       restart.disabled = true;
       const r1 = $("[data-rot]").value, keys = Object.keys(RP.ROTATIONS);
       const r2 = keys[(keys.indexOf(r1) + 1) % keys.length];
-      try {
-        const id = await api.startVisit(s.id, RP.buildDay(1, r1).concat(RP.buildDay(2, r2)));
-        show({ name: "plan", visitId: id });
-      } catch (ex) { restart.disabled = false; failed(ex); }
+      try { const id = await api.startVisit(st.id, RP.buildDay(1, r1).concat(RP.buildDay(2, r2))); show({ name: "plan", visitId: id, from: "student", studentId: st.id }); }
+      catch (ex) { restart.disabled = false; failed(ex); }
     };
+    $("[data-delete-student]").onclick = async () => {
+      const typed = prompt(`This permanently deletes ${RP.formatCode(st.code)} and every program and result they have. It can't be undone.\n\nType the code to confirm:`);
+      if (typed == null) return;
+      if (RP.normaliseCode(typed) !== st.code) { alert("The code didn't match, so nothing was deleted."); return; }
+      try {
+        await api.deleteStudent(st.id);
+        if (laptopCode() === st.code) clearLaptop();
+        show({ name: "all" });
+      } catch (ex) { failed(ex); }
+    };
+
+    app().querySelectorAll("[data-program]").forEach(el => {
+      const v = list.find(x => x.id === el.dataset.program);
+      const on = (sel, fn) => { const b = el.querySelector(sel); if (b) b.onclick = fn; };
+      on("[data-edit]", () => show({ name: "plan", visitId: v.id, from: "student", studentId: st.id }));
+      on("[data-certs]", () => show({ name: "print", what: "certs", visitId: v.id, studentId: st.id, from: view.from }));
+      on("[data-record]", () => show({ name: "print", what: "record", visitId: v.id, studentId: st.id, from: view.from }));
+      on("[data-reopen]", async () => {
+        if (!confirm("Reopen this program? Their code will work on the laptops again.")) return;
+        try { await api.updateVisit(v.id, { active: true }); reload(); }
+        catch (ex) { alert(/unique|duplicate/i.test(ex.message) ? "This student already has a program running. Finish that one first." : ex.message); }
+      });
+      on("[data-finish]", () => finish(Object.assign({ student: st }, v)));
+      on("[data-delete-program]", async () => {
+        if (!confirm(`Delete the program starting ${RP.formatDate(v.start_date)}? Its plan, ticks and results are removed permanently. The student stays on the list.`)) return;
+        try { await api.deleteVisit(v.id); reload(); } catch (ex) { failed(ex); }
+      });
+    });
+  }
+
+  function programCard(v) {
+    const sum = summary(v);
+    const certs = v.sessions.filter(s => s.kind === "independent" && s.status === "done" && s.activity && RP.MODULES[s.activity]);
+    const answered = certs.filter(s => s.state && s.state.responses && s.state.responses.length).sort((a, b) => a.day - b.day || a.slot - b.slot);
+    const anyActive = (student.visits || []).some(x => x.active);
+    const dayList = day => `
+      <div class="record-day">
+        <h3>Day ${day}</h3>
+        <ol class="record-list">${sessionsFor(v, day).map(s => {
+          const t = RP.slotTimes(s.slot);
+          return `<li class="${s.status === "done" ? "is-done" : ""}">
+            <span class="time">${t ? RP.formatTime(t.start) : "1:1"}</span>
+            <span class="r-title">${h(titleOf(s))} <span class="muted">· ${h(RP.KIND_LABEL[s.kind])}</span></span>
+            <span class="r-status">${s.status === "done" ? "✓ " : ""}${h(statusText(s))}</span>
+          </li>`;
+        }).join("")}</ol>
+      </div>`;
+    return `
+      <section class="card program" data-program="${v.id}">
+        <div class="program-head">
+          <h2>Program starting ${RP.formatDate(v.start_date)} ${statusLabel(v)}</h2>
+          <div class="page-actions">
+            <button class="btn small primary" data-edit>Edit program</button>
+            <button class="btn small" data-certs ${certs.length ? "" : "disabled"}>Print certificates${certs.length ? ` (${certs.length})` : ""}</button>
+            <button class="btn small" data-record>Print program record</button>
+            ${v.active ? `<button class="btn small" data-finish>Finish program</button>` : (anyActive ? "" : `<button class="btn small" data-reopen>Reopen</button>`)}
+            <button class="btn small danger" data-delete-program>Delete program</button>
+          </div>
+        </div>
+        <div class="program-summary">
+          <span><span class="muted">Modules</span> ${modulePills(sum)}</span>
+          <span><span class="muted">Numeracy</span> ${h(sum.numeracy || "–")}</span>
+          <span><span class="muted">Literacy</span> ${h(sum.literacy || "–")}</span>
+          <span><span class="muted">Core movement</span> ${sum.coreDone}/${sum.coreTotal}</span>
+          <span><span class="muted">1:1s</span> ${sum.ones}/2</span>
+          ${sum.other.length ? `<span><span class="muted">Other</span> ${h(sum.other.join(", "))}</span>` : ""}
+        </div>
+        ${answered.length ? `<div class="answers">
+          <h3>Written answers</h3>
+          ${answered.map(s => `<details class="answer-block"><summary>${h(titleOf(s))} <span class="muted">· submitted ${RP.formatDate(s.completed_at || s.updated_at)}</span></summary>${RP.worksheetRows(s.state.responses)}</details>`).join("")}
+        </div>` : ""}
+        <details><summary>Day-by-day</summary><div class="record-days">${dayList(1)}${dayList(2)}</div></details>
+      </section>`;
+  }
+
+  // ---------------------------------------------------------------- printing
+  function renderPrint() {
+    const v = student && (student.visits || []).find(x => x.id === view.visitId);
+    if (!v) { show({ name: "all" }); return; }
+    const certs = v.sessions.filter(s => s.kind === "independent" && s.status === "done" && s.activity && RP.MODULES[s.activity])
+      .sort((a, b) => a.day - b.day || a.slot - b.slot);
+    const isCerts = view.what === "certs";
+    app().innerHTML = `
+      <div class="page print-page">
+        <div class="card no-print">
+          <button class="link-btn" data-back>← Back to ${h(RP.formatCode(student.code))}</button>
+          <h1>${isCerts ? "Print certificates" : "Print program record"}</h1>
+          <label class="field">Student's name <input data-name maxlength="40" autocomplete="off"></label>
+          <p class="muted">The name is only used for printing. It isn't saved.</p>
+          ${isCerts && certs.some(s => s.state && s.state.responses) ? `<label class="field inline"><input type="checkbox" data-with-answers checked> Include their written answers after each certificate</label>` : ""}
+          ${isCerts ? `<div class="cert-picks">${certs.map(s => `<label class="field inline"><input type="checkbox" data-pick="${s.id}" checked> ${h(titleOf(s))}${s.result && RP.resultText(s.result) ? ` <span class="muted">(${h(RP.resultText(s.result))})</span>` : ""}</label>`).join("")}</div>` : ""}
+          <div class="actions"><button class="btn primary" data-print>Print or save as PDF</button></div>
+        </div>
+        <div class="print-area">
+          ${isCerts ? certs.map(s => {
+            const cert = Object.assign({ title: titleOf(s), date: RP.longDate(s.completed_at || s.updated_at), worksheet: s.state && s.state.responses }, s.result || {});
+            return `<div class="print-cert" data-cert="${s.id}">${RP.certificateMarkup(cert)}${cert.worksheet && cert.worksheet.length ? `<div class="print-answers">${RP.worksheetMarkup(cert)}</div>` : ""}</div>`;
+          }).join("")
+            : recordSheet(v)}
+        </div>
+      </div>`;
+    $("[data-back]").onclick = () => show({ name: "student", studentId: student.id, from: view.from });
+    const name = $("[data-name]");
+    name.oninput = () => app().querySelectorAll("[data-cert-name], [data-record-name], [data-ws-name]").forEach(e => { e.textContent = name.value.trim() || " "; });
+    const withAnswers = $("[data-with-answers]");
+    if (withAnswers) withAnswers.onchange = () => app().querySelectorAll(".print-answers").forEach(e => { e.hidden = !withAnswers.checked; });
+    name.focus();
+    app().querySelectorAll("[data-pick]").forEach(c => c.onchange = () => { app().querySelector(`[data-cert="${c.dataset.pick}"]`).hidden = !c.checked; });
+    $("[data-print]").onclick = () => {
+      if (!name.value.trim()) { name.focus(); name.classList.add("wrong"); setTimeout(() => name.classList.remove("wrong"), 600); return; }
+      window.print();
+    };
+  }
+
+  function recordSheet(v) {
+    const sum = summary(v);
+    const day = d => `
+      <table class="sheet-table">
+        <thead><tr><th colspan="3">Day ${d}</th></tr></thead>
+        <tbody>${sessionsFor(v, d).map(s => {
+          const t = RP.slotTimes(s.slot);
+          return `<tr><td>${t ? RP.formatTime(t.start) : "1:1"}</td><td>${h(titleOf(s))}<br><span class="muted">${h(RP.KIND_LABEL[s.kind])}</span></td><td>${s.status === "done" ? "✓ " : ""}${h(statusText(s))}</td></tr>`;
+        }).join("")}</tbody>
+      </table>`;
+    const missing = RP.missingCore(v.sessions);
+    return `
+      <div class="record-sheet">
+        <div class="ws-head">
+          <div><div class="cert-school">Thomas Reddall High School · Reset Program</div><h2>Program record</h2></div>
+          <div class="ws-meta">Name: <strong data-record-name>&nbsp;</strong><br>Code: ${h(RP.formatCode(student.code))}${student.year_level ? ` · Year ${student.year_level}` : ""}<br>Program started ${RP.formatDate(v.start_date)}${v.active ? "" : " · finished"}</div>
+        </div>
+        <div class="sheet-summary">
+          <div><strong>Modules completed:</strong> ${sum.modules.length ? sum.modules.map(n => "Module " + n).join(", ") : "none"}</div>
+          <div><strong>Numeracy:</strong> ${h(sum.numeracy || "not completed")} &nbsp; <strong>Literacy:</strong> ${h(sum.literacy || "not completed")}</div>
+          ${sum.other.length ? `<div><strong>Other electives:</strong> ${h(sum.other.join(", "))}</div>` : ""}
+          <div><strong>Core movement sessions:</strong> ${sum.coreDone} of ${sum.coreTotal}${missing.length ? ` (not done: ${h(missing.map(g => g.title).join(", "))})` : ""}</div>
+          <div><strong>1:1s with teacher:</strong> ${sum.ones} of 2</div>
+        </div>
+        <div class="sheet-days">${day(1)}${day(2)}</div>
+        <div class="sheet-sign"><span>Teacher: ______________________</span><span>Signature: ______________________</span><span>Date: ____________</span></div>
+      </div>`;
   }
 
   // ---------------------------------------------------------------- plan editor
@@ -350,15 +595,15 @@
       <div class="page wide">
         <div class="page-head">
           <div>
-            <button class="link-btn" data-back>← All students</button>
-            <h1>${h(RP.formatCode(v.student.code))} ${v.student.year_level ? `<span class="muted">· Year ${v.student.year_level}</span>` : ""}</h1>
+            <button class="link-btn" data-back>← ${view.from === "student" ? "Student record" : "In the program"}</button>
+            <h1>${h(RP.formatCode(v.student.code))} ${v.student.year_level ? `<span class="muted">· Year ${v.student.year_level}</span>` : ""} ${v.active ? "" : `<span class="tag done-tag">Finished program</span>`}</h1>
           </div>
           <div class="page-actions">
             <label class="field inline">Today is their
               <select data-current>${[1, 2].map(d => `<option value="${d}"${v.current_day === d ? " selected" : ""}>Day ${d}</option>`).join("")}</select>
             </label>
-            <button class="btn" data-laptop>Student view on this laptop</button>
-            ${v.active ? `<button class="btn danger" data-finish>Finish program</button>` : ""}
+            <button class="btn" data-record-page>Student record</button>
+            ${v.active ? `<button class="btn" data-laptop>Student view on this laptop</button><button class="btn danger" data-finish>Finish program</button>` : `<button class="btn" data-reopen>Reopen program</button>`}
           </div>
         </div>
         <p class="muted">${pick ? `<strong>Click a session to place “${h(pick.title)}”.</strong> <button class="link-btn" data-unpick>Cancel</button>` : "Drag an activity onto a session, or click an activity and then click a session."}
@@ -377,9 +622,17 @@
         </div>
       </div>`;
 
-    $("[data-back]").onclick = () => show({ name: "board" });
-    $("[data-laptop]").onclick = () => toStudentView(v.student.code);
+    const record = () => show({ name: "student", studentId: v.student.id, from: "all" });
+    $("[data-back]").onclick = () => view.from === "student" ? record() : show({ name: "board" });
+    $("[data-record-page]").onclick = record;
+    const lap = $("[data-laptop]"); if (lap) lap.onclick = () => toStudentView(v.student.code);
     const fin = $("[data-finish]"); if (fin) fin.onclick = () => finish(v);
+    const reo = $("[data-reopen]");
+    if (reo) reo.onclick = async () => {
+      if (!confirm("Reopen this program? Their code will work on the laptops again.")) return;
+      try { await api.updateVisit(v.id, { active: true }); reload(); }
+      catch (ex) { alert(/unique|duplicate/i.test(ex.message) ? "This student already has a program running. Finish that one first." : ex.message); }
+    };
     $("[data-current]").onchange = async e => { await api.updateVisit(v.id, { current_day: Number(e.target.value) }); reload(); };
     const un = $("[data-unpick]"); if (un) un.onclick = () => { pick = null; renderPlan(); };
 
@@ -407,9 +660,16 @@
       const s = v.sessions.find(s => s.id === b.dataset.tick);
       b.disabled = true; await setDone(s, s.status !== "done"); reload();
     });
+    app().querySelectorAll("[data-mark]").forEach(b => b.onclick = async () => {
+      const s = v.sessions.find(s => s.id === b.dataset.mark);
+      if (!confirm(`Mark "${titleOf(s)}" as done? Use this if they completed it another way, such as on paper.`)) return;
+      b.disabled = true;
+      await api.updateSession(s.id, { status: "done", completed_at: new Date().toISOString(), result: Object.assign({}, s.result || {}, { byTeacher: true }) });
+      reload();
+    });
     app().querySelectorAll("[data-reset]").forEach(b => b.onclick = async () => {
       const s = v.sessions.find(s => s.id === b.dataset.reset);
-      if (!confirm(`Let them start "${titleOf(s)}" again? Their progress and result for it will be cleared.`)) return;
+      if (!confirm(`Let them start "${titleOf(s)}" again? Their progress, result and written answers for it will be cleared.`)) return;
       await api.updateSession(s.id, { status: "not_started", result: null, state: null, completed_at: null }); reload();
     });
     app().querySelectorAll("[data-level]").forEach(sel => sel.onchange = async () => {
@@ -453,6 +713,7 @@
         const lv = s.state && s.state.level;
         controls = `<select class="small" data-level="${s.id}" aria-label="Suggested level"><option value="">Level: student picks</option>${m.levels.map(l => `<option value="${l.level}"${lv === l.level ? " selected" : ""}>Suggest ${h(l.title)}</option>`).join("")}</select>`;
       }
+      if (s.status !== "done") controls += `<button class="btn small" data-mark="${s.id}" title="For example, if they did it on paper">Mark done</button>`;
       if (s.status !== "not_started") controls += `<button class="btn small" data-reset="${s.id}">Let them redo</button>`;
     }
     return `

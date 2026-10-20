@@ -12,9 +12,20 @@ Thomas Reddall High School's two-day Reset Program (pre- and post-suspension). E
 1. **Teacher sets up a student.** On the dashboard, click **New student**. The website makes an 8-character code such as `K7Q3-M2XD`. Write it next to the student's name on your offline list; the website never stores names.
 2. **Plan the two days.** Each day has 10 sessions (below). The group sessions come from the room's rotation. Drag electives onto the other sessions, or click an elective and then click a session. You can suggest a starting level for numeracy and literacy.
 3. **Hand over the laptop.** Click **Student view on this laptop**. This logs the teacher out and opens the student's plan. (Or the student types their code on the student view.)
-4. **The student follows the plan.** The left pane shows the day, with the current session highlighted by the clock and a tick next to each finished part. Group sessions tell them to put the laptop aside. Electives run on the laptop, save as they go and survive a reload. Finishing an elective shows a certificate once: the student types their name (never saved) and prints or saves it as a PDF.
+4. **The student follows the plan.** The left pane shows the day, with the current session highlighted by the clock and a tick next to each finished part. Group sessions tell them to put the laptop aside. Electives run on the laptop, save as they go and survive a reload. Finishing an elective shows a certificate (the student types their name, which is never saved) and, for the modules, their answers. They can reopen both from their plan at any time to print or save as a PDF.
 5. **Teacher follows along.** The dashboard updates live: each student's sessions, results, missing core group sessions and **I need help** requests. Tick group sessions for everyone in one click. Mark the 1:1 done after you've had it.
-6. **Day 2 and finishing.** Click **Move to Day 2** the next morning. At the end, **Finish program** turns the code off. The record stays, so a returning student's history (electives done, levels and scores) shows up under **Returning student**.
+6. **Day 2 and finishing.** Click **Move to Day 2** the next morning. At the end, **Finish program** turns the code off. The record stays.
+
+## Records
+
+**All students** lists everyone who has been through the program, with their latest program, modules done, numeracy and literacy results, core movement sessions and 1:1s. Search by code, filter by year, status or date, and **Download spreadsheet** (one row per program) to match codes to names offline.
+
+Click a student to open their record:
+- every program, day by day, and the **written answers** from each module they finished
+- **Edit program** opens the plan editor, for current or finished programs. **Mark done** records an elective done another way, such as on paper. **Let them redo** clears one.
+- **Print certificates** reprints any finished elective's certificate, optionally with the student's answers. **Print program record** prints a one-page summary for their file. You type the name when printing; it isn't saved.
+- **Reopen** a program that was finished by mistake, or **Start a new program** for a returning student.
+- **Delete program** removes one program. **Delete student** removes the student and everything about them; you confirm by typing their code.
 
 ## Timetable
 
@@ -46,7 +57,7 @@ The 1:1 has no set time: the teacher pulls the student out during independent wo
   - `select`: choose what fits you (`q`, `options`, optional `pick` = how many, `other: true` for "something else")
   - `write`: the student's own written answers (`title`, optional `q`, `prompts`)
 
-  What students choose in `select` and write in `write` stays on that laptop only. It's printed on a worksheet with the certificate and then cleared; it never goes to the database.
+  What students choose in `select` and write in `write` stays on the laptop while they work. When they finish the module it's sent with the module (in the session's `state.responses`), locked, and shown to the student with their certificate and to teachers on the student's record.
 
 - **The six modules** ([`module-1.js`](js/modules/module-1.js) to [`module-6.js`](js/modules/module-6.js)) are the reflection halves of the school's module documents, rewritten so students can work through them on their own. The movement halves are the six group sessions in `js/config.js`: Rotation A runs Modules 1–3 movement, Rotation B runs Modules 4–6. New students get Modules 1–3 on Day 1 and 4–6 on Day 2, with numeracy and literacy in between (`RP.DEFAULT_ELECTIVES`).
 - Numeracy and literacy are still samples, to be replaced.
@@ -62,7 +73,7 @@ Open the site with `?demo=1` on the end (for example `teacher.html?demo=1`) to u
 - No names or personal details are stored. Students are random codes; the code-to-name list stays offline with staff.
 - Students don't log in. Their code only opens their own plan, and only while their program is active.
 - Teachers log in with Supabase accounts. Only emails on the staff list in the database can see anything.
-- The database records which sessions are done, elective scores and levels, and where a student is up to inside an elective. Written answers and choices in the modules stay on the laptop, go on the printed worksheet, and are then cleared.
+- The database records which sessions are done, elective scores and levels, where a student is up to inside an elective, and the written answers from each finished module. Students are told their teacher will read their answers and asked not to write other students' names. Answers are deleted with the program or the student.
 - This repository and the website are public, so never put student information in them.
 
 ## Setting up (already done once)

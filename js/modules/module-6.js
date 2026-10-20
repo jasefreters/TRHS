@@ -78,7 +78,7 @@ In this module you'll turn what you've learned in the Reset Program into a plan 
       type: "read", title: "Key message",
       text: `**Returning to school is an opportunity to reset, reconnect and put new strategies into practice.**
 
-Next, print your certificate and your plan. Take your plan to your 1:1 with your teacher.`
+When you finish, your plan is sent to your teacher for your 1:1. You can print it too.`
     }
   ]
 });
