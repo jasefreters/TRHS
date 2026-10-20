@@ -4,12 +4,16 @@ RP.registerModule({
   title: "Module 6: My Return Plan",
   icon: "🎯",
   score: false,
+  deeper: ["What will you do on your first day back if something goes wrong?"],
   about: `**My Return-to-School Success Plan.** Name your strengths, set your goals and make a support plan for going back to class. You'll print your plan to take to your 1:1 with your teacher.
 
 About 25–30 minutes.`,
   items: [
     {
       type: "read", title: "Resilience",
+      easy: { text: `**Resilience** means bouncing back when things are hard: keep trying, ask for help, and change what you're doing if it isn't working.
+
+This module helps you make a plan for going back to class.` },
       text: `**Resilience** is the ability to adapt, keep trying, ask for help and recover when things get difficult.
 
 In this module you'll turn what you've learned in the Reset Program into a plan you can use back in class.`
@@ -30,6 +34,10 @@ In this module you'll turn what you've learned in the Reset Program into a plan 
     },
     {
       type: "read", title: "Good goals",
+      easy: { text: `Good goals are **clear** and **doable**. "Be good" is too vague. Better:
+- "When I'm corrected, I'll stay calm."
+- "I'll start my work in every lesson."
+- "I'll ask for a break before I get too angry."` },
       text: `Good goals are **specific** and **realistic**. "Be good" is hard to measure. These are better:
 - "When I'm corrected, I'll use a calm response."
 - "I'll attempt the set classwork in every lesson."
@@ -73,6 +81,10 @@ In this module you'll turn what you've learned in the Reset Program into a plan 
         "One thing I want my teachers to know is…",
         "One thing I want to achieve from here is…"
       ]
+    },
+    {
+      type: "slider", title: "Ready to go back",
+      sliders: [{ label: "How ready I feel to go back to class", min: 0, max: 10, left: "Not ready", right: "Ready" }]
     },
     {
       type: "read", title: "Key message",

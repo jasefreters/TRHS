@@ -4,12 +4,16 @@ RP.registerModule({
   title: "Module 3: Triggers and Anger",
   icon: "⚡",
   score: false,
+  deeper: ["What's a trigger you can avoid, and one you can't? How will you handle the one you can't?"],
   about: `**RAGE: Recognising Angry and Guilty Emotions.** Work out what triggers you, map your anger cycle and practise Stop, Think, Choose.
 
 About 25–30 minutes.`,
   items: [
     {
       type: "read", title: "Feelings and actions",
+      easy: { text: `Feeling angry is normal. What matters is what you **do**.
+
+**You can feel angry and still choose not to hurt anyone.**` },
       text: `Anger is a normal feeling. What matters is what we **do** with it.
 
 In this module you'll look at what triggers you, how anger builds up, and how to put a pause between feeling an emotion and choosing an action.
@@ -31,6 +35,13 @@ In this module you'll look at what triggers you, how anger builds up, and how to
     },
     {
       type: "read", title: "The anger cycle",
+      easy: { text: `Anger follows steps:
+
+**Trigger → Thoughts → Feelings → Actions → Consequences**
+
+Example: someone makes a comment → "They're trying to embarrass me" → angry → yell → trouble.
+
+Change a thought or an action, and you change what happens.` },
       text: `Anger usually follows a pattern:
 
 **Trigger → Thoughts → Feelings → Actions → Consequences**
@@ -78,11 +89,38 @@ If you change your thoughts or your actions, you can change the consequences.`
     },
     {
       type: "read", title: "Stop, Think, Choose",
+      easy: { text: `1. **STOP:** notice your warning signs.
+2. **THINK:** what could happen if I react now?
+3. **CHOOSE:** what will help me most?` },
       text: `A simple way to put a pause between feeling and acting:
 
 1. **STOP:** Notice the warning signs.
 2. **THINK:** What could happen if I react immediately?
 3. **CHOOSE:** What response is most likely to help me get a better outcome?`
+    },
+    {
+      type: "story", title: "Stop, Think, Choose in action",
+      start: "start",
+      nodes: {
+        start: { text: "In class, someone makes a rude comment about you. A few people laugh. Your fists clench.", choices: [
+          { label: "Turn around and yell back", to: "yell" },
+          { label: "Stop. Notice your fists. Take a breath.", to: "stop" }
+        ] },
+        yell: { text: "The teacher hears you, not them. Everyone's looking at you now.", choices: [
+          { label: "Keep yelling", to: "blowup" },
+          { label: "Stop, breathe, and say: \"Sorry. Can I step outside for a minute?\"", to: "minute" }
+        ] },
+        stop: { text: "You've noticed your warning signs. Now think: what could happen if you react?", choices: [
+          { label: "Ignore it and focus on your work", to: "ignore" },
+          { label: "Tell the teacher quietly after class", to: "tell" },
+          { label: "Wait and get them back at lunch", to: "lunch" }
+        ] },
+        minute: { text: "Taking a minute let you calm down, and your teacher dealt with the comment.", end: "good" },
+        ignore: { text: "The comment stings, but it fades. You stayed in control and out of trouble.", end: "good" },
+        tell: { text: "Your teacher deals with it. You stayed in control and got support.", end: "good" },
+        blowup: { text: "The argument blows up and you both end up in trouble.", end: "bad" },
+        lunch: { text: "A fight at lunch leads to a suspension. The comment wasn't worth it.", end: "bad" }
+      }
     },
     {
       type: "write", title: "Scenario",

@@ -4,7 +4,7 @@
   const h = RP.h;
   const $ = s => document.querySelector(s);
   const app = () => $("#app");
-  const electives = () => Object.values(RP.MODULES);
+  const electives = () => Object.values(RP.MODULES).filter(m => !m.hidden);
 
   let view = { name: "board" };
   let visits = [];         // active visits on the board

@@ -4,12 +4,20 @@ RP.registerModule({
   title: "T-RED Values in Action",
   icon: "⭐",
   score: false,
+  deeper: ["Which T-RED value is hardest for you, and why?"],
   about: `**Thrive, Represent, Excel, Deliver.** Explore our school values, what they look like in real life, and set a goal you can deliver on.
 
 About 25–30 minutes.`,
   items: [
     {
       type: "read", title: "What are values?",
+      easy: { text: `Values are what matter to you.
+
+Our school values are **T-RED**:
+- **Thrive:** grow and do well
+- **Represent:** show pride in our school
+- **Excel:** try your best and keep improving
+- **Deliver:** do what you say you'll do` },
       text: `Our values are what we think of as important. Everybody has their own idea of what is valuable to them: friendship, education, family, sport, music, and lots more.
 
 At school, our values guide us on our learning journey. Thomas Reddall's values are **T-RED**:
@@ -17,6 +25,15 @@ At school, our values guide us on our learning journey. Thomas Reddall's values 
 - **Represent:** to show the values of our school and community in everything we do. Taking pride in being part of the school.
 - **Excel:** to perform at your highest potential. It takes planning, effort and practice, not just talent.
 - **Deliver:** to meet goals, keep commitments and make an impact. Actually doing what you said you'd do.`
+    },
+    {
+      type: "match", q: "Match each value to what it means.",
+      pairs: [
+        { left: "Thrive", right: "Grow, develop and do well in learning and life" },
+        { left: "Represent", right: "Show our school's values in everything you do" },
+        { left: "Excel", right: "Perform at your highest potential" },
+        { left: "Deliver", right: "Meet goals and keep your commitments" }
+      ]
     },
     {
       type: "sort", q: "Each value has three key words. Sort them under the right value.",

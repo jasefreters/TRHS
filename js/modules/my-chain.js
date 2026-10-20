@@ -4,12 +4,20 @@ RP.registerModule({
   title: "My Chain",
   icon: "⛓️",
   score: false,
+  deeper: ["Which link shows up most often in your chains? What could you do about it?"],
   about: `**Chain analysis.** Big reactions don't come out of nowhere. Work out the small steps that lead up to a behaviour, and where you could break the chain next time.
 
 About 25–30 minutes.`,
   items: [
     {
       type: "read", title: "What is a chain analysis?",
+      easy: { text: `A big reaction is the **last link in a chain**. Before it come lots of smaller links:
+- things that made you tired or stressed
+- what happened just before
+- what you thought and felt
+- what you did
+
+**Change any link and the chain can break.**` },
       text: `A behaviour, like yelling, walking out or hitting something, is usually the **last link in a chain**. Lots of smaller things happen first:
 - **Vulnerabilities:** things that made you more likely to react, like being tired, hungry, stressed or already upset.
 - **Trigger:** what happened just before.
@@ -19,9 +27,12 @@ About 25–30 minutes.`,
 - **The behaviour:** the main thing that happened.
 - **Consequences:** what happened next, straight away and later.
 
-The good news: **if you change any link, the chain can break.**
-
-[Watch: chain analysis explained](https://youtu.be/cOhcIi2w1gs). Check with your teacher before you watch it.`
+The good news: **if you change any link, the chain can break.**`
+    },
+    {
+      type: "video", title: "Watch: the behaviour chain",
+      youtube: "cOhcIi2w1gs",
+      text: `A behaviour chain shows all the small steps that lead up to a big reaction: what made you vulnerable that day, what set it off, what you thought, what you felt in your body, what you wanted to do, and what happened in the end. Seeing the links helps you understand your feelings and spot the places where you could do something different next time.`
     },
     {
       type: "order", q: "Here is Jay's chain. Put the links in order, from the first to the last.",

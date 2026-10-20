@@ -336,7 +336,7 @@ RP.Player = (function () {
           </div>
           <div class="actions"><button class="btn" data-breathe>Start</button><button class="btn primary" data-next>Next</button></div>`;
       }
-      el.innerHTML = `<div class="player">${header()}<div class="player-body">${body}</div></div>`;
+      el.innerHTML = `<div class="player">${header()}<div class="player-body" data-item="${i}">${body}</div></div>`;
       bindHeader();
 
       const next = el.querySelector("[data-next]");

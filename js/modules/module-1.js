@@ -4,12 +4,18 @@ RP.registerModule({
   title: "Module 1: My Reset",
   icon: "🔄",
   score: false,
+  deeper: ["What would you say to a younger student who made the same mistake?"],
   about: `**Reflecting and moving forward.** A chance to look back on what happened, think about your choices and decide what you want to do differently.
 
 About 25–30 minutes. There are no wrong answers.`,
   items: [
     {
       type: "read", title: "Welcome to Module 1",
+      easy: { text: `This module helps you think about what happened and what you want to do differently.
+
+Only share what you're okay with. You can skip any question.
+
+When you finish, your answers go to your teacher. Please don't write other students' names.` },
       text: `This module is a safe place to think about your suspension, the choices you made and what you want to do differently.
 
 You only need to share what you're comfortable with. You can leave any question blank.
@@ -27,6 +33,9 @@ When you finish the module, your answers are sent to your teacher, who will talk
     },
     {
       type: "read", title: "Reflecting on the situation",
+      easy: { text: `Thinking about what happened can help you choose differently next time. It's not about blame.
+
+Skip anything you don't want to write about. You can talk to your teacher instead.` },
       text: `Thinking about what happened can help you make different choices next time. It's not about blame.
 
 Take your time with the next two pages. Answer as honestly as you can, and skip anything you're not ready to write about. You can talk about it with your teacher instead.`
@@ -70,6 +79,7 @@ Take your time with the next two pages. Answer as honestly as you can, and skip 
     },
     {
       type: "read", title: "Key message",
+      easy: { text: `**A mistake doesn't make you a bad person.** Owning it and making new choices helps you move forward.` },
       text: `**A mistake does not define who you are.** Taking responsibility and making different choices can help you move forward.
 
 Next you'll see your certificate and your answers.`

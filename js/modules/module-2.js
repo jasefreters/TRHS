@@ -4,12 +4,18 @@ RP.registerModule({
   title: "Module 2: My Brain and Emotions",
   icon: "🧠",
   score: false,
+  deeper: ["Which do you tend to do most: fight, flight or freeze? What usually happens next?"],
   about: `**RIOT: Amazing Brain and Managing Feelings.** Learn what happens in your brain and body when emotions get intense, spot your warning signs and build your regulation toolkit.
 
 About 25–30 minutes.`,
   items: [
     {
       type: "read", title: "Your amazing brain",
+      easy: { text: `When you're stressed or angry, your brain goes on high alert. It's hard to stop and think.
+
+Make a fist with your thumb tucked inside. Your fingers are the **thinking part** of your brain.
+
+When emotions get really big, the fingers flip up. That's called **flipping your lid**.` },
       text: `When you feel threatened, frustrated or overwhelmed, your brain and body can move into a **heightened state of alert**. This makes it harder to pause, think through consequences and choose a response.
 
 The **hand model of the brain** shows this. Make a fist with your thumb tucked inside:
@@ -17,9 +23,12 @@ The **hand model of the brain** shows this. Make a fist with your thumb tucked i
 - Your **thumb** is the emotional part of your brain.
 - Your **fingers**, folded over the top, are the thinking part, which helps you stop, think and make good choices.
 
-When emotions get really strong, it's like your fingers lift up: you **"flip your lid"**. The thinking part loses touch with the rest, so it's much harder to stay in control.
-
-[Watch: Hand Model of the Brain (YouTube)](https://www.youtube.com/watch?v=Kx7PCzg0CGE). Check with your teacher before you watch it.`
+When emotions get really strong, it's like your fingers lift up: you **"flip your lid"**. The thinking part loses touch with the rest, so it's much harder to stay in control.`
+    },
+    {
+      type: "video", title: "Watch: the hand model of the brain",
+      youtube: "FTnCMxEnnv8",
+      text: `Make a fist with your thumb tucked in. Your wrist is the brain stem, your thumb is the emotional part, and your fingers are the thinking part. When something upsets us a lot, the fingers lift up: we **flip our lid**, and the thinking part can't calm the emotional part down. Taking slow breaths and a little time helps the lid come back down.`
     },
     {
       type: "mc", q: "In the hand model of the brain, what does **\"flipping your lid\"** mean?",
@@ -33,6 +42,12 @@ When emotions get really strong, it's like your fingers lift up: you **"flip you
     },
     {
       type: "read", title: "Fight, flight and freeze",
+      easy: { text: `When you feel in danger, your body might:
+- **Fight:** argue, yell, push
+- **Flight:** run away, walk out
+- **Freeze:** go blank, can't move
+
+These happen fast. Noticing them helps you choose what to do.` },
       text: `When your brain senses a threat, your body gets ready to protect you in one of three ways:
 - **Fight**: arguing, yelling, pushing or hitting.
 - **Flight**: getting away, like walking out, running off or avoiding.
@@ -53,9 +68,8 @@ These reactions are automatic. Learning to notice them early gives you the chanc
       ]
     },
     {
-      type: "select", q: "What happens to **your** body when you get angry? Choose all that are true for you.",
-      options: ["Heart racing", "Muscles tightening", "Voice getting louder", "Feeling hot or red in the face", "Clenched fists or jaw", "Breathing faster", "Shaking", "Feeling sick in the stomach"],
-      other: true
+      type: "bodymap", title: "My body signals",
+      q: "Where do **you** feel anger in your body? Tap all the places."
     },
     {
       type: "write", title: "When I feel overwhelmed",

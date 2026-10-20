@@ -4,6 +4,7 @@ RP.registerModule({
   title: "Literacy",
   icon: "📖",
   sample: true,
+  hidden: true, // replaced by the four literacy modules; kept so older plans still work
   about: "Read a short text, then answer questions about it. You can look back at the text at any time with the **Back to the text** button.",
   items: [
     {

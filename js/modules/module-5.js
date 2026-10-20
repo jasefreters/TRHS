@@ -4,12 +4,16 @@ RP.registerModule({
   title: "Module 5: Responsibility and Repair",
   icon: "🤝",
   score: false,
+  deeper: ["What would taking responsibility look like this week, not just today?"],
   about: `**RAGE: Accountability, empathy and alternative responses.** Think about who was affected, the difference between guilt and shame, and how to repair things.
 
 About 25–30 minutes.`,
   items: [
     {
       type: "read", title: "Looking beyond myself",
+      easy: { text: `What we do affects other people too: friends, teachers, the class and family.
+
+Thinking about how they feel is the first step to fixing things.` },
       text: `What we do doesn't only affect us. Behaviour can affect:
 - you
 - peers and friendships
@@ -34,6 +38,11 @@ Thinking about other people's point of view is the first step to repairing a sit
     },
     {
       type: "read", title: "Guilt and shame",
+      easy: { text: `**Guilt** is about what you did: "I did something that hurt someone." Guilt can help you fix things.
+
+**Shame** is about who you are: "I'm a bad person." Shame makes it harder to change.
+
+You made a choice. You are not a bad person.` },
       text: `**Guilt** can be a signal that we regret something we've done and want to make amends. It's about what we **did**: "I did something that hurt someone."
 
 **Shame** makes us feel that we **are** bad: "I am a bad person." Shame can make it harder to change, because it feels like there's no point trying.

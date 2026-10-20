@@ -4,12 +4,19 @@ RP.registerModule({
   title: "Code of Conduct Check",
   icon: "🏫",
   score: false,
+  deeper: ["Why do you think the Code covers what students do online, even outside school?"],
   about: `**Respect everyone, be responsible, be safe.** Get to know the NSW Student Code of Conduct and what it looks like in real situations.
 
 About 25 minutes.`,
   items: [
     {
       type: "read", title: "The Student Code of Conduct",
+      easy: { text: `The Code is the set of rules for all NSW public school students, at school and **online**.
+
+It has three parts:
+- **Respect everyone**
+- **Be responsible**
+- **Be safe**` },
       text: `**In NSW public schools everyone belongs and strives for the highest standards of learning.**
 
 The Code is for all NSW public school students. It applies to all school activities, on and off the school site, **including online**.
@@ -36,6 +43,12 @@ I follow the Code by being **respectful, responsible and safe**, and by followin
     },
     {
       type: "read", title: "To keep everyone safe, I must not:",
+      easy: { text: `You must not:
+- treat people unfairly because of who they are
+- hurt, threaten or bully anyone (online too)
+- bring weapons, drugs, alcohol or vapes to school
+
+If you do, it can lead to suspension.` },
       text: `- treat anyone unfairly because of who they are or what makes them different from me
 - be violent, hurt, threaten, harass or bully anyone, including through phones, devices, computers, online or social media
 - bring weapons, illegal drugs, alcohol, vapes, e-cigarettes or tobacco to school.

@@ -4,12 +4,18 @@ RP.registerModule({
   title: "Module 4: Stress and Thinking",
   icon: "🪣",
   score: false,
+  deeper: ["What's one tap you could use every day, not just when things go wrong?"],
   about: `**RIOT: Stress Bucket, Locus of Control and Faulty Thinking.** See how stress builds up, check unhelpful thoughts, and sort out what you can and can't control.
 
 About 25–30 minutes.`,
   items: [
     {
       type: "read", title: "My stress bucket",
+      easy: { text: `Imagine you carry a bucket. Stress fills it: school, friends, family, not enough sleep.
+
+If it gets too full, it **overflows**. That's when people snap.
+
+Healthy things like talking, moving or music are **taps**. They let some stress out.` },
       text: `Imagine you carry a bucket. Stress pours in from lots of places: school, friendships, family, not enough sleep, other people's expectations and other pressures.
 
 If the bucket fills up and nothing lets the stress out, it **overflows**. That's often when people snap, shut down or do things they regret.
@@ -23,6 +29,10 @@ Healthy strategies are like **taps** on the bucket. They let some of the stress 
       other: true
     },
     {
+      type: "slider", title: "How full is my bucket?",
+      sliders: [{ label: "My stress bucket right now", min: 0, max: 10, left: "Empty", right: "Overflowing" }]
+    },
+    {
       type: "write", title: "My stress bucket",
       prompts: [
         "What are my early signs that my bucket is getting full?",
@@ -32,6 +42,11 @@ Healthy strategies are like **taps** on the bucket. They let some of the stress 
     },
     {
       type: "read", title: "Check the thought",
+      easy: { text: `Thoughts change how we feel. Some thoughts make things worse:
+- "Everyone is against me."
+- "If I walk away, I look weak."
+
+Checking a thought means asking: **is it really true?**` },
       text: `Our thoughts affect how we feel and what we do. Some thoughts are **unhelpful**: they make a situation feel worse than it is. For example:
 - "Everyone is against me."
 - "The teacher is picking on me."
