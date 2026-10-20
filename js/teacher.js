@@ -42,7 +42,12 @@
     };
   }
 
+  let watchingSignOut = false;
   async function enter() {
+    if (!watchingSignOut) {
+      watchingSignOut = true;
+      api.onSignedOut(() => { if (unsubscribe) unsubscribe(); unsubscribe = null; renderLogin("You've been logged out. Please log in again."); });
+    }
     renderNav();
     if (unsubscribe) unsubscribe();
     unsubscribe = api.subscribe(() => scheduleReload());
@@ -85,8 +90,14 @@
     } catch (ex) { failed(ex); }
   }
 
-  function failed(ex) {
-    if (/JWT|auth|401/i.test(ex.message)) { renderLogin("Your login has expired. Please log in again."); return; }
+  // If the login has gone (expired, or logged out elsewhere), the database treats requests as
+  // coming from someone not logged in and its security rules refuse them. Ask to log in again.
+  async function failed(ex) {
+    if (/JWT|auth|401|row-level security/i.test(ex.message)) {
+      let staff = false;
+      try { staff = await api.isStaff(); } catch (e) { /* treat as logged out */ }
+      if (!staff) { renderLogin("Your login has expired. Please log in again."); return; }
+    }
     app().innerHTML = `<div class="page"><div class="card error-card"><h2>Something went wrong</h2><p>${h(ex.message)}</p><button class="btn primary" data-retry>Try again</button></div></div>`;
     $("[data-retry]").onclick = () => show(view);
   }

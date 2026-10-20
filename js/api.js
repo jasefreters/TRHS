@@ -36,7 +36,7 @@ window.RP = window.RP || {};
       async signIn(email, password) {
         check(await sb.auth.signInWithPassword({ email, password }));
         if (!(await this.isStaff())) {
-          await sb.auth.signOut();
+          await sb.auth.signOut({ scope: "local" });
           throw new Error("This login isn't on the staff list. Ask whoever set up the database to add your email.");
         }
       },
@@ -49,7 +49,12 @@ window.RP = window.RP || {};
         const { data } = await sb.auth.getSession();
         return data.session ? data.session.user.email : null;
       },
-      signOut: async () => { await sb.auth.signOut(); },
+      // "local" logs out this browser only. The default would log the teacher out on every
+      // device, so setting up a student laptop would break the dashboard on the teacher's own.
+      signOut: async () => { await sb.auth.signOut({ scope: "local" }); },
+      onSignedOut(cb) {
+        sb.auth.onAuthStateChange(event => { if (event === "SIGNED_OUT") cb(); });
+      },
 
       listActive: async () => check(await sb.from("visits")
         .select(`id, start_date, current_day, help_requested_at, created_at, student:students(id, code, year_level), sessions(${SESSION_FIELDS})`)
@@ -156,6 +161,7 @@ window.RP = window.RP || {};
       async isStaff() { return !!signedIn; },
       async currentEmail() { return signedIn; },
       async signOut() { signedIn = null; sessionStorage.removeItem("rp-demo-teacher"); },
+      onSignedOut() {},
       async listActive() {
         const db = load();
         return clone(db.visits.filter(v => v.active).sort((a, b) => a.created_at.localeCompare(b.created_at)).map(v => withSessions(db, v)));
