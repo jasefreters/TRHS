@@ -30,22 +30,61 @@ RP.LAST_SLOT = 10;
 RP.ONE_TO_ONE_SLOT = 11;
 
 // Teacher-led sessions. "core" ones must be done at least once across a student's two days;
-// the dashboard shows any that are still missing.
+// the dashboard shows any that are still missing. "about" is shown on the student's screen.
+// The six movement sessions are the physical-activity half of each module.
 RP.GROUP_SESSIONS = [
-  { id: "t-red", title: "T-RED expectations", core: true },
-  { id: "riot", title: "RIOT", core: true },
-  { id: "wellbeing", title: "Wellbeing", core: true },
-  { id: "self-regulation-group", title: "Self-regulation", core: true },
-  { id: "code-of-conduct", title: "Student Code of Conduct", core: true },
-  { id: "problem-solving", title: "Problem-solving", core: false }
+  { id: "move-1", module: 1, title: "Starting Point Circuit", core: true,
+    about: `Stationary cycling, marching, step-ups or squats. Choose a starting level you can manage and finish the circuit safely.
+
+Think about:
+- What helped you keep going?
+- What would you change if you did this activity again?
+- What is one small step you can take to make your return to school successful?` },
+  { id: "move-2", module: 2, title: "Boxing and Breathing", core: true,
+    about: `Jab, cross, step back and reset, in short rounds with rests. Between rounds, notice your breathing, heart rate and muscle tension.
+
+Think about:
+- What changes did I notice in my body while exercising?
+- How can I recognise when my emotions are escalating?
+- What can I do to calm myself before reacting?` },
+  { id: "move-3", module: 3, title: "Stop-Start Agility", core: true,
+    about: `Move between the cones and respond to "go", "slow" and "stop". Practise pausing, breathing and resetting before you continue.
+
+Think about: a peer makes a disrespectful comment during class. What would your first reaction be, and what would be a more helpful response?` },
+  { id: "move-4", module: 4, title: "Fitness Circuit", core: true,
+    about: `Star jumps or marching, squats, wall push-ups, step-ups, agility ladder or brisk walking: 30 seconds on, 30 seconds rest.
+
+Think about:
+- What helps me keep going when something is difficult?
+- What are my signs that I need a break?
+- What healthy strategies help me reset?` },
+  { id: "move-5", module: 5, title: "Coordination Challenge", core: true,
+    about: `Complete the course by following a sequence of instructions, then plan and improve your approach.
+
+Think about: what choices were available in a past conflict, what the consequences of each were, and who could have been affected.` },
+  { id: "move-6", module: 6, title: "Walk and Stretch", core: true,
+    about: `A short walk, then gentle stretching and a cool-down.
+
+Think about:
+- One behaviour I want to improve
+- One strategy I'll use when I feel angry
+- One person I can speak to when I need help` },
+  { id: "t-red", title: "T-RED expectations", core: false },
+  { id: "code-of-conduct", title: "Student Code of Conduct", core: false }
 ];
 
 // The room runs a two-day rotation, so students on their Day 1 and Day 2 share the same group
-// sessions. Each rotation says which group session runs in which slot; the other slots are
-// for electives.
+// sessions. Each rotation says which group session runs in which slot.
 RP.ROTATIONS = {
-  A: { 2: "t-red", 5: "riot", 8: "wellbeing" },
-  B: { 2: "code-of-conduct", 5: "self-regulation-group", 8: "problem-solving" }
+  A: { 2: "move-1", 5: "move-2", 8: "move-3" },
+  B: { 2: "move-4", 5: "move-5", 8: "move-6" }
+};
+
+// Electives filled in when a student is created (teachers can change them). Modules 1–3 on
+// Day 1 and 4–6 on Day 2, so the Return-to-School Plan comes last.
+RP.DEFAULT_ELECTIVES = {
+  1: { 3: "module-1", 4: "numeracy", 6: "module-2", 7: "literacy", 9: "module-3" },
+  2: { 3: "module-4", 4: "numeracy", 6: "module-5", 7: "literacy", 9: "module-6" }
 };
 
 RP.ONE_TO_ONE = {

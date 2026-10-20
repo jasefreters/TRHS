@@ -36,13 +36,20 @@ The 1:1 has no set time: the teacher pulls the student out during independent wo
 
 - **Timetable, group sessions, rotations, 1:1 topics:** [`js/config.js`](js/config.js). Mark a group session `core: true` if every student must do it across their two days.
 - **Words students see** (social stories, group and debrief messages, free choice): [`js/content.js`](js/content.js).
-- **Electives:** one file each in [`js/modules/`](js/modules). Copy an existing one, give it a new `id`, and add a `<script>` line for it in both `index.html` and `teacher.html`. An elective has either `items`, or `levels` that each have `items`. Item types:
+- **Electives:** one file each in [`js/modules/`](js/modules). Copy an existing one, give it a new `id`, and add a `<script>` line for it in both `index.html` and `teacher.html`. An elective has either `items`, or `levels` that each have `items`. Add `score: false` for reflection modules (no score on the certificate). Item types:
   - `read`: a page of text (`title`, `text`)
   - `mc`: multiple choice (`q`, `choices`, `answer` = index of the right choice, optional `explain`)
   - `input`: type an answer (`q`, `answer`, optional `accept` list, `prefix`, `suffix`, `text: true` for a word answer)
+  - `sort`: tap cards into groups (`q`, `buckets`, `cards` with the right `bucket` for each)
+  - `order`: put cards in order (`q`, `cards` listed in the right order)
   - `scale`: rate yourself, no right answer and nothing saved (`q`, `labels`)
+  - `select`: choose what fits you (`q`, `options`, optional `pick` = how many, `other: true` for "something else")
+  - `write`: the student's own written answers (`title`, optional `q`, `prompts`)
 
-  The current numeracy, literacy and self-regulation electives are samples, to be replaced with the school's modules.
+  What students choose in `select` and write in `write` stays on that laptop only. It's printed on a worksheet with the certificate and then cleared; it never goes to the database.
+
+- **The six modules** ([`module-1.js`](js/modules/module-1.js) to [`module-6.js`](js/modules/module-6.js)) are the reflection halves of the school's module documents, rewritten so students can work through them on their own. The movement halves are the six group sessions in `js/config.js`: Rotation A runs Modules 1–3 movement, Rotation B runs Modules 4–6. New students get Modules 1–3 on Day 1 and 4–6 on Day 2, with numeracy and literacy in between (`RP.DEFAULT_ELECTIVES`).
+- Numeracy and literacy are still samples, to be replaced.
 
 Text can use `**bold**`, blank lines between paragraphs and `- ` at the start of a line for lists.
 
@@ -55,7 +62,7 @@ Open the site with `?demo=1` on the end (for example `teacher.html?demo=1`) to u
 - No names or personal details are stored. Students are random codes; the code-to-name list stays offline with staff.
 - Students don't log in. Their code only opens their own plan, and only while their program is active.
 - Teachers log in with Supabase accounts. Only emails on the staff list in the database can see anything.
-- The database records which sessions are done, elective scores and levels, and where a student is up to inside an elective. It doesn't save free-text answers.
+- The database records which sessions are done, elective scores and levels, and where a student is up to inside an elective. Written answers and choices in the modules stay on the laptop, go on the printed worksheet, and are then cleared.
 - This repository and the website are public, so never put student information in them.
 
 ## Setting up (already done once)

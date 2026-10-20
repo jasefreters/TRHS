@@ -84,7 +84,12 @@
   function endCode(message) {
     code = null; plan = null; mode = "plan";
     store.set("rp-code", null); store.set("rp-plan-cache", null); store.set(OUTBOX, null); store.set("rp-cert", null);
+    clearAnswers();
     renderEntry(message);
+  }
+
+  function clearAnswers() {
+    try { Object.keys(localStorage).filter(k => k.startsWith("rp-answers:")).forEach(k => localStorage.removeItem(k)); } catch (e) { /* private window */ }
   }
 
   const today = () => plan.sessions.filter(s => s.day === plan.current_day);
@@ -223,7 +228,10 @@
         <div class="card laptop-away">${RP.md(RP.CONTENT.morning)}</div>
         <div class="actions">${s.status === "done" ? doneNote : `<button class="btn primary big" data-read>I've read this</button>`}</div>`;
     } else if (s.kind === "group") {
-      html = head(s.title) + `<div class="card laptop-away big-note"><div class="laptop-icon" aria-hidden="true">💻 ➜ 👥</div>${RP.md(RP.CONTENT.group)}</div>${doneNote}`;
+      const g = RP.groupSession(s.activity);
+      html = head(s.title, g && g.module ? `Group · Module ${g.module} movement` : "Group") +
+        `<div class="card laptop-away big-note"><div class="laptop-icon" aria-hidden="true">💻 ➜ 👥</div>${RP.md(RP.CONTENT.group)}</div>
+        ${g && g.about ? `<div class="card">${RP.md(g.about)}</div>` : ""}${doneNote}`;
     } else if (s.kind === "debrief") {
       html = head("Afternoon debrief", "Whole group") + `<div class="card laptop-away big-note"><div class="laptop-icon" aria-hidden="true">💻 ➜ 👥</div>${RP.md(RP.CONTENT.debrief)}</div>${doneNote}`;
     } else if (s.kind === "one_to_one") {
@@ -268,13 +276,16 @@
     const m = RP.MODULES[s.activity];
     if (s.status === "not_started") queueSave(s.id, "in_progress", null, s.state || {});
     renderSidebar();
+    const answersKey = "rp-answers:" + s.id;
     RP.Player.open({
       el: $("#main"), module: m, session: s,
+      // Written answers stay on this laptop only, until the worksheet is printed.
+      answers: { get: () => store.get(answersKey), set: a => store.set(answersKey, a) },
       save: (status, result, state) => queueSave(s.id, status, result, state),
       onExit: () => { mode = "plan"; renderSidebar(); renderMain(); },
-      onFinish: (result, state) => {
+      onFinish: (result, state, worksheet) => {
         queueSave(s.id, "done", result, state);
-        const cert = Object.assign({ code, sessionId: s.id, title: m.title, date: new Date().toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" }) }, result);
+        const cert = Object.assign({ code, sessionId: s.id, title: m.title, worksheet, date: new Date().toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" }) }, result);
         store.set("rp-cert", cert);
         mode = "cert";
         renderSidebar();
@@ -286,6 +297,7 @@
   function showCertificate(cert) {
     RP.Player.certificate($("#main"), cert, () => {
       store.set("rp-cert", null);
+      store.set("rp-answers:" + cert.sessionId, null);
       mode = "plan";
       renderSidebar(); renderMain();
     });

@@ -62,7 +62,10 @@
   }
 
   function laptopCode() { try { return JSON.parse(localStorage.getItem("rp-code")); } catch (e) { return null; } }
-  function clearLaptop() { ["rp-code", "rp-plan-cache", "rp-outbox", "rp-cert"].forEach(k => localStorage.removeItem(k)); }
+  function clearLaptop() {
+    ["rp-code", "rp-plan-cache", "rp-outbox", "rp-cert"].forEach(k => localStorage.removeItem(k));
+    Object.keys(localStorage).filter(k => k.startsWith("rp-answers:")).forEach(k => localStorage.removeItem(k));
+  }
 
   // ---------------------------------------------------------------- routing and live updates
   async function show(v) {

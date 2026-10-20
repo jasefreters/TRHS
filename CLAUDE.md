@@ -11,6 +11,8 @@ Static site on GitHub Pages (`main`, root) with a Supabase database. Plain HTML/
 - **Electives are done independently** on the laptop, so the teacher is free for 1:1s. Group sessions tell students to put the laptop aside; the teacher ticks them off.
 - **Certificates appear once**, straight after an elective is finished. A finished elective can't be redone unless the teacher clicks **Let them redo**.
 - **Records kept for returning students:** electives finished, level and score, group sessions done.
+- **Written reflections are never stored online.** `write` and `select` answers live in the laptop's browser only until the certificate page is closed; they print as a worksheet for the teacher. Module writing prompts are optional (students can leave boxes blank), as the staff notes ask not to force disclosure.
+- **Modules:** each school module has a teacher-led movement half (group session, `move-1`…`move-6`, all core) and a reflection half (independent elective `module-1`…`module-6`). Keep the school's wording when editing them.
 
 ## Before publishing
 

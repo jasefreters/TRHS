@@ -13,7 +13,9 @@ RP.h = function (s) {
 
 // Paragraphs, "- " lists and **bold**.
 RP.md = function (text) {
-  const inline = s => RP.h(s).replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+  const inline = s => RP.h(s)
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/\[([^\]]+)\]\((https:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
   return String(text || "").trim().split(/\n\s*\n/).map(block => {
     const lines = block.split("\n");
     if (lines.every(l => l.trim().startsWith("- "))) {
@@ -61,14 +63,16 @@ RP.KIND_LABEL = {
 };
 
 // A fresh day using one of the rotations: fixed morning and debrief, the rotation's group
-// sessions, empty elective slots and the day's 1:1.
+// sessions, the default electives and the day's 1:1.
 RP.buildDay = function (day, rotation) {
   const groups = RP.ROTATIONS[rotation] || {};
+  const electives = (RP.DEFAULT_ELECTIVES || {})[day] || {};
   const rows = [];
   for (let slot = RP.FIRST_SLOT; slot <= RP.LAST_SLOT; slot++) {
     if (slot === RP.FIRST_SLOT) rows.push({ day, slot, kind: "intro", activity: null, title: "Morning session" });
     else if (slot === RP.LAST_SLOT) rows.push({ day, slot, kind: "debrief", activity: null, title: "Afternoon debrief" });
     else if (groups[slot]) rows.push({ day, slot, kind: "group", activity: groups[slot], title: RP.groupSession(groups[slot]).title });
+    else if (RP.MODULES[electives[slot]]) rows.push({ day, slot, kind: "independent", activity: electives[slot], title: RP.MODULES[electives[slot]].title });
     else rows.push({ day, slot, kind: "independent", activity: null, title: "Elective" });
   }
   rows.push({ day, slot: RP.ONE_TO_ONE_SLOT, kind: "one_to_one", activity: null, title: RP.ONE_TO_ONE[day].title });
