@@ -19,4 +19,4 @@ Static site on GitHub Pages (`main`, root) with a Supabase database. Plain HTML/
 
 - Run the flows in a browser with `?demo=1` (teacher creates a student, plans the day, student completes an elective and gets the certificate). Check every answer in new elective content yourself.
 - Changes to the database go in a new SQL file under `supabase/` for staff to run in the SQL Editor; keep `schema.sql` as the full current setup.
-- Publishing: commit to `main` on `jasefreters/TRHS`.
+- Publishing: commit to `main` on `jasefreters/TRHS`. Bump the `?v=` number on every script and stylesheet tag in `index.html` and `teacher.html` so browsers load the new files straight away.

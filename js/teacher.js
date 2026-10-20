@@ -61,7 +61,9 @@
       <button class="nav-btn" data-nav="all">All students</button>
       <button class="nav-btn" data-nav="new">New student</button>
       ${laptop ? `<span class="laptop-note">This laptop: ${h(RP.formatCode(laptop))} <button class="link-btn" data-clear-laptop>Clear</button></span>` : ""}
+      <span class="laptop-note" data-who></span>
       <button class="nav-btn lock" data-lock>Lock</button>`;
+    api.currentEmail().then(email => { const w = $("[data-who]"); if (w && email) w.textContent = email; }).catch(() => {});
     $("#nav").querySelectorAll("[data-nav]").forEach(b => b.onclick = () => show({ name: b.dataset.nav }));
     $("[data-lock]").onclick = async () => { await api.signOut(); if (unsubscribe) unsubscribe(); unsubscribe = null; renderLogin(); };
     const clear = $("[data-clear-laptop]");
@@ -92,8 +94,9 @@
 
   // If the login has gone (expired, or logged out elsewhere), the database treats requests as
   // coming from someone not logged in and its security rules refuse them. Ask to log in again.
+  const isLoginError = ex => /Not logged in|JWT|auth|401|row-level security/i.test(ex.message || "");
   async function failed(ex) {
-    if (/JWT|auth|401|row-level security/i.test(ex.message)) {
+    if (isLoginError(ex)) {
       let staff = false;
       try { staff = await api.isStaff(); } catch (e) { /* treat as logged out */ }
       if (!staff) { renderLogin("Your login has expired. Please log in again."); return; }
@@ -269,7 +272,10 @@
         const student = await api.createStudent(form.year.value ? Number(form.year.value) : null);
         const visitId = await api.startVisit(student.id, RP.buildDay(1, r1).concat(RP.buildDay(2, r2)));
         renderCreated(student, visitId);
-      } catch (ex) { btn.disabled = false; form.querySelector(".error").textContent = ex.message; }
+      } catch (ex) {
+        if (isLoginError(ex)) return failed(ex);
+        btn.disabled = false; form.querySelector(".error").textContent = ex.message;
+      }
     };
   }
 

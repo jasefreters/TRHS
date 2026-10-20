@@ -16,12 +16,21 @@ window.RP = window.RP || {};
   function supabaseApi(isTeacherPage) {
     const sb = supabase.createClient(RP.SUPABASE_URL, RP.SUPABASE_KEY, {
       auth: {
-        // Teacher logins last only while this tab is open, and never on the student page.
+        // Teacher logins are kept in this browser (shared safely between tabs) until the teacher
+        // locks the dashboard or opens a student view. The student page never keeps a login.
         persistSession: isTeacherPage,
-        storage: window.sessionStorage,
         storageKey: "rp-teacher-auth"
       }
     });
+    try { sessionStorage.removeItem("rp-teacher-auth"); } catch (e) { /* older versions kept it here */ }
+
+    // Every teacher request needs a live login. Without one the database would treat the request
+    // as coming from someone not logged in and quietly show nothing or refuse to save.
+    async function requireLogin() {
+      const { data } = await sb.auth.getSession();
+      if (!data.session) throw new Error("Not logged in");
+    }
+    const teacher = fn => async (...args) => { await requireLogin(); return fn(...args); };
 
     return {
       demo: false,
@@ -56,34 +65,34 @@ window.RP = window.RP || {};
         sb.auth.onAuthStateChange(event => { if (event === "SIGNED_OUT") cb(); });
       },
 
-      listActive: async () => check(await sb.from("visits")
+      listActive: teacher(async () => check(await sb.from("visits")
         .select(`id, start_date, current_day, help_requested_at, created_at, student:students(id, code, year_level), sessions(${SESSION_FIELDS})`)
-        .eq("active", true).order("created_at")),
+        .eq("active", true).order("created_at"))),
 
-      getVisit: async id => check(await sb.from("visits")
+      getVisit: teacher(async id => check(await sb.from("visits")
         .select(`id, student_id, start_date, current_day, active, help_requested_at, student:students(id, code, year_level), sessions(${SESSION_FIELDS})`)
-        .eq("id", id).maybeSingle()),
+        .eq("id", id).maybeSingle())),
 
-      findStudent: async code => check(await sb.from("students")
+      findStudent: teacher(async code => check(await sb.from("students")
         .select(`id, code, year_level, created_at, visits(id, start_date, active, current_day, sessions(${SESSION_FIELDS}))`)
-        .eq("code", RP.normaliseCode(code)).maybeSingle()),
+        .eq("code", RP.normaliseCode(code)).maybeSingle())),
 
-      listAll: async () => check(await sb.from("students")
+      listAll: teacher(async () => check(await sb.from("students")
         .select(`id, code, year_level, created_at, visits(id, start_date, active, current_day, created_at, sessions(${SESSION_FIELDS}))`)
-        .order("created_at", { ascending: false })),
+        .order("created_at", { ascending: false }))),
 
-      getStudent: async id => check(await sb.from("students")
+      getStudent: teacher(async id => check(await sb.from("students")
         .select(`id, code, year_level, created_at, visits(id, start_date, active, current_day, created_at, sessions(${SESSION_FIELDS}))`)
-        .eq("id", id).maybeSingle()),
+        .eq("id", id).maybeSingle())),
 
-      updateStudent: async (id, patch) => check(await sb.from("students").update(patch).eq("id", id).select("id").single()),
-      async deleteStudent(id) { const { error } = await sb.from("students").delete().eq("id", id); if (error) throw new Error(error.message); },
-      async deleteVisit(id) { const { error } = await sb.from("visits").delete().eq("id", id); if (error) throw new Error(error.message); },
+      updateStudent: teacher(async (id, patch) => check(await sb.from("students").update(patch).eq("id", id).select("id").single())),
+      deleteStudent: teacher(async id => { const { error } = await sb.from("students").delete().eq("id", id); if (error) throw new Error(error.message); }),
+      deleteVisit: teacher(async id => { const { error } = await sb.from("visits").delete().eq("id", id); if (error) throw new Error(error.message); }),
 
-      createStudent: async yearLevel => check(await sb.from("students")
-        .insert({ year_level: yearLevel || null }).select("id, code, year_level").single()),
+      createStudent: teacher(async yearLevel => check(await sb.from("students")
+        .insert({ year_level: yearLevel || null }).select("id, code, year_level").single())),
 
-      async startVisit(studentId, rows) {
+      startVisit: teacher(async (studentId, rows) => {
         const visit = check(await sb.from("visits").insert({ student_id: studentId }).select("id").single());
         const { error } = await sb.from("sessions").insert(rows.map(r => Object.assign({ visit_id: visit.id }, r)));
         if (error) {
@@ -91,12 +100,12 @@ window.RP = window.RP || {};
           throw new Error(error.message);
         }
         return visit.id;
-      },
+      }),
 
-      updateSession: async (id, patch) => check(await sb.from("sessions")
-        .update(Object.assign({ updated_at: new Date().toISOString() }, patch)).eq("id", id).select(SESSION_FIELDS).single()),
+      updateSession: teacher(async (id, patch) => check(await sb.from("sessions")
+        .update(Object.assign({ updated_at: new Date().toISOString() }, patch)).eq("id", id).select(SESSION_FIELDS).single())),
 
-      updateVisit: async (id, patch) => check(await sb.from("visits").update(patch).eq("id", id).select("id").single()),
+      updateVisit: teacher(async (id, patch) => check(await sb.from("visits").update(patch).eq("id", id).select("id").single())),
 
       subscribe(onChange) {
         const channel = sb.channel("rp-dashboard")
