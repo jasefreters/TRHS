@@ -84,4 +84,4 @@ Open the site with `?demo=1` on the end (for example `teacher.html?demo=1`) to u
 4. Put the project URL and publishable key in `js/config.js`.
 5. In GitHub, go to **Settings → Pages**, set **Source** to *Deploy from a branch*, choose `main` and `/ (root)`, and save.
 
-To add a teacher later: create them under **Authentication → Users**, then in **SQL Editor** run `insert into public.staff (email) values ('their.email@det.nsw.edu.au');`.
+To add a teacher later: create them under **Authentication → Users**, then paste [`supabase/add-staff.sql`](supabase/add-staff.sql) into a new query in the **SQL Editor**, put in their email and run it.

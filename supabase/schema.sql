@@ -181,7 +181,11 @@ alter publication supabase_realtime add table public.visits, public.sessions;
 
 -- ---------------------------------------------------------------------------
 -- Add each teacher's login email here (the same email you create them with under
--- Authentication > Users), then run this file.
+-- Authentication > Users), then run this file. One email per line, each in its own
+-- brackets and quotes, with a comma between lines and none after the last.
+-- To add teachers later, don't run this whole file again: use add-staff.sql.
 -- ---------------------------------------------------------------------------
 insert into public.staff (email) values
-  ('teacher@example.com');
+  ('first.teacher@det.nsw.edu.au'),
+  ('second.teacher@det.nsw.edu.au')
+on conflict (email) do nothing;
