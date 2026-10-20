@@ -26,6 +26,7 @@
           <h1>Teacher login</h1>
           <label class="field">School email <input type="email" name="email" autocomplete="username" required></label>
           <label class="field">Password <input type="password" name="password" autocomplete="current-password" required></label>
+          <label class="field inline small"><input type="checkbox" data-show-pw> Show password</label>
           <button class="btn primary big" type="submit">Log in</button>
           <p class="error" aria-live="polite">${h(message || "")}</p>
           <p class="muted small"><a href="index.html">Back to the student view</a></p>
@@ -33,12 +34,17 @@
       </div>`;
     const form = $("[data-login]");
     form.email.focus();
+    $("[data-show-pw]").onchange = e => { form.password.type = e.target.checked ? "text" : "password"; };
     form.onsubmit = async e => {
       e.preventDefault();
       const err = form.querySelector(".error");
       err.textContent = "Logging in…";
       try { await api.signIn(form.email.value.trim(), form.password.value); enter(); }
-      catch (ex) { err.textContent = /invalid/i.test(ex.message) ? "Email or password is wrong." : ex.message; }
+      catch (ex) {
+        err.textContent = /invalid/i.test(ex.message)
+          ? "That email and password don't match a teacher login. Check for typing mistakes, Caps Lock, or a password the browser filled in for you."
+          : ex.message;
+      }
     };
   }
 
