@@ -1,19 +1,38 @@
 /*
-  Numeracy Day 1: about 30 minutes. Levels 1–4 are Years 3–6, from The Daily Dash
-  (numeracy-dash.js, built by tools/dash-numeracy.js). Levels 5–6 (number) are written here.
+  Numeracy Day 1: about 30 minutes. Each level is an NSW Stage: Level 1 = Stage 1 (Years 1–2)
+  up to Level 5 = Stage 5 (Years 9–10). Levels 2 and 3 come from The Daily Dash (numeracy-dash.js,
+  built by tools/dash-numeracy.js); Levels 1, 4 and 5 are written here.
 */
 (function () {
-  const YEAR = { 1: 3, 2: 4, 3: 5, 4: 6 };
-  const dashLevels = day => [1, 2, 3, 4].filter(n => RP.DASH_NUMERACY && RP.DASH_NUMERACY[day][n])
-    .map(n => ({ level: n, title: "Level " + n, about: "Year " + YEAR[n] + " (from The Daily Dash)", items: RP.DASH_NUMERACY[day][n] }));
+  const STAGE = { 2: "Stage 2 (Years 3–4)", 3: "Stage 3 (Years 5–6)" };
+  const dashLevels = day => [2, 3].filter(n => RP.DASH_NUMERACY && RP.DASH_NUMERACY[day][n])
+    .map(n => ({ level: n, title: "Level " + n, about: STAGE[n] + ", from The Daily Dash", items: RP.DASH_NUMERACY[day][n] }));
 RP.registerModule({
   id: "numeracy-day1",
   title: "Numeracy: Day 1",
   icon: "🔢",
   about: "Maths questions at your level. Choose your level, then check each answer as you go. You can have more than one try.\n\nAbout 30 minutes.",
-  levels: dashLevels("day1").concat([
+  levels: [
     {
-      level: 5, title: "Level 5", about: "Year 7–8: Integers, decimals, fractions and percentages",
+      level: 1, title: "Level 1", about: "Stage 1 (Years 1–2): adding, subtracting, place value and patterns",
+      items: [
+        { type: "input", q: "5 + 4 = ?", answer: "9" },
+        { type: "input", q: "10 − 3 = ?", answer: "7" },
+        { type: "input", q: "8 + 7 = ?", answer: "15" },
+        { type: "mc", q: "Which number is 10 more than 34?", choices: ["35", "44", "24", "340"], answer: 1 },
+        { type: "order", q: "Put these numbers in order from smallest to largest.", cards: ["19", "27", "45", "72"] },
+        { type: "input", q: "What number comes next? 2, 4, 6, 8, ___", answer: "10" },
+        { type: "mc", q: "In the number 56, what does the 5 stand for?", choices: ["5 ones", "5 tens", "5 hundreds", "56 ones"], answer: 1 },
+        { type: "input", q: "Double 6 = ?", answer: "12" },
+        { type: "input", q: "Half of 10 = ?", answer: "5" },
+        { type: "input", q: "There are 3 bags with 5 apples in each bag. How many apples are there altogether?", answer: "15", suffix: "apples" },
+        { type: "mc", q: "Which number is the same as 20 + 7?", choices: ["207", "27", "72", "9"], answer: 1 },
+        { type: "input", q: "You have 20 cents and spend 5 cents. How much is left?", answer: "15", suffix: "cents" }
+      ]
+    },
+  ].concat(dashLevels("day1"), [
+    {
+      level: 4, title: "Level 4", about: "Stage 4 (Years 7–8): Integers, decimals, fractions and percentages",
       items: [
         { type: "input", q: "15 × 12 = ?", answer: "180" },
         { type: "input", q: "1000 − 457 = ?", answer: "543" },
@@ -31,7 +50,7 @@ RP.registerModule({
       ]
     },
     {
-      level: 6, title: "Level 6", about: "Year 9–10: Powers, order of operations, fractions and percentage change",
+      level: 5, title: "Level 5", about: "Stage 5 (Years 9–10): Powers, order of operations, fractions and percentage change",
       items: [
         { type: "input", q: "2³ × 5 = ?", answer: "40" },
         { type: "input", q: "√144 = ?", answer: "12" },

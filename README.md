@@ -14,7 +14,7 @@ Everything in the day is a **module**:
 ## How a day works
 
 1. **Set up a student.** On the dashboard, click **New student**. The website makes an 8-character code such as `K7Q3-M2XD`. Write it next to the student's name on your offline list; the website never stores names.
-2. **Fill in their daily schedule.** Each day has 10 sessions (below). Group modules come from the room's rotation; the rest start empty. Drag independent modules and **teacher-led sessions** onto the empty sessions, or click one and then click a session. Click 👁 to see what's in a module. Changing a group module asks "Are you sure?" first. The schedule warns if two students have a teacher-led session at the same time, and reminds you about each day's review or return plan.
+2. **Fill in their daily schedule.** Each day has 10 sessions (below). Group modules come from the room's rotation; the rest start empty. Drag independent modules and **teacher-led sessions** onto the empty sessions, or click one and then click a session. Click 👁 to preview a module: **Try it as a student** runs it exactly as students see it (nothing is saved), and **Questions and answers** lists every page with the answers. Changing a group module asks "Are you sure?" first. The schedule warns if two students have a teacher-led session at the same time, and reminds you about each day's review or return plan.
 3. **Staffing.** On the **Run sheet**, type who's running each session. Whoever is on for a session runs any teacher-led session in it. Print the run sheet for the day.
 4. **Hand over the laptop.** Click **Student view on this laptop**. This logs you out of that laptop only and opens the student's plan. (Or the student types their code.)
 5. **The student follows the plan.** The left pane shows the day, with the current session marked "Now" and a tick next to each finished part.
@@ -76,7 +76,7 @@ All of these stand alone and can be done in any order:
 - **My Chain** (chain analysis), **T-RED Values in Action**, **Code of Conduct Check**.
 - **Say It Better**, **Online Conflict and Social Media**, **Restorative Conversation Prep**, **Growth Mindset**, **Goal Builder**, **Healthy Habits Check**, **Asking for Help**, **Study Skills**, **Attendance and Truancy**.
 - **Literacy:** one half-hour module with levels 1–5 (NSW Stages 1–5): a reading passage and questions, then vocabulary, spelling and punctuation, and grammar.
-- **Numeracy: Day 1** and **Numeracy: Day 2**, about 30 minutes each. Levels 1–4 are Years 3–6 from [The Daily Dash](https://jasefreters.github.io/mathswarmup/); levels 5–6 are Years 7–8 and 9–10. To refresh the Dash questions, check out the Dash next to this repo and run `node tools/dash-numeracy.js ../mathswarmup`.
+- **Numeracy: Day 1** and **Numeracy: Day 2**, about 30 minutes each. Each level is an NSW Stage: Level 1 = Stage 1 (Years 1–2) up to Level 5 = Stage 5 (Years 9–10). Levels 2 and 3 come from [The Daily Dash](https://jasefreters.github.io/mathswarmup/). To refresh the Dash questions, check out the Dash next to this repo and run `node tools/dash-numeracy.js ../mathswarmup`.
 
 **Videos** (in Module 2, My Chain and Growth Mindset) are YouTube clips chosen by title and channel. Preview each one before students use it, and change any in its module file. Each has a written summary underneath in case it won't play.
 

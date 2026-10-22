@@ -645,3 +645,8 @@ dialog::backdrop { background: rgba(22, 27, 59, .45); }
 .booklet-row { display: grid; grid-template-columns: 180px 1fr; gap: .8rem; align-items: start; padding-bottom: .8rem; border-bottom: 1px solid var(--line); }
 .booklet-row input { font: inherit; padding: .45em .6em; border: 1.5px solid var(--line); border-radius: 10px; width: 100%; }
 @media (max-width: 700px) { .booklet-row { grid-template-columns: 1fr; } }
+.preview-head { flex-wrap: wrap; }
+.preview-tabs { display: flex; gap: .4rem; }
+.preview-note { margin: .6rem 0 0; }
+.preview-try { background: var(--bg); border-radius: var(--radius); padding: 1rem; margin-top: .6rem; }
+.preview-dialog { width: min(1000px, 96vw); }

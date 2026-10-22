@@ -1,19 +1,38 @@
 /*
-  Numeracy Day 2: about 30 minutes. Levels 1–4 are Years 3–6, from The Daily Dash
-  (numeracy-dash.js, built by tools/dash-numeracy.js). Levels 5–6 (measurement and data) are written here.
+  Numeracy Day 2: about 30 minutes. Each level is an NSW Stage: Level 1 = Stage 1 (Years 1–2)
+  up to Level 5 = Stage 5 (Years 9–10). Levels 2 and 3 come from The Daily Dash (numeracy-dash.js,
+  built by tools/dash-numeracy.js); Levels 1, 4 and 5 are written here.
 */
 (function () {
-  const YEAR = { 1: 3, 2: 4, 3: 5, 4: 6 };
-  const dashLevels = day => [1, 2, 3, 4].filter(n => RP.DASH_NUMERACY && RP.DASH_NUMERACY[day][n])
-    .map(n => ({ level: n, title: "Level " + n, about: "Year " + YEAR[n] + " (from The Daily Dash)", items: RP.DASH_NUMERACY[day][n] }));
+  const STAGE = { 2: "Stage 2 (Years 3–4)", 3: "Stage 3 (Years 5–6)" };
+  const dashLevels = day => [2, 3].filter(n => RP.DASH_NUMERACY && RP.DASH_NUMERACY[day][n])
+    .map(n => ({ level: n, title: "Level " + n, about: STAGE[n] + ", from The Daily Dash", items: RP.DASH_NUMERACY[day][n] }));
 RP.registerModule({
   id: "numeracy-day2",
   title: "Numeracy: Day 2",
   icon: "📏",
   about: "Maths questions at your level. Choose your level, then check each answer as you go. You can have more than one try.\n\nAbout 30 minutes.",
-  levels: dashLevels("day2").concat([
+  levels: [
     {
-      level: 5, title: "Level 5", about: "Year 7–8: Converting units, statistics, ratio and simple equations",
+      level: 1, title: "Level 1", about: "Stage 1 (Years 1–2): time, length, mass, shapes and data",
+      items: [
+        { type: "mc", q: "Which is the longest?", choices: ["A pencil", "A bus", "A shoe", "A book"], answer: 1 },
+        { type: "mc", q: "How many days are in a week?", choices: ["5", "6", "7", "10"], answer: 2 },
+        { type: "mc", q: "Which time is **half past 3**?", choices: ["3:00", "3:30", "4:30", "3:15"], answer: 1 },
+        { type: "mc", q: "Which day comes after Monday?", choices: ["Sunday", "Tuesday", "Wednesday", "Friday"], answer: 1 },
+        { type: "input", q: "How many sides does a triangle have?", answer: "3", suffix: "sides" },
+        { type: "input", q: "How many corners does a square have?", answer: "4", suffix: "corners" },
+        { type: "mc", q: "Which shape has no corners?", choices: ["Square", "Triangle", "Circle", "Rectangle"], answer: 2 },
+        { type: "mc", q: "Which one holds the most water?", choices: ["A cup", "A bucket", "A spoon", "A bottle cap"], answer: 1 },
+        { type: "mc", q: "Which one is the heaviest?", choices: ["A feather", "A leaf", "A brick", "A sheet of paper"], answer: 2 },
+        { type: "input", q: "In a class vote, 6 children like dogs best and 4 like cats best. How many children voted?", answer: "10", suffix: "children" },
+        { type: "input", q: "6 children like dogs best and 4 like cats best. How many more like dogs than cats?", answer: "2", suffix: "more" },
+        { type: "mc", q: "Which month comes after March?", choices: ["February", "April", "May", "June"], answer: 1 }
+      ]
+    },
+  ].concat(dashLevels("day2"), [
+    {
+      level: 4, title: "Level 4", about: "Stage 4 (Years 7–8): Converting units, statistics, ratio and simple equations",
       items: [
         { type: "input", q: "Convert 2.5 km to metres.", answer: "2500", suffix: "m" },
         { type: "input", q: "Convert 350 cm to metres.", answer: "3.5", suffix: "m" },
@@ -31,7 +50,7 @@ RP.registerModule({
       ]
     },
     {
-      level: 6, title: "Level 6", about: "Year 9–10: Circles, volume, Pythagoras, algebra and probability",
+      level: 5, title: "Level 5", about: "Stage 5 (Years 9–10): Circles, volume, Pythagoras, algebra and probability",
       items: [
         { type: "input", q: "Find the area of a circle with radius 5 cm, to the nearest whole number. (Use π ≈ 3.14.)", answer: "79", accept: ["78.5"], suffix: "cm²", explain: "3.14 × 5 × 5 = 78.5, which rounds to 79." },
         { type: "input", q: "Find the volume of a rectangular prism 4 cm × 5 cm × 6 cm.", answer: "120", suffix: "cm³" },

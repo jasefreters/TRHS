@@ -7,7 +7,7 @@
 window.RP = window.RP || {};
 RP.DASH_NUMERACY = {
  "day1": {
-  "1": [
+  "2": [
    {
     "type": "mc",
     "q": "A collection of craft sticks is used to make the number 26. How can 26 be **partitioned** and renamed?",
@@ -22,210 +22,23 @@ RP.DASH_NUMERACY = {
    },
    {
     "type": "mc",
-    "q": "True or false? To correctly solve 38 + 7 = 45 I can add 2 to 38, then add 5 to get 45.",
-    "choices": [
-     "True",
-     "False"
-    ],
-    "answer": 0,
-    "explain": "7 splits into 2 and 5. 38 + 2 = 40 (the next ten), then 40 + 5 = 45."
-   },
-   {
-    "type": "mc",
-    "q": "127 − 29 =",
-    "choices": [
-     "99",
-     "98",
-     "97",
-     "96"
-    ],
-    "answer": 1,
-    "explain": "127 − 30 = 97. 29 is 1 less than 30, so add 1 back: 98."
-   },
-   {
-    "type": "mc",
-    "q": "True or false? 2 × 4 = 8 and 8 ÷ 4 = 2",
-    "choices": [
-     "True",
-     "False"
-    ],
-    "answer": 0,
-    "explain": "The array has 2 rows of 4 (8 counters). Sharing 8 into 4 columns gives 2 in each, so 8 ÷ 4 = 2."
-   },
-   {
-    "type": "mc",
-    "q": "Record events that have a duration of approximately: 1 minute, 5 minutes, 20 minutes. Communicate your reasoning.\n\n**Washing your hands**",
-    "choices": [
-     "1 minute",
-     "5 minutes",
-     "20 minutes"
-    ],
-    "answer": 0
-   },
-   {
-    "type": "mc",
-    "q": "Record events that have a duration of approximately: 1 minute, 5 minutes, 20 minutes. Communicate your reasoning.\n\n**Eating an apple**",
-    "choices": [
-     "1 minute",
-     "5 minutes",
-     "20 minutes"
-    ],
-    "answer": 1
-   },
-   {
-    "type": "mc",
-    "q": "Record events that have a duration of approximately: 1 minute, 5 minutes, 20 minutes. Communicate your reasoning.\n\n**Watching a TV episode**",
-    "choices": [
-     "1 minute",
-     "5 minutes",
-     "20 minutes"
-    ],
-    "answer": 2,
-    "explain": "The slide asks students to think of their own events, so these three are examples to sort before the class adds its own."
-   },
-   {
-    "type": "mc",
-    "q": "Some categorical responses are: read in the library, go to the canteen, play on the oval. What question might have been asked?\n\n**The question was probably**",
-    "choices": [
-     "What do you do at lunch time?",
-     "How many pets do you have?",
-     "What is your favourite colour?",
-     "How tall are you?"
-    ],
-    "answer": 0
-   },
-   {
-    "type": "mc",
-    "q": "Record an everyday event that is impossible, equally likely or certain to occur today.\n\n**The sun will set tonight**",
-    "choices": [
-     "impossible",
-     "equally likely",
-     "certain"
-    ],
-    "answer": 2
-   },
-   {
-    "type": "mc",
-    "q": "Record an everyday event that is impossible, equally likely or certain to occur today.\n\n**A coin you flip lands on heads**",
-    "choices": [
-     "impossible",
-     "equally likely",
-     "certain"
-    ],
-    "answer": 1
-   },
-   {
-    "type": "mc",
-    "q": "Record an everyday event that is impossible, equally likely or certain to occur today.\n\n**A dog drives the school bus**",
-    "choices": [
-     "impossible",
-     "equally likely",
-     "certain"
-    ],
-    "answer": 0,
-    "explain": "The slide asks students for their own events; these examples are added so there is something to sort. Have the class add their own."
-   },
-   {
-    "type": "mc",
-    "q": "In the number 472, what is the value of the digit 7?",
-    "choices": [
-     "7",
-     "70",
-     "700",
-     "7000"
-    ],
-    "answer": 1,
-    "explain": "The 7 is in the tens place: 7 tens = 70."
-   }
-  ],
-  "2": [
-   {
-    "type": "mc",
-    "q": "Which number is the **smallest**?",
-    "choices": [
-     "7054",
-     "7405",
-     "7450",
-     "7504"
-    ],
-    "answer": 0,
-    "explain": "All have 7 thousands. 7054 has 0 hundreds, so it is the smallest."
-   },
-   {
-    "type": "mc",
-    "q": "1652 can be **renamed** as …",
-    "choices": [
-     "1000 + 600 + 500 + 20",
-     "160 + 50 + 2",
-     "1000 + 6000 + 50 + 2",
-     "1000 + 600 + 50 + 2"
-    ],
-    "answer": 3,
-    "explain": "1 thousand, 6 hundreds, 5 tens and 2 ones: 1000 + 600 + 50 + 2."
-   },
-   {
-    "type": "mc",
-    "q": "Which of these is **equivalent** to one half?",
-    "choices": [
-     "3/8",
-     "2/8",
-     "4/8",
-     "5/8"
-    ],
-    "answer": 2,
-    "explain": "Half of 8 eighths is 4 eighths, so 4/8 = 1/2."
-   },
-   {
-    "type": "mc",
-    "q": "146, 155, 164, 173. This pattern increases…",
-    "choices": [
-     "by 8",
-     "by 9",
-     "by 7",
-     "by 10"
-    ],
-    "answer": 1,
-    "explain": "146 + 9 = 155, 155 + 9 = 164, 164 + 9 = 173."
-   },
-   {
-    "type": "mc",
-    "q": "Which number is not a multiple of 4?",
-    "choices": [
-     "4",
-     "10",
-     "12",
-     "24"
-    ],
-    "answer": 1,
-    "explain": "Count by fours: 4, 8, 12, 16, 20, 24. 10 is skipped, so it is not a multiple of 4."
-   },
-   {
-    "type": "mc",
-    "q": "$10.80 + $5.60 + $2.20 + $11.40 =",
-    "choices": [
-     "$29.00",
-     "$28.40",
-     "$30.20",
-     "$30.00"
-    ],
-    "answer": 3,
-    "explain": "Make friendly pairs: $10.80 + $2.20 = $13.00 and $5.60 + $11.40 = $17.00. $13 + $17 = $30.00."
-   },
-   {
-    "type": "input",
-    "q": "Alex has 127 cows and 465 sheep on his farm. How many animals does he have altogether?",
-    "answer": "592",
-    "suffix": "animals"
-   },
-   {
-    "type": "mc",
-    "q": "True or false? Tobi said, “I had $5 and bought an ice-block for $3.75. I have $1.75 left.” Leon said, “That can't be right!” Is Tobi's statement true or false?",
+    "q": "True or false? During a school fundraiser, Shanice sold 5/8 of the raffle tickets, which left 4/8 of the tickets unsold.",
     "choices": [
      "True",
      "False"
     ],
     "answer": 1,
-    "explain": "$5 − $3.75 = $1.25, so Tobi should have $1.25 left."
+    "explain": "8 eighths make the whole. 8 − 5 = 3, so 3/8 of the tickets were left unsold, not 4/8."
+   },
+   {
+    "type": "mc",
+    "q": "True or false? Using non-standard partitioning, there are no hundreds in the number 4099.",
+    "choices": [
+     "True",
+     "False"
+    ],
+    "answer": 1,
+    "explain": "The hundreds digit is 0, but 4 thousands can be renamed as 40 hundreds: 4099 = 40 hundreds + 99 ones. Break a thousand on the chart to see it."
    },
    {
     "type": "mc",
@@ -247,23 +60,77 @@ RP.DASH_NUMERACY = {
    },
    {
     "type": "mc",
-    "q": "True or false? This array can be described as 3 fours are 12.",
+    "q": "The next number in **ascending order** is: 1457, 1563, 1637, ?",
+    "choices": [
+     "1756",
+     "172",
+     "1594",
+     "777"
+    ],
+    "answer": 0,
+    "explain": "Ascending order goes from smallest to largest, so the next number must be larger than 1637. Only 1756 is. Note: on the slide, option C was 1794, which is also larger than 1637, so it has been changed to 1594 to give one correct answer."
+   },
+   {
+    "type": "mc",
+    "q": "True or false? If I rearrange the digits in 546 433, the largest number I can make is 654 433.",
     "choices": [
      "True",
      "False"
     ],
     "answer": 0,
-    "explain": "3 rows of 4 = 12, so 3 fours are 12."
+    "explain": "Put the largest digits in the largest places: 6, 5, 4, 4, 3, 3 makes 654 433."
    },
    {
     "type": "mc",
-    "q": "True or false? These numbers are arranged in ascending order: 30 248, 30 428, 30 284, 32 804",
+    "q": "4321 rounded to the nearest multiple of 1000 is:",
+    "choices": [
+     "4000",
+     "4300",
+     "5000",
+     "4330"
+    ],
+    "answer": 0,
+    "explain": "4321 sits between 4000 and 5000. It is less than halfway (4500), so it rounds down to 4000. 4300 and 4330 are not multiples of 1000."
+   },
+   {
+    "type": "input",
+    "q": "A chocolate bar weighs 250 grams. What fraction of a kilogram is this?",
+    "answer": "0.25",
+    "suffix": "kg"
+   },
+   {
+    "type": "mc",
+    "q": "In the number 472, what is the value of the digit 7?",
+    "choices": [
+     "7",
+     "70",
+     "700",
+     "7000"
+    ],
+    "answer": 1,
+    "explain": "The 7 is in the tens place: 7 tens = 70."
+   },
+   {
+    "type": "mc",
+    "q": "Which pattern counts forwards by 5s starting at 12?",
+    "choices": [
+     "12, 16, 20, 24, 28",
+     "12, 17, 22, 27, 32",
+     "12, 18, 24, 30, 36",
+     "12, 20, 25, 30, 35"
+    ],
+    "answer": 1,
+    "explain": "12 + 5 = 17, + 5 = 22, + 5 = 27, + 5 = 32."
+   },
+   {
+    "type": "mc",
+    "q": "True or false? In the number pattern 9, 14, 19, 24, ___, 34 the missing number is 29.",
     "choices": [
      "True",
      "False"
     ],
-    "answer": 1,
-    "explain": "30 428 is bigger than 30 284 (4 hundreds vs 2 hundreds). The order should be 30 248, 30 284, 30 428, 32 804."
+    "answer": 0,
+    "explain": "The pattern goes up by 5: 24 + 5 = 29, and 29 + 5 = 34."
    }
   ],
   "3": [
@@ -281,95 +148,66 @@ RP.DASH_NUMERACY = {
    },
    {
     "type": "mc",
-    "q": "True or false? The number 46 827 rounded to the nearest thousand is 47 000.",
+    "q": "True or false? 1/6 is greater than 1/10",
     "choices": [
      "True",
      "False"
     ],
     "answer": 0,
-    "explain": "46 827 is between 46 000 and 47 000. It is past halfway (46 500), so it rounds up to 47 000."
+    "explain": "Sixths are bigger pieces than tenths, because the whole is cut into fewer parts. So 1/6 > 1/10."
    },
    {
     "type": "mc",
-    "q": "True or false? 98 ÷ __ = 7. The missing number is 12.",
+    "q": "True or false? The following numbers are in ascending order: 5 481 497, 5 058 723, 4 946 811, 4 212 905",
     "choices": [
      "True",
      "False"
     ],
     "answer": 1,
-    "explain": "7 × 12 = 84, not 98. 7 × 14 = 98, so the missing number is 14."
+    "explain": "They go from largest to smallest, so they are in descending order."
    },
    {
     "type": "mc",
-    "q": "True or false? Both these arrays model 24 as a product: 2 rows of 12, and 6 rows of 4.",
+    "q": "True or false? 0.506 is greater than 0.56. Communicate your reasoning.",
     "choices": [
      "True",
      "False"
-    ],
-    "answer": 0,
-    "explain": "2 × 12 = 24 and 6 × 4 = 24. Both arrays have 24 dots."
-   },
-   {
-    "type": "mc",
-    "q": "125 + 89 = ? Communicate your strategy.",
-    "choices": [
-     "224",
-     "214",
-     "216",
-     "226"
     ],
     "answer": 1,
-    "explain": "Compensation: 125 + 90 = 215, then take away the extra 1: 214."
+    "explain": "Compare the hundredths: 0.506 has 0 hundredths and 0.56 has 6. 0.56 = 0.560, which is more than 0.506."
    },
    {
     "type": "mc",
-    "q": "True or false? (4 × 6) × 3 = 6 × (3 × 4)",
+    "q": "True or false? 1000 thousands is 1 million.",
     "choices": [
      "True",
      "False"
     ],
     "answer": 0,
-    "explain": "Both sides are 72. The same three numbers are multiplied, just in a different order and grouping (commutative and associative properties)."
+    "explain": "1000 × 1000 = 1 000 000. Group 10 thousands into a ten thousand, 10 ten thousands into a hundred thousand, and 10 hundred thousands into a million."
    },
    {
     "type": "mc",
-    "q": "True or false? A zero can be a placeholder in a decimal number. Communicate your reasoning.",
+    "q": "Arlo wanted to track the growth of a new plant in his garden over time. Identify the type of data display that would be most suitable to represent this information.\n\n**Best display**",
     "choices": [
-     "True",
-     "False"
+     "pie chart",
+     "line graph",
+     "picture graph",
+     "dot plot"
+    ],
+    "answer": 1
+   },
+   {
+    "type": "mc",
+    "q": "The number 73 is …",
+    "choices": [
+     "prime",
+     "composite",
+     "both prime and composite",
+     "neither prime nor composite"
     ],
     "answer": 0,
-    "explain": "In 3.05 the zero holds the tenths place, so the 5 stays in the hundredths. Without it, 3.5 is a different number."
-   },
-   {
-    "type": "mc",
-    "q": "I am thinking of a number. Its **factors** include **1, 2, 3, 4, 6 and 8**. What number am I?",
-    "choices": [
-     "57",
-     "68",
-     "96",
-     "104"
-    ],
-    "answer": 2,
-    "explain": "96 ÷ 8 = 12 and 96 ÷ 6 = 16. 57 is odd, and 68 and 104 are not divisible by 3."
-   },
-   {
-    "type": "input",
-    "q": "Interpret the **decimal notation** for these masses.\n\n**4.8 kg =**",
-    "answer": "4800",
-    "suffix": "g"
-   },
-   {
-    "type": "input",
-    "q": "Interpret the **decimal notation** for these masses.\n\n**0.875 kg =**",
-    "answer": "875",
-    "suffix": "g"
-   },
-   {
-    "type": "input",
-    "q": "Interpret the **decimal notation** for these masses.\n\n**1.04 kg =**",
-    "answer": "1040",
-    "suffix": "g"
+    "explain": "73 has only 2 factors: 1 and 73. It isn't in the 2, 3, 5 or 7 times tables, so it is prime."
    },
    {
     "type": "mc",
@@ -380,504 +218,6 @@ RP.DASH_NUMERACY = {
     ],
     "answer": 0,
     "explain": "3 thousands = 30 hundreds = 300 tens = 3000 ones. Break the thousands apart in the chart to see it."
-   }
-  ],
-  "4": [
-   {
-    "type": "mc",
-    "q": "Which decimal number has the **smallest value**? Explain your reasoning.",
-    "choices": [
-     "0.5",
-     "0.125",
-     "0.25",
-     "0.49"
-    ],
-    "answer": 1,
-    "explain": "Compare the tenths first: 0.125 has 1 tenth, 0.25 has 2, 0.49 has 4 and 0.5 has 5. More digits doesn't mean a bigger number."
-   },
-   {
-    "type": "mc",
-    "q": "True or false? The question is 42 000 + 5 123 + 246. The answer is 47 369. Communicate your thinking.",
-    "choices": [
-     "True",
-     "False"
-    ],
-    "answer": 0,
-    "explain": "42 000 + 5 000 = 47 000, + 123 = 47 123, + 246 = 47 369."
-   },
-   {
-    "type": "mc",
-    "q": "Jamie drove 28 km every day for a week. Mikali drove 19 km more than Jamie's total. How far did Mikali drive?",
-    "choices": [
-     "256",
-     "215",
-     "196",
-     "211"
-    ],
-    "answer": 1,
-    "explain": "Jamie: 7 × 28 = 196 km. Mikali: 196 + 19 = 215 km. 196 is Jamie's total, not Mikali's."
-   },
-   {
-    "type": "mc",
-    "q": "Which of the following pairs are **not** equivalent fractions?",
-    "choices": [
-     "3/6, 1/2",
-     "4/8, 1/2",
-     "1/2, 5/10",
-     "4/6, 1/2"
-    ],
-    "answer": 3,
-    "explain": "4/6 = 2/3, which is more than 1/2. The others all equal one-half."
-   },
-   {
-    "type": "mc",
-    "q": "How would you record 3 divided by 4 as a fraction?",
-    "choices": [
-     "3/4",
-     "1/4",
-     "4/3",
-     "1/3"
-    ],
-    "answer": 0,
-    "explain": "Share 3 squares between 4 people: each person gets 1/4 of every square, which is 3/4 of a square. The dividend is the numerator."
-   },
-   {
-    "type": "mc",
-    "q": "True or false? 836 + 1984 + 92. This number sentence accurately represents the following word problem: Brian is getting a new kitchen in his home. So far, he has paid $1984 for the builder, $836 on a new oven and $92 on a kettle.",
-    "choices": [
-     "True",
-     "False"
-    ],
-    "answer": 0,
-    "explain": "The sentence adds all three costs. The order doesn't matter when you add, so 836 + 1984 + 92 = 1984 + 836 + 92 = $2912."
-   },
-   {
-    "type": "mc",
-    "q": "Which of these numbers has the factors 6 and 7?",
-    "choices": [
-     "24",
-     "42",
-     "36",
-     "40"
-    ],
-    "answer": 1,
-    "explain": "6 × 7 = 42, so 6 and 7 are both factors of 42."
-   },
-   {
-    "type": "mc",
-    "q": "True or false? The term integers describes negative whole numbers only. Communicate your reasoning.",
-    "choices": [
-     "True",
-     "False"
-    ],
-    "answer": 1,
-    "explain": "Integers are all the whole numbers: the positive whole numbers, the negative whole numbers and zero."
-   },
-   {
-    "type": "mc",
-    "q": "True or false? 8 ÷ 4 can be written as 8/4. Communicate your reasoning.",
-    "choices": [
-     "True",
-     "False"
-    ],
-    "answer": 0,
-    "explain": "A fraction is a division: the numerator is divided by the denominator. 8/4 = 8 ÷ 4 = 2."
-   },
-   {
-    "type": "mc",
-    "q": "Which decimal number has the value **closest to 1.0**?",
-    "choices": [
-     "0.99",
-     "1.1",
-     "0.9",
-     "2.0"
-    ],
-    "answer": 0,
-    "explain": "0.99 is only 1 hundredth (0.01) away from 1. 1.1 and 0.9 are each 1 tenth (0.1) away, and 2.0 is 1 whole away."
-   },
-   {
-    "type": "mc",
-    "q": "True or false? 5 461 793 rounded to the nearest million is 5 million.",
-    "choices": [
-     "True",
-     "False"
-    ],
-    "answer": 0,
-    "explain": "5 461 793 is less than halfway between 5 million and 6 million (5 500 000), so it rounds down to 5 000 000."
-   },
-   {
-    "type": "mc",
-    "q": "Using estimating and rounding, a reasonable solution to 451 − 49 is:",
-    "choices": [
-     "450",
-     "500",
-     "400",
-     "550"
-    ],
-    "answer": 2,
-    "explain": "451 is about 450 and 49 is about 50. 450 − 50 = 400. (The exact answer is 402.)"
-   }
-  ]
- },
- "day2": {
-  "1": [
-   {
-    "type": "mc",
-    "q": "True or false? 253 can be partitioned as 2 hundreds, 5 tens and 3 ones, or as 25 tens and 3 ones.",
-    "choices": [
-     "True",
-     "False"
-    ],
-    "answer": 0,
-    "explain": "Break the 2 hundreds into 20 tens: 20 + 5 = 25 tens, and 3 ones. Both make 253. (The slide prints \"25 tens and 3 ones\" twice; both versions are true.)"
-   },
-   {
-    "type": "mc",
-    "q": "True or false? To solve 52 + 23, using partitioning to add the tens then the ones is an efficient strategy.",
-    "choices": [
-     "True",
-     "False"
-    ],
-    "answer": 0,
-    "explain": "50 + 20 = 70 and 2 + 3 = 5, so 70 + 5 = 75. No regrouping is needed, so it's quick."
-   },
-   {
-    "type": "mc",
-    "q": "True or false? This bar model and number line show the same calculation. Bar model: ? split into 86 and 68. Number line: 86 + 4 = 90, + 60 = 150, + 4 = 154.",
-    "choices": [
-     "True",
-     "False"
-    ],
-    "answer": 0,
-    "explain": "Both show 86 + 68. The jumps add 4 + 60 + 4 = 68, landing on 154."
-   },
-   {
-    "type": "mc",
-    "q": "4 thousands, 8 hundreds, 4 tens and 6 ones is **recorded** as…",
-    "choices": [
-     "4648",
-     "4846",
-     "6484",
-     "4864"
-    ],
-    "answer": 1,
-    "explain": "4 thousands = 4000, 8 hundreds = 800, 4 tens = 40 and 6 ones = 6. 4000 + 800 + 40 + 6 = 4846."
-   },
-   {
-    "type": "mc",
-    "q": "True or false? The following number pattern is **decreasing** by a **constant amount**. 85, 80, 75, 70, 65",
-    "choices": [
-     "True",
-     "False"
-    ],
-    "answer": 0,
-    "explain": "Each number is 5 less than the one before, so it decreases by 5 every time."
-   },
-   {
-    "type": "mc",
-    "q": "The number that is 10 more than 4890 is … Communicate your reasoning.",
-    "choices": [
-     "4900",
-     "4880",
-     "4800",
-     "4990"
-    ],
-    "answer": 0,
-    "explain": "9 tens + 1 ten = 10 tens, which regroups to 1 more hundred: 4890 + 10 = 4900."
-   },
-   {
-    "type": "mc",
-    "q": "True or false? If 68 − 39 = 29, then 68 − 29 = 39.",
-    "choices": [
-     "True",
-     "False"
-    ],
-    "answer": 0,
-    "explain": "29 and 39 are the two parts of 68, so taking either part away leaves the other."
-   },
-   {
-    "type": "mc",
-    "q": "True or false? 386 can be renamed as 300 + 80 + 6 or as 38 tens and 6 ones.",
-    "choices": [
-     "True",
-     "False"
-    ],
-    "answer": 0,
-    "explain": "300 + 80 + 6 = 386, and 3 hundreds + 8 tens = 38 tens, so 38 tens and 6 ones is 386 too."
-   },
-   {
-    "type": "mc",
-    "q": "True or false? When skip counting backwards by 5s starting at 30, the next four numbers are 25, 15, 10 and 5.",
-    "choices": [
-     "True",
-     "False"
-    ],
-    "answer": 1,
-    "explain": "20 is missing: 30, 25, 20, 15, 10."
-   },
-   {
-    "type": "mc",
-    "q": "Ariah has $20 to spend at the shop. She spends $8. How much change will she get?",
-    "choices": [
-     "$28",
-     "$5",
-     "$12",
-     "$2"
-    ],
-    "answer": 2,
-    "explain": "$20 − $8 = $12. Check by counting on: $8 + $2 = $10, + $10 = $20. That's $12."
-   },
-   {
-    "type": "mc",
-    "q": "18 + 4 = 20 + __",
-    "choices": [
-     "4",
-     "24",
-     "42",
-     "2"
-    ],
-    "answer": 3,
-    "explain": "18 + 4 = 22. Take 2 from the 4 to make 18 into 20, and 2 is left: 20 + 2 = 22."
-   },
-   {
-    "type": "mc",
-    "q": "True or false? To solve 62 − 5, you can think 62 − 2 = 60, then subtract 3 more to make 57. Communicate your thinking.",
-    "choices": [
-     "True",
-     "False"
-    ],
-    "answer": 0,
-    "explain": "5 splits into 2 and 3. 62 − 2 = 60 (back to the ten), then 60 − 3 = 57."
-   }
-  ],
-  "2": [
-   {
-    "type": "mc",
-    "q": "True or false? If you rearrange the digits in 4562 to make 6542, the number becomes smaller.",
-    "choices": [
-     "True",
-     "False"
-    ],
-    "answer": 1,
-    "explain": "6542 has 6 thousands and 4562 has 4 thousands, so 6542 is larger."
-   },
-   {
-    "type": "mc",
-    "q": "True or false? 145 can be renamed as 13 tens and 15 ones.",
-    "choices": [
-     "True",
-     "False"
-    ],
-    "answer": 0,
-    "explain": "13 tens = 130 and 15 ones = 15. 130 + 15 = 145."
-   },
-   {
-    "type": "mc",
-    "q": "Name something you would measure with a 30 cm ruler, a metre ruler and a trundle wheel. Communicate your reasoning.\n\n**A pencil**",
-    "choices": [
-     "30 cm ruler",
-     "metre ruler",
-     "trundle wheel"
-    ],
-    "answer": 0
-   },
-   {
-    "type": "mc",
-    "q": "Name something you would measure with a 30 cm ruler, a metre ruler and a trundle wheel. Communicate your reasoning.\n\n**The width of the classroom door**",
-    "choices": [
-     "30 cm ruler",
-     "metre ruler",
-     "trundle wheel"
-    ],
-    "answer": 1
-   },
-   {
-    "type": "mc",
-    "q": "Name something you would measure with a 30 cm ruler, a metre ruler and a trundle wheel. Communicate your reasoning.\n\n**Around the school oval**",
-    "choices": [
-     "30 cm ruler",
-     "metre ruler",
-     "trundle wheel"
-    ],
-    "answer": 2,
-    "explain": "The slide asks students to name their own objects. These three are examples so the class has something to check."
-   },
-   {
-    "type": "mc",
-    "q": "True or false? 94, 104, 114, 124. This pattern increases by multiples of 10.",
-    "choices": [
-     "True",
-     "False"
-    ],
-    "answer": 0,
-    "explain": "Each number is 10 more than the one before. The numbers themselves are not multiples of 10, but each jump is 10."
-   },
-   {
-    "type": "mc",
-    "q": "True or false? 32 is double 8. Communicate your reasoning.",
-    "choices": [
-     "True",
-     "False"
-    ],
-    "answer": 1,
-    "explain": "Double 8 is 16. 32 is double 16 (or 4 eights)."
-   },
-   {
-    "type": "mc",
-    "q": "True or false? I have $10 and want to buy a toy for $7.70. My change will be $3.30.",
-    "choices": [
-     "True",
-     "False"
-    ],
-    "answer": 1,
-    "explain": "Count on from $7.70: + 30c = $8.00, + $2.00 = $10.00. The change is $2.30, not $3.30."
-   },
-   {
-    "type": "mc",
-    "q": "Julie wants to build a new, stronger fence around her property for her new puppy. What unit of measurement would she use to measure the fence?\n\n**Best unit**",
-    "choices": [
-     "millimetres",
-     "centimetres",
-     "metres",
-     "kilometres"
-    ],
-    "answer": 2
-   },
-   {
-    "type": "input",
-    "q": "Tom has $67 for a school project. He buys markers for $15.75 and paper for $10.23. How much does he have left?",
-    "answer": "41.02",
-    "prefix": "$"
-   },
-   {
-    "type": "mc",
-    "q": "Which is the correct **expanded form** of 305 482?",
-    "choices": [
-     "300 000 + 500 + 400 + 80 + 2",
-     "300 000 + 5 000 + 40 + 80 + 2",
-     "300 000 + 5 000 + 400 + 80 + 2",
-     "300 000 + 5 000 + 400 + 8 + 2"
-    ],
-    "answer": 2,
-    "explain": "3 hundred thousands, 0 ten thousands, 5 thousands, 4 hundreds, 8 tens and 2 ones."
-   },
-   {
-    "type": "mc",
-    "q": "Which number is **closest to 700** on a number line?",
-    "choices": [
-     "500",
-     "650",
-     "790",
-     "800"
-    ],
-    "answer": 1,
-    "explain": "650 is 50 away from 700. 790 is 90 away, 800 is 100 away and 500 is 200 away."
-   }
-  ],
-  "3": [
-   {
-    "type": "mc",
-    "q": "I am a number with **43 hundreds** and **3 ones**. Which number am I?",
-    "choices": [
-     "4300",
-     "433",
-     "4331",
-     "4303"
-    ],
-    "answer": 3,
-    "explain": "43 hundreds = 4300. Add 3 ones: 4303."
-   },
-   {
-    "type": "mc",
-    "q": "Round 48 726 to the nearest ten thousand.",
-    "choices": [
-     "40 000",
-     "48 000",
-     "50 000",
-     "48 700"
-    ],
-    "answer": 2,
-    "explain": "48 726 is between 40 000 and 50 000. It is past halfway (45 000), so it rounds up to 50 000."
-   },
-   {
-    "type": "mc",
-    "q": "Sarah arranges 24 rows of chairs, with 8 chairs in each row. How many chairs does Sarah set up in total?",
-    "choices": [
-     "192",
-     "96",
-     "32",
-     "240"
-    ],
-    "answer": 0,
-    "explain": "24 × 8 = 20 × 8 + 4 × 8 = 160 + 32 = 192."
-   },
-   {
-    "type": "mc",
-    "q": "What is three million, four hundred and eighty-seven thousand, two hundred and nine written as a number?",
-    "choices": [
-     "3 784 902",
-     "3 748 029",
-     "3 847 290",
-     "3 487 209"
-    ],
-    "answer": 3,
-    "explain": "Three million → 3, four hundred and eighty-seven thousand → 487, two hundred and nine → 209 (0 tens). 3 487 209."
-   },
-   {
-    "type": "mc",
-    "q": "True or false? 593 + 207 = 700. Communicate your strategy.",
-    "choices": [
-     "True",
-     "False"
-    ],
-    "answer": 1,
-    "explain": "593 + 7 = 600, and 600 + 200 = 800. So 593 + 207 = 800, not 700."
-   },
-   {
-    "type": "mc",
-    "q": "Rebecca drank 1/3 of a glass of juice. Liam drank 1/2 of a different glass of juice. Which of the following could explain how Rebecca drank more juice than Liam?",
-    "choices": [
-     "Rebecca's glass was larger than Liam's glass.",
-     "1/3 is always larger than 1/2.",
-     "Liam's glass was larger than Rebecca's.",
-     "Rebecca drank orange juice and Liam drank apple juice."
-    ],
-    "answer": 0,
-    "explain": "A fraction depends on the size of its whole. 1/3 of a big glass can be more than 1/2 of a small glass."
-   },
-   {
-    "type": "mc",
-    "q": "What is the closest benchmark fraction to 0.254?",
-    "choices": [
-     "1/2",
-     "2/10",
-     "3/4",
-     "1/4"
-    ],
-    "answer": 3,
-    "explain": "1/4 = 0.25, only 0.004 away from 0.254. 2/10 = 0.2 is 0.054 away, and 1/2 and 3/4 are much further."
-   },
-   {
-    "type": "input",
-    "q": "Use the strategies of **levelling** and **constant difference** to solve:\n\n**456 + 64 =**",
-    "answer": "520"
-   },
-   {
-    "type": "input",
-    "q": "Use the strategies of **levelling** and **constant difference** to solve:\n\n**289 − 31 =**",
-    "answer": "258"
-   },
-   {
-    "type": "mc",
-    "q": "Subtract 1010 from 1109.",
-    "choices": [
-     "999",
-     "109",
-     "99",
-     "1099"
-    ],
-    "answer": 2,
-    "explain": "1109 − 1000 = 109, then 109 − 10 = 99."
    },
    {
     "type": "mc",
@@ -909,142 +249,243 @@ RP.DASH_NUMERACY = {
     "answer": "60",
     "suffix": "min"
    }
-  ],
-  "4": [
+  ]
+ },
+ "day2": {
+  "2": [
    {
     "type": "mc",
-    "q": "True or false? 0.270 has the same value as 0.27",
+    "q": "True or false? 253 can be partitioned as 2 hundreds, 5 tens and 3 ones, or as 25 tens and 3 ones.",
     "choices": [
      "True",
      "False"
     ],
     "answer": 0,
-    "explain": "Both are 2 tenths and 7 hundredths. The 0 in the thousandths place adds nothing."
+    "explain": "Break the 2 hundreds into 20 tens: 20 + 5 = 25 tens, and 3 ones. Both make 253. (The slide prints \"25 tens and 3 ones\" twice; both versions are true.)"
    },
    {
     "type": "mc",
-    "q": "The **product** of 8 and 7 is:",
+    "q": "True or false? Double 5 is 10 so half of 10 must be 5.",
     "choices": [
-     "15",
-     "1",
-     "56",
-     "70"
+     "True",
+     "False"
+    ],
+    "answer": 0,
+    "explain": "Doubling and halving are the inverse of each other: 5 + 5 = 10, so 10 shared into 2 equal groups is 5."
+   },
+   {
+    "type": "mc",
+    "q": "Some categorical responses are: read in the library, go to the canteen, play on the oval. What question might have been asked?\n\n**The question was probably**",
+    "choices": [
+     "What do you do at lunch time?",
+     "How many pets do you have?",
+     "What is your favourite colour?",
+     "How tall are you?"
+    ],
+    "answer": 0
+   },
+   {
+    "type": "mc",
+    "q": "Which is the correct **expanded form** of 305 482?",
+    "choices": [
+     "300 000 + 500 + 400 + 80 + 2",
+     "300 000 + 5 000 + 40 + 80 + 2",
+     "300 000 + 5 000 + 400 + 80 + 2",
+     "300 000 + 5 000 + 400 + 8 + 2"
     ],
     "answer": 2,
-    "explain": "Product means multiply: 8 × 7 = 56. 15 is the sum and 1 is the difference."
+    "explain": "3 hundred thousands, 0 ten thousands, 5 thousands, 4 hundreds, 8 tens and 2 ones."
    },
    {
     "type": "mc",
-    "q": "True or false? Olive sold a total of $2309 worth of produce at the farmers' market over 5 days. Sam sold a total of $1880 over 4 days. Sam sold more per day than Olive.",
+    "q": "True or false? These numbers are in ascending order: 2640, 2604, 4040, 4004. Communicate your reasoning.",
     "choices": [
      "True",
      "False"
-    ],
-    "answer": 0,
-    "explain": "Olive: $2309 ÷ 5 = $461.80 a day. Sam: $1880 ÷ 4 = $470 a day. Sam sold $8.20 more per day."
-   },
-   {
-    "type": "mc",
-    "q": "Arlo wanted to track the growth of a new plant in his garden over time. Identify the type of data display that would be most suitable to represent this information.\n\n**Best display**",
-    "choices": [
-     "pie chart",
-     "line graph",
-     "picture graph",
-     "dot plot"
-    ],
-    "answer": 1
-   },
-   {
-    "type": "mc",
-    "q": "True or false? If I divided 2 brownies between 3 children, each child would get 2/3.",
-    "choices": [
-     "True",
-     "False"
-    ],
-    "answer": 0,
-    "explain": "Cut each brownie into thirds. Each child gets 1/3 of each brownie: 1/3 + 1/3 = 2/3 of a brownie. 2 ÷ 3 = 2/3."
-   },
-   {
-    "type": "mc",
-    "q": "Is this an example of biased data collection? A sports store wanted to find out which sport is most popular in the community. They handed out surveys only at the local football club asking, \"What is your favourite sport?\" Communicate your thinking.\n\n**Is it biased?**",
-    "choices": [
-     "Yes",
-     "No"
-    ],
-    "answer": 0
-   },
-   {
-    "type": "mc",
-    "q": "Is this an example of biased data collection? A sports store wanted to find out which sport is most popular in the community. They handed out surveys only at the local football club asking, \"What is your favourite sport?\" Communicate your thinking.\n\n**Why?**",
-    "choices": [
-     "Only people at a football club were asked",
-     "The question was too short",
-     "Too many people were asked"
-    ],
-    "answer": 0
-   },
-   {
-    "type": "mc",
-    "q": "True or false? 24 counters could be arranged into an 8 by 3 array. Communicate your reasoning.",
-    "choices": [
-     "True",
-     "False"
-    ],
-    "answer": 0,
-    "explain": "8 rows of 3 = 24, because 8 × 3 = 24."
-   },
-   {
-    "type": "mc",
-    "q": "Sandy is keeping track of the hotel elevator from the lobby (floor 0). The elevator goes up 3 floors, then down 8 floors. What floor is the elevator on now?",
-    "choices": [
-     "−3",
-     "−5",
-     "−8",
-     "0"
     ],
     "answer": 1,
-    "explain": "0 + 3 = 3, then 3 − 8 = −5. The elevator is at floor −5 (Deliveries)."
+    "explain": "2604 is smaller than 2640 (0 tens is less than 4 tens), and 4004 is smaller than 4040. Ascending order is 2604, 2640, 4004, 4040."
    },
    {
     "type": "mc",
-    "q": "Cassie shares 15 apples equally among 5 friends. She writes the fraction 15/5. What does the 15 represent in this fraction?",
+    "q": "532 178 in non-standard partitioning is:",
     "choices": [
-     "The number of groups.",
-     "The total amount being shared.",
-     "The amount each person gets.",
-     "The number of people sharing."
+     "520 000 + 178",
+     "400 000 + 130 000 + 2100 + 70 + 8",
+     "500 000 + 30 000 + 2000 + 100 + 70 + 8",
+     "5000 + 3000 + 2000 + 178"
     ],
     "answer": 1,
-    "explain": "15/5 = 15 ÷ 5. The numerator (15) is the total being shared, the denominator (5) is the number of people sharing, and the answer (3) is how many each friend gets."
+    "explain": "400 000 + 130 000 + 2100 + 70 + 8 = 532 178. C is the standard partition, and A and D don't add up to 532 178."
    },
    {
     "type": "mc",
-    "q": "Which shows 184 353 **rounded to the nearest hundred**?",
+    "q": "True or false? Emily rolled five 0–9 dice. Her digits were 7, 3, 1, 4, 9. The smallest number she could make by arranging the digits is 14 379.",
     "choices": [
-     "184 400",
-     "184 440",
-     "184 300",
-     "185 000"
+     "True",
+     "False"
     ],
-    "answer": 0,
-    "explain": "184 353 is between 184 300 and 184 400. It is more than halfway (184 350), so it rounds up to 184 400."
+    "answer": 1,
+    "explain": "Put the digits from smallest to largest: 1, 3, 4, 7, 9. The smallest number is 13 479, which is less than 14 379."
+   },
+   {
+    "type": "input",
+    "q": "Think about a **rectangular prism**. How many faces, vertices and edges does it have?\n\n**faces**",
+    "answer": "6"
+   },
+   {
+    "type": "input",
+    "q": "Think about a **rectangular prism**. How many faces, vertices and edges does it have?\n\n**vertices**",
+    "answer": "8"
+   },
+   {
+    "type": "input",
+    "q": "Think about a **rectangular prism**. How many faces, vertices and edges does it have?\n\n**edges**",
+    "answer": "12"
    },
    {
     "type": "mc",
-    "q": "True or false? 1000 thousands is 1 million.",
+    "q": "True or false? 386 can be renamed as 300 + 80 + 6 or as 38 tens and 6 ones.",
     "choices": [
      "True",
      "False"
     ],
     "answer": 0,
-    "explain": "1000 × 1000 = 1 000 000. Group 10 thousands into a ten thousand, 10 ten thousands into a hundred thousand, and 10 hundred thousands into a million."
+    "explain": "300 + 80 + 6 = 386, and 3 hundreds + 8 tens = 38 tens, so 38 tens and 6 ones is 386 too."
+   },
+   {
+    "type": "mc",
+    "q": "True or false? When skip counting backwards by 5s starting at 30, the next four numbers are 25, 15, 10 and 5.",
+    "choices": [
+     "True",
+     "False"
+    ],
+    "answer": 1,
+    "explain": "20 is missing: 30, 25, 20, 15, 10."
+   }
+  ],
+  "3": [
+   {
+    "type": "mc",
+    "q": "I am a number with **43 hundreds** and **3 ones**. Which number am I?",
+    "choices": [
+     "4300",
+     "433",
+     "4331",
+     "4303"
+    ],
+    "answer": 3,
+    "explain": "43 hundreds = 4300. Add 3 ones: 4303."
+   },
+   {
+    "type": "mc",
+    "q": "Emma ate 1/6 of her cake and Jake ate 1/10 of his cake. Who ate the larger portion?",
+    "choices": [
+     "Emma ate the larger portion because 1/6 is greater than 1/10.",
+     "Jake ate the larger portion because 1/10 is greater than 1/6.",
+     "They ate the same amount because they both ate 1 slice.",
+     "It depends on the size of the cakes."
+    ],
+    "answer": 3,
+    "explain": "1/6 of a cake is bigger than 1/10 of the same-sized cake. But the cakes might be different sizes: 1/10 of a huge cake could be more than 1/6 of a small one. You can only compare fractions of the same whole."
+   },
+   {
+    "type": "mc",
+    "q": "True or false? 483 160 can be partitioned as 483 000 + 6 160",
+    "choices": [
+     "True",
+     "False"
+    ],
+    "answer": 1,
+    "explain": "483 000 + 6160 = 489 160. A correct partition is 483 000 + 160."
+   },
+   {
+    "type": "mc",
+    "q": "Which of the following includes the **factors** of 30?",
+    "choices": [
+     "1, 2, 3, 4, 6, 8, 15, 30",
+     "2, 4, 6, 10, 15, 30",
+     "1, 2, 3, 5, 6, 10, 15, 30",
+     "3, 6, 8, 9, 15, 30"
+    ],
+    "answer": 2,
+    "explain": "Every factor pair of 30: 1 × 30, 2 × 15, 3 × 10, 5 × 6."
+   },
+   {
+    "type": "mc",
+    "q": "Using estimating and rounding, a reasonable solution to 451 − 49 is:",
+    "choices": [
+     "450",
+     "500",
+     "400",
+     "550"
+    ],
+    "answer": 2,
+    "explain": "451 is about 450 and 49 is about 50. 450 − 50 = 400. (The exact answer is 402.)"
+   },
+   {
+    "type": "mc",
+    "q": "Sadie said '4009 − 2997 is the same as 4012 − 3000, which equals 1012'. Which strategy did Sadie use?",
+    "choices": [
+     "Constant difference",
+     "Levelling",
+     "Addition for subtraction",
+     "Bridging"
+    ],
+    "answer": 0,
+    "explain": "She added 3 to both numbers. The difference stays the same, and 4012 − 3000 is easy."
+   },
+   {
+    "type": "mc",
+    "q": "True or false? 'Product' means the result of multiplying 2 or more numbers.",
+    "choices": [
+     "True",
+     "False"
+    ],
+    "answer": 0,
+    "explain": "For example, the product of 4 and 6 is 24, because 4 × 6 = 24."
+   },
+   {
+    "type": "mc",
+    "q": "Subtract 1010 from 1109.",
+    "choices": [
+     "999",
+     "109",
+     "99",
+     "1099"
+    ],
+    "answer": 2,
+    "explain": "1109 − 1000 = 109, then 109 − 10 = 99."
+   },
+   {
+    "type": "input",
+    "q": "Record the answers.\n\n**4 × 70 =**",
+    "answer": "280"
+   },
+   {
+    "type": "input",
+    "q": "Record the answers.\n\n**6 × 300 =**",
+    "answer": "1800"
+   },
+   {
+    "type": "input",
+    "q": "Record the answers.\n\n**9 × 8000 =**",
+    "answer": "72000"
+   },
+   {
+    "type": "mc",
+    "q": "True or false? 543 + 245 = 500 + 200 + 88",
+    "choices": [
+     "True",
+     "False"
+    ],
+    "answer": 0,
+    "explain": "543 + 245 = 788. 500 + 200 + 88 = 788 too: the tens and ones (43 + 45 = 88) are added together."
    }
   ]
  },
  "sources": {
-  "1": "Year 3: Stage 2 Year A units 1, 2, 3, 4, 5, 6, 7, 8, 9",
-  "2": "Year 4: Stage 2 Year B units 21, 22, 23, 24, 25, 26, 27, 28, 29, 36",
-  "3": "Year 5: Stage 3 Year A units 1, 2, 3, 4, 5, 6, 7, 8, 9, 16",
-  "4": "Year 6: Stage 3 Year B units 21, 22, 23, 24, 25, 26, 27, 28, 29"
+  "2": "Stage 2 (Years 3–4): units A1, A2, A3, A4, A5, A6, A7, A8, A9, B21, B22, B23, B24, B25, B26, B27, B28, B29, B36",
+  "3": "Stage 3 (Years 5–6): units A1, A2, A3, A4, A5, A6, A7, A8, A9, A16, B21, B22, B23, B24, B25, B26, B27, B28, B29"
  }
 };

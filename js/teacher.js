@@ -1100,20 +1100,48 @@
     app().querySelectorAll("[data-preview]").forEach(b => b.onclick = () => previewModule(b.dataset.preview));
   }
 
-  // A pop-up with every page and question of an independent module, and the answers.
-  function previewModule(id) {
+  // A pop-up showing an independent module two ways: running exactly as students see it (nothing
+  // is saved), and as a list of every page and question with the answers.
+  function previewModule(id, tab) {
     const m = RP.MODULES[id];
     if (!m) return;
     const box = document.createElement("dialog");
     box.className = "preview-dialog";
     box.innerHTML = `
-      <div class="preview-head"><h2>${m.icon ? m.icon + " " : ""}${h(m.title)}</h2><button class="btn ghost" data-close>Close ✕</button></div>
-      ${RP.previewModule(m)}`;
+      <div class="preview-head">
+        <h2>${m.icon ? m.icon + " " : ""}${h(m.title)}</h2>
+        <div class="preview-tabs" role="tablist">
+          <button class="btn small" data-tab="try" role="tab">Try it as a student</button>
+          <button class="btn small" data-tab="list" role="tab">Questions and answers</button>
+        </div>
+        <button class="btn ghost" data-close>Close ✕</button>
+      </div>
+      <p class="muted small preview-note" data-preview-note>Preview: this is what students see. Nothing is saved, and Save and close closes the preview.</p>
+      <div class="preview-body" data-preview-body></div>`;
     document.body.appendChild(box);
+    const body = box.querySelector("[data-preview-body]");
+    const show = which => {
+      RP.speech.stop();
+      box.querySelectorAll("[data-tab]").forEach(b => { const on = b.dataset.tab === which; b.classList.toggle("primary", on); b.setAttribute("aria-selected", on); });
+      box.querySelector("[data-preview-note]").hidden = which === "list";
+      if (which === "list") { body.className = "preview-body"; body.innerHTML = RP.previewModule(m); return; }
+      body.className = "preview-body preview-try";
+      let saved = {};
+      const restart = () => show("try");
+      RP.Player.open({
+        el: body, module: m, session: { id: "preview", status: "not_started", state: null },
+        answers: { get: () => saved, set: a => { saved = a; } },
+        save: () => {},
+        onExit: () => box.close(),
+        onFinish: (result, state, worksheet) => RP.Player.finished(body, Object.assign({ title: m.title, date: RP.longDate(new Date().toISOString()), worksheet, justFinished: true }, result), restart)
+      });
+    };
+    box.querySelectorAll("[data-tab]").forEach(b => b.onclick = () => show(b.dataset.tab));
     box.querySelector("[data-close]").onclick = () => box.close();
-    box.addEventListener("close", () => box.remove());
+    box.addEventListener("close", () => { RP.speech.stop(); box.remove(); });
     box.addEventListener("click", e => { if (e.target === box) box.close(); });
     box.showModal();
+    show(tab || "try");
   }
 
   // ---------------------------------------------------------------- printing
