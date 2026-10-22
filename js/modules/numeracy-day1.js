@@ -1,12 +1,13 @@
 /*
   Numeracy Day 1: about 30 minutes. Each level is an NSW Stage: Level 1 = Stage 1 (Years 1–2)
   up to Level 5 = Stage 5 (Years 9–10). Levels 2 and 3 come from The Daily Dash (numeracy-dash.js,
-  built by tools/dash-numeracy.js); Levels 1, 4 and 5 are written here.
+  built by tools/dash-numeracy.js); Levels 1, 4 and 5 are written here. Students only see "Level N"
+  and the "about" text; "staff" (the Stage and Years) shows only in the staff preview and dashboard.
 */
 (function () {
   const STAGE = { 2: "Stage 2 (Years 3–4)", 3: "Stage 3 (Years 5–6)" };
   const dashLevels = day => [2, 3].filter(n => RP.DASH_NUMERACY && RP.DASH_NUMERACY[day][n])
-    .map(n => ({ level: n, title: "Level " + n, about: STAGE[n] + ", from The Daily Dash", items: RP.DASH_NUMERACY[day][n] }));
+    .map(n => ({ level: n, title: "Level " + n, about: "Mixed review", staff: STAGE[n] + ", from The Daily Dash", items: RP.DASH_NUMERACY[day][n] }));
 RP.registerModule({
   id: "numeracy-day1",
   title: "Numeracy: Day 1",
@@ -14,7 +15,7 @@ RP.registerModule({
   about: "Maths questions at your level. Choose your level, then check each answer as you go. You can have more than one try.\n\nAbout 30 minutes.",
   levels: [
     {
-      level: 1, title: "Level 1", about: "Stage 1 (Years 1–2): adding, subtracting, place value and patterns",
+      level: 1, title: "Level 1", staff: "Stage 1 (Years 1–2)", about: "Adding, subtracting, place value and patterns",
       items: [
         { type: "input", q: "5 + 4 = ?", answer: "9" },
         { type: "input", q: "10 − 3 = ?", answer: "7" },
@@ -32,7 +33,7 @@ RP.registerModule({
     },
   ].concat(dashLevels("day1"), [
     {
-      level: 4, title: "Level 4", about: "Stage 4 (Years 7–8): Integers, decimals, fractions and percentages",
+      level: 4, title: "Level 4", staff: "Stage 4 (Years 7–8)", about: "Integers, decimals, fractions and percentages",
       items: [
         { type: "input", q: "15 × 12 = ?", answer: "180" },
         { type: "input", q: "1000 − 457 = ?", answer: "543" },
@@ -50,7 +51,7 @@ RP.registerModule({
       ]
     },
     {
-      level: 5, title: "Level 5", about: "Stage 5 (Years 9–10): Powers, order of operations, fractions and percentage change",
+      level: 5, title: "Level 5", staff: "Stage 5 (Years 9–10)", about: "Powers, order of operations, fractions and percentage change",
       items: [
         { type: "input", q: "2³ × 5 = ?", answer: "40" },
         { type: "input", q: "√144 = ?", answer: "12" },
