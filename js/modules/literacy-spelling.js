@@ -2,6 +2,7 @@
 RP.registerModule({
   id: "literacy-spelling",
   title: "Literacy: Spelling and Punctuation",
+  hidden: true, // used inside the Literacy module (literacy.js); kept so older plans still work
   icon: "✏️",
   about: "Spot the right spelling, fix punctuation, and use apostrophes and commonly confused words correctly.",
   levels: [

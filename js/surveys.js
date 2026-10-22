@@ -20,15 +20,38 @@ RP.SURVEY_STATEMENTS = [
   "I feel confident that I can manage challenges and get back on track at school."
 ];
 
+// The morning ready-to-learn check, at the start of both morning surveys. Saved in the morning
+// session's result as { light, have: [ids], missing: [ids] } and shown on the teacher's dashboard.
+RP.READY_LIGHTS = [
+  { id: "green", label: "Green: ready to learn" },
+  { id: "amber", label: "Amber: getting there" },
+  { id: "red", label: "Red: not ready yet" }
+];
+RP.READY_ITEMS = [
+  { id: "breakfast", label: "Breakfast", q: "Have you had breakfast?" },
+  { id: "pen", label: "Pen", q: "Do you have a pen?" },
+  { id: "uniform", label: "Uniform", q: "Are you in uniform?" },
+  { id: "bag", label: "Bag", q: "Do you have your bag?" },
+  { id: "lunch", label: "Lunch", q: "Do you have lunch?" },
+  { id: "food", label: "Food for B1", q: "Do you have other food for B1?" }
+];
+RP.readyResult = function (a) {
+  a = a || { have: {} };
+  const have = a.have || {};
+  return { light: a.light || null, have: RP.READY_ITEMS.filter(x => have[x.id] === true).map(x => x.id), missing: RP.READY_ITEMS.filter(x => have[x.id] === false).map(x => x.id) };
+};
+
 (function () {
   const PRIVACY = "Please don't write anyone's name, or details that could identify you or anyone else.";
   const intro = (title, text) => ({ type: "read", title, text: `${text}\n\n**There are no right or wrong answers.** It isn't a test. Your answers go to your teacher and help make the program better. ${PRIVACY}` });
   const ratings = { type: "rating", title: "How much do you agree?", q: "Choose one number for each statement.", low: "Strongly disagree", high: "Strongly agree", statements: RP.SURVEY_STATEMENTS };
   const write = (title, prompts) => ({ type: "write", title, prompts });
   const survey = (id, title, items) => ({ id, survey: id, score: false, title, items });
+  const ready = { type: "ready", title: "Ready to learn?" };
 
   RP.SURVEYS = {
-    d1am: survey("d1am", "Day 1 morning survey", [
+    d1am: survey("d1am", "Day 1 morning check-in", [
+      ready,
       intro("Day 1 morning survey", "Welcome to the Reset Program. This survey helps us understand how you're feeling at the start."),
       ratings,
       write("Starting today", [
@@ -36,7 +59,8 @@ RP.SURVEY_STATEMENTS = [
         "Is there anything that would help you feel more comfortable in the Hub today?"
       ])
     ]),
-    d2am: survey("d2am", "Day 2 morning survey", [
+    d2am: survey("d2am", "Day 2 morning check-in", [
+      ready,
       intro("Day 2 morning survey", "Welcome back. This survey helps us understand how you're feeling at the start of Day 2."),
       ratings,
       write("Starting today", [

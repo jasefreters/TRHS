@@ -154,7 +154,7 @@
   // ---------------------------------------------------------------- helpers
   const sessionsFor = (v, day) => v.sessions.filter(s => s.day === day).sort((a, b) => a.slot - b.slot);
   const at = (v, day, slot) => v.sessions.find(s => s.day === day && s.slot === slot);
-  const titleOf = s => s.kind === "independent" && s.activity && RP.MODULES[s.activity] ? RP.MODULES[s.activity].title : s.title;
+  const titleOf = s => RP.sessionTitle(s);
   const teacherTicks = s => ["group", "one_to_one"].includes(s.kind);
   const individualsOn = (v, day) => v.sessions.filter(s => s.day === day && s.kind === "one_to_one").sort((a, b) => a.slot - b.slot);
 
@@ -171,7 +171,7 @@
   const missingIndividual = (v, day) => (RP.INDIVIDUAL_SESSIONS || []).filter(x => x.day === day && !v.sessions.some(s => s.day === day && s.activity === x.id));
 
   function statusText(s) {
-    if (s.kind === "independent" && !s.activity) return "Not chosen yet";
+    if (s.kind === "independent" && !s.activity) return "Empty";
     if (s.kind === "debrief" || s.kind === "intro" || s.kind === "survey") return s.status === "done" ? "Survey done" + (s.result && s.result.survey ? ` · ${s.result.total}/${s.result.max || 50}` : "") : s.status === "in_progress" ? "Survey started" : "Survey not done";
     if (s.status === "done") return "Done" + (s.result && RP.resultText(s.result) ? " · " + RP.resultText(s.result) : "");
     if (s.status === "in_progress") return "In progress";
@@ -242,6 +242,7 @@
       on("[data-laptop]", () => toStudentView(v.student.code));
       on("[data-finish]", () => finish(v));
       on("[data-pause]", () => setPaused(v, !v.paused));
+      el.querySelectorAll("[data-preview]").forEach(b => b.onclick = () => previewModule(b.dataset.preview));
       el.querySelectorAll("[data-ind]").forEach(b => b.onclick = () => show({ name: "individual", visitId: v.id, sessionId: b.dataset.ind, from: "board" }));
       el.querySelectorAll("[data-tick]").forEach(b => b.onclick = async () => {
         const s = v.sessions.find(s => s.id === b.dataset.tick);
@@ -294,20 +295,22 @@
           <div class="muted">${v.student.year_level ? "Year " + v.student.year_level + " · " : ""}<strong>Day ${v.current_day}</strong></div>
         </header>
         <div class="mini-day" aria-label="Today's sessions">${mini}</div>
+        ${readyLine(v)}
         <div class="now-line">${cur ? `<span class="muted">Now:</span> ${h(titleOf(cur))} <span class="muted">· ${h(statusText(cur))}</span>
-          ${teacherTicks(cur) ? `<button class="btn small" data-tick="${cur.id}">${cur.status === "done" ? "Undo tick" : "Tick done"}</button>` : ""}` :
+          ${teacherTicks(cur) ? `<button class="btn small" data-tick="${cur.id}">${cur.status === "done" ? "Undo tick" : "Tick done"}</button>` : ""}
+          ${cur.kind === "independent" && cur.activity && RP.MODULES[cur.activity] ? `<button class="btn small" data-preview="${h(cur.activity)}">View module</button>` : ""}` :
           `<span class="muted">${typeof now === "object" && now.brk ? h(now.brk) : "Outside program hours"}</span>`}</div>
         ${inds.length ? inds.map(one => {
           const t = RP.slotTimes(one.slot);
-          return `<div class="row"><button class="link-btn" data-ind="${one.id}">${t ? RP.formatTime(t.start) + " " : ""}${h(titleOf(one).replace(/^Individual:\s*/, "Individual: "))}</button>
+          return `<div class="row"><button class="link-btn" data-ind="${one.id}">${t ? RP.formatTime(t.start) + " " : ""}Teacher-led: ${h(titleOf(one))}</button>
             <button class="btn small${one.status === "done" ? " ok" : ""}" data-tick="${one.id}">${one.status === "done" ? "✓ Done" : "Mark done"}</button>
             ${t && staffing[one.slot] ? `<span class="muted">with ${h(staffing[one.slot])}</span>` : ""}
             ${clash[one.slot] ? `<span class="warn">Clashes with ${h(clash[one.slot].join(", "))}</span>` : ""}</div>`;
-        }).join("") : `<div class="row"><span class="warn">No individual session planned for today</span></div>`}
+        }).join("") : `<div class="row"><span class="warn">No teacher-led session planned for today</span></div>`}
         ${finished.length ? `<div class="row results"><span class="muted">Finished:</span> ${finished.map(s => `${h(titleOf(s))}${s.result && RP.resultText(s.result) ? ` <span class="muted">(${h(RP.resultText(s.result))})</span>` : ""}`).join(", ")}</div>` : ""}
         <div class="row core">${missing.length ? `<span class="muted">Core still to do:</span> ${missing.map(g => h(g.title)).join(", ")}` : `<span class="ok-text">✓ All core group sessions done</span>`}</div>
         <footer>
-          <button class="btn primary small" data-plan>Plan &amp; ticks</button>
+          <button class="btn primary small" data-plan>Daily schedule</button>
           <button class="btn small" data-record-page>Record</button>
           ${v.current_day === 1 ? `<button class="btn small" data-day2>Move to Day 2</button>` : ""}
           <button class="btn small" data-laptop>Student view on this laptop</button>
@@ -315,6 +318,16 @@
           <button class="btn small danger" data-finish>Finish program</button>
         </footer>
       </article>`;
+  }
+
+  // The morning ready-to-learn check: traffic light and anything they don't have.
+  function readyLine(v) {
+    const intro = v.sessions.find(s => s.day === v.current_day && s.kind === "intro" && s.result && s.result.ready);
+    if (!intro) return "";
+    const r = intro.result.ready;
+    const light = RP.READY_LIGHTS.find(l => l.id === r.light);
+    const missing = RP.READY_ITEMS.filter(x => (r.missing || []).includes(x.id)).map(x => x.label.toLowerCase());
+    return `<div class="row ready-line">${light ? `<span class="dot dot-${r.light}" aria-hidden="true"></span> ${h(light.label)}` : `<span class="muted">Ready check done</span>`}${missing.length ? ` · <span class="warn">No: ${h(missing.join(", "))}</span>` : ""}</div>`;
   }
 
   async function finish(v) {
@@ -351,7 +364,7 @@
           <label class="field">Today's group session rotation
             <select name="rotation">${Object.keys(RP.ROTATIONS).map(r => `<option value="${r}">Rotation ${r}: ${rotationSummary(r)}</option>`).join("")}</select>
           </label>
-          <p class="muted">Their Day 1 uses today's rotation and Day 2 uses the other one, so they get every group session. You can change any session afterwards.</p>
+          <p class="muted">Their Day 1 uses today's rotation and Day 2 uses the other one, so they get every group module. The other sessions start empty for you to fill in on their daily schedule.</p>
           <p class="muted">No names are stored. The website makes a code; write it next to the student's name on your offline list.</p>
           <button class="btn primary big" type="submit">Create code</button>
           <p class="error" aria-live="polite"></p>
@@ -385,14 +398,13 @@
           <p>The student's code is</p>
           <div class="big-code">${h(RP.formatCode(student.code))}</div>
           <p><strong>Write this code next to the student's name on your offline list now.</strong> The website doesn't know their name, so this is the only way to match them up later.</p>
-          <div class="actions"><button class="btn primary big" data-setup>Set up their plan</button></div>
+          <div class="actions"><button class="btn primary big" data-setup>Set up their daily schedule</button></div>
         </div>
       </div>`;
     $("[data-setup]").onclick = () => show({ name: "plan", visitId, from: "board" });
   }
 
   // ---------------------------------------------------------------- summaries
-  const isModule = a => /^module-\d+$/.test(a || "");
   const latestVisit = st => (st.visits || []).filter(v => v.kind !== "followup").sort((a, b) => b.start_date.localeCompare(a.start_date) || b.created_at.localeCompare(a.created_at))[0];
   const visitsNewestFirst = st => (st.visits || []).slice().sort((a, b) => b.start_date.localeCompare(a.start_date) || b.created_at.localeCompare(a.created_at));
 
@@ -401,19 +413,18 @@
     const results = id => done.filter(s => s.activity === id).map(s => RP.resultText(s.result) || "done").join("; ");
     const core = RP.GROUP_SESSIONS.filter(g => g.core);
     return {
-      modules: [...new Set(done.filter(s => s.kind === "independent" && isModule(s.activity)).map(s => Number(s.activity.split("-")[1])))].sort((a, b) => a - b),
-      moduleCount: Object.keys(RP.MODULES).filter(isModule).length,
+      independent: done.filter(s => s.kind === "independent" && s.activity && !["numeracy", "literacy"].includes(s.activity)).map(titleOf),
       numeracy: results("numeracy"),
       literacy: results("literacy"),
-      other: done.filter(s => s.kind === "independent" && s.activity && !isModule(s.activity) && !["numeracy", "literacy"].includes(s.activity)).map(titleOf),
       coreDone: core.filter(g => done.some(s => s.kind === "group" && s.activity === g.id)).length,
       coreTotal: core.length,
       ones: done.filter(s => s.kind === "one_to_one").length,
       onesPlanned: v.sessions.filter(s => s.kind === "one_to_one").length,
-      surveys: surveyTotals(v),
-      readingLevels: [...new Set(done.map(s => s.result && s.result.readingLevel).filter(Boolean))].sort()
+      surveys: surveyTotals(v)
     };
   }
+  // "3 independent · 1/2 teacher-led"
+  const individualText = sum => `${sum.independent.length} independent · ${sum.ones}/${sum.onesPlanned} teacher-led`;
 
   // Survey totals out of 50 in a program: { d1am: 28, d1pm: 31, ... }.
   function surveyTotals(v) {
@@ -433,7 +444,7 @@
   function answerTitle(s) {
     const id = RP.surveyIdFor(s);
     if (id && RP.SURVEYS[id]) return RP.SURVEYS[id].title + (s.result && s.result.survey ? ` (${s.result.total}/${s.result.max || 50})` : "");
-    return titleOf(s) + (s.result && s.result.readingLevel ? ` (reading level ${s.result.readingLevel})` : "");
+    return titleOf(s) + (s.result && s.result.levelTitle ? ` (${s.result.levelTitle})` : "");
   }
 
   function statusLabel(v) {
@@ -441,12 +452,6 @@
     if (v.kind === "followup") return v.active ? `<span class="tag">Follow-up survey open</span>` : `<span class="tag done-tag">Follow-up</span>`;
     if (v.active && v.paused) return `<span class="tag paused-tag">Paused</span>`;
     return v.active ? `<span class="tag">In program · Day ${v.current_day}</span>` : `<span class="tag done-tag">Finished</span>`;
-  }
-
-  function modulePills(sum) {
-    let out = "";
-    for (let n = 1; n <= sum.moduleCount; n++) out += `<span class="pill${sum.modules.includes(n) ? " on" : ""}" title="Module ${n}${sum.modules.includes(n) ? " done" : ""}">${n}</span>`;
-    return `<span class="pills">${out}</span>`;
   }
 
   // ---------------------------------------------------------------- all students
@@ -535,7 +540,7 @@
       <p class="muted">${list.length} student${list.length === 1 ? "" : "s"} · ${programs} program${programs === 1 ? "" : "s"}${list.length < allStudents.length ? ` (filtered from ${allStudents.length})` : ""}. Click a student to see their full record.</p>
       ${list.length ? `
       <div class="table-wrap"><table class="records">
-        <thead><tr><th>Code</th><th>Year</th><th>Latest program</th><th>Status</th><th>Programs</th><th>Modules</th><th>Numeracy</th><th>Literacy</th><th>Core sessions</th><th>Individual</th><th>Survey start → end</th></tr></thead>
+        <thead><tr><th>Code</th><th>Year</th><th>Latest program</th><th>Status</th><th>Programs</th><th>Group modules</th><th>Individual sessions</th><th>Literacy</th><th>Survey start → end</th></tr></thead>
         <tbody>${list.map(st => {
           const v = latestVisit(st), sum = v ? summary(v) : null;
           return `<tr data-student="${st.id}" tabindex="0">
@@ -544,11 +549,9 @@
             <td>${v ? RP.formatDate(v.start_date) : ""}</td>
             <td>${statusLabel(v && (st.visits.find(x => x.active) || v))}</td>
             <td>${(st.visits || []).length}</td>
-            <td>${sum ? modulePills(sum) : ""}</td>
-            <td>${sum ? h(sum.numeracy) : ""}</td>
-            <td>${sum ? h(sum.literacy) : ""}</td>
             <td>${sum ? `${sum.coreDone}/${sum.coreTotal}` : ""}</td>
-            <td>${sum ? `${sum.ones}/${sum.onesPlanned}` : ""}</td>
+            <td${sum && sum.independent.length ? ` title="${h(sum.independent.join(", "))}"` : ""}>${sum ? h(individualText(sum)) : ""}</td>
+            <td>${sum ? h(sum.literacy) : ""}</td>
             <td>${sum ? h(surveyText(sum)) : ""}</td>
           </tr>`;
         }).join("")}</tbody>
@@ -562,12 +565,12 @@
 
   // One row per program, for matching to names offline and for reports.
   function downloadCsv() {
-    const rows = [["Code", "Year level", "Program start", "Status", "Current day", "Modules completed", "Numeracy", "Literacy", "Other electives", "Core group sessions", "Individual sessions done", "Reading levels chosen",
+    const rows = [["Code", "Year level", "Program start", "Status", "Current day", "Independent sessions completed", "Literacy", "Numeracy", "Core group modules", "Teacher-led sessions done",
       ...RP.SURVEY_ORDER.map(id => `Survey ${RP.SURVEY_SHORT[id]} (/50)`), "Survey change (D1 start to D2 end)"]];
     filtered().forEach(st => visitsNewestFirst(st).forEach(v => {
       const sum = summary(v);
       rows.push([RP.formatCode(st.code), st.year_level || "", v.start_date, v.kind === "followup" ? "Follow-up" : v.paused && v.active ? "Paused" : v.active ? "In program" : "Finished", v.active ? v.current_day : "",
-        sum.modules.join(" "), sum.numeracy, sum.literacy, sum.other.join("; "), `${sum.coreDone}/${sum.coreTotal}`, `${sum.ones}/${sum.onesPlanned}`, sum.readingLevels.join(" "),
+        sum.independent.join("; "), sum.literacy, sum.numeracy, `${sum.coreDone}/${sum.coreTotal}`, `${sum.ones}/${sum.onesPlanned}`,
         ...RP.SURVEY_ORDER.map(id => sum.surveys[id] == null ? "" : sum.surveys[id]),
         sum.surveys.d1am != null && sum.surveys.d2pm != null ? sum.surveys.d2pm - sum.surveys.d1am : ""]);
     }));
@@ -669,7 +672,7 @@
         </section>`;
     }
     const sum = summary(v);
-    const certs = v.sessions.filter(s => s.kind === "independent" && s.status === "done" && s.activity && RP.MODULES[s.activity]);
+    const certDays = [1, 2].filter(d => RP.dayModules(v.sessions, d).length);
     const answered = v.sessions.filter(s => ["independent", "debrief", "intro", "survey"].includes(s.kind) && s.status === "done" && s.state && s.state.responses && s.state.responses.length)
       .sort((a, b) => a.day - b.day || a.slot - b.slot);
     const anyActive = (student.visits || []).some(x => x.active);
@@ -679,7 +682,7 @@
         <ol class="record-list">${sessionsFor(v, day).map(s => {
           const t = RP.slotTimes(s.slot);
           return `<li class="${s.status === "done" ? "is-done" : ""}">
-            <span class="time">${t ? RP.formatTime(t.start) : "1:1"}</span>
+            <span class="time">${t ? RP.formatTime(t.start) : "Any time"}</span>
             <span class="r-title">${h(titleOf(s))} <span class="muted">· ${h(RP.KIND_LABEL[s.kind])}</span></span>
             <span class="r-status">${s.status === "done" ? "✓ " : ""}${h(statusText(s))}</span>
           </li>`;
@@ -691,21 +694,18 @@
           <h2>Program starting ${RP.formatDate(v.start_date)} ${statusLabel(v)}</h2>
           <div class="page-actions">
             <button class="btn small primary" data-edit>Edit program</button>
-            <button class="btn small" data-certs ${certs.length ? "" : "disabled"}>Print certificates${certs.length ? ` (${certs.length})` : ""}</button>
+            <button class="btn small" data-certs ${certDays.length ? "" : "disabled"}>Print certificates${certDays.length ? ` (${certDays.length})` : ""}</button>
             <button class="btn small" data-record>Print program record</button>
             ${v.active ? `<button class="btn small" data-pause>${v.paused ? "Resume" : "Pause"}</button><button class="btn small" data-finish>Finish program</button>` : (anyActive ? "" : `<button class="btn small" data-reopen>Reopen</button>`)}
             <button class="btn small danger" data-delete-program>Delete program</button>
           </div>
         </div>
         <div class="program-summary">
-          <span><span class="muted">Modules</span> ${modulePills(sum)}</span>
-          <span><span class="muted">Numeracy</span> ${h(sum.numeracy || "–")}</span>
+          <span><span class="muted">Group modules</span> ${sum.coreDone}/${sum.coreTotal}</span>
+          <span><span class="muted">Individual sessions</span> ${h(individualText(sum))}</span>
           <span><span class="muted">Literacy</span> ${h(sum.literacy || "–")}</span>
-          <span><span class="muted">Core sessions</span> ${sum.coreDone}/${sum.coreTotal}</span>
-          <span><span class="muted">Individual</span> ${sum.ones}/${sum.onesPlanned}</span>
           ${Object.keys(sum.surveys).length ? `<span><span class="muted">Surveys</span> ${RP.SURVEY_ORDER.filter(id => sum.surveys[id] != null).map(id => `${h(RP.SURVEY_SHORT[id])} <strong>${sum.surveys[id]}</strong>`).join(" · ")}</span>` : ""}
-          ${sum.readingLevels.length ? `<span><span class="muted">Reading level</span> ${sum.readingLevels.join(", ")}</span>` : ""}
-          ${sum.other.length ? `<span><span class="muted">Other</span> ${h(sum.other.join(", "))}</span>` : ""}
+          ${sum.independent.length ? `<span><span class="muted">Independent</span> ${h(sum.independent.join(", "))}</span>` : ""}
         </div>
         ${answered.length ? `<div class="answers">
           <h3>Written answers and surveys</h3>
@@ -726,7 +726,8 @@
   function answerFor(v, activity, prompt) {
     const s = v.sessions.find(x => x.activity === activity && x.status === "done" && x.state && x.state.responses);
     if (!s) return "";
-    for (const sec of s.state.responses) for (const r of sec.rows) if (r.label.replace(/\*\*/g, "").startsWith(prompt)) return r.text || "";
+    const want = prompt.replace(/\*\*/g, "");
+    for (const sec of s.state.responses) for (const r of sec.rows) if (r.label.replace(/\*\*/g, "").startsWith(want)) return r.text || "";
     return "";
   }
 
@@ -742,9 +743,9 @@
     if (s.activity === "ind-review") {
       info = `<h3>Surveys</h3>${shown(surveys(["d1am", "d1pm"]))}
         <h3>Module answers</h3>${shown(responsesOf(v, x => ["module-1", "my-chain"].includes(x.activity)))}`;
-    } else if (s.activity === "ind-success") {
-      info = `<h3>Surveys</h3>${shown(surveys(["d1am", "d1pm", "d2am"]))}
-        <h3>Module answers</h3>${shown(responsesOf(v, x => ["module-6", "goal-builder", "asking-for-help"].includes(x.activity)))}`;
+    } else if (s.activity === "ind-success" || s.activity === "ind-return-meeting") {
+      info = `<h3>Surveys</h3>${shown(surveys(["d1am", "d1pm", "d2am", "d2pm"]))}
+        <h3>Module answers</h3>${shown(responsesOf(v, x => ["module-6", "goal-builder", "asking-for-help", "attendance", "my-chain"].includes(x.activity)))}`;
     } else {
       info = `<h3>Surveys</h3>${shown(surveys(RP.SURVEY_ORDER))}`;
     }
@@ -755,7 +756,7 @@
           <button class="link-btn" data-back>← ${back}</button>
           <div class="page-head">
             <div>
-              <h1>${h((ind ? ind.title : s.title).replace(/^Individual:\s*/, ""))}</h1>
+              <h1>${h(titleOf(s))}</h1>
               <p class="muted">${h(RP.formatCode(v.student.code))}${v.student.year_level ? ` · Year ${v.student.year_level}` : ""} · Day ${s.day}${t ? ` · ${RP.formatTime(t.start)}–${RP.formatTime(t.end)}` : ""}${staff ? ` · with <strong>${h(staff)}</strong>` : ""}</p>
             </div>
             <div class="page-actions"><button class="btn${s.status === "done" ? " ok" : " primary"}" data-tick>${s.status === "done" ? "✓ Done (undo)" : "Mark done"}</button></div>
@@ -763,7 +764,7 @@
           ${ind && ind.guide ? `<details class="card guide" open><summary><h2>How to run it</h2></summary><div class="guide-body">${RP.md(ind.guide)}</div></details>` : ""}
           <div class="card">${info}</div>
         </div>
-        ${s.activity === "ind-success" ? returnPlan(v) : ""}
+        ${s.activity === "ind-success" || s.activity === "ind-return-meeting" ? returnPlan(v) : ""}
       </div>`;
     $("[data-back]").onclick = () => view.from === "board" ? show({ name: "board" }) : show({ name: "plan", visitId: v.id, from: view.from });
     $("[data-tick]").onclick = async () => { await setDone(s, s.status !== "done"); show(view); };
@@ -776,24 +777,33 @@
     }
   }
 
-  // The Return to class plan: filled in from the student's Module 6 answers where they have them,
-  // edited together in the session, then printed to sign. Nothing here is saved.
+  // The Return to class plan, written together in the "My return plan" session and printed to sign
+  // (and printed again for the return from suspension meeting). It starts from anything the
+  // student has already written in their modules. Nothing typed here is saved.
   function returnPlan(v) {
+    const m6 = p => answerFor(v, "module-6", p);
+    const join = (...xs) => xs.filter(Boolean).join("\n");
     const fields = [
-      { id: "signs", label: "My early warning signs", value: answerFor(v, "module-6", "My early warning signs") },
-      { id: "strategies", label: "Strategies I'll use when I notice them", value: [answerFor(v, "module-6", "When I notice these signs"), answerFor(v, "module-6", "**Wellbeing:**") || answerFor(v, "module-6", "Wellbeing:")].filter(Boolean).join("\n") },
-      { id: "goals", label: "My goals for the first two weeks back", value: [answerFor(v, "module-6", "My first goal"), answerFor(v, "module-6", "Behaviour:"), answerFor(v, "module-6", "Learning:")].filter(Boolean).join("\n") },
-      { id: "staff", label: "Staff I can approach for support", value: answerFor(v, "module-6", "If I need help") },
-      { id: "conflict", label: "If conflict happens, I will", value: answerFor(v, "module-6", "If conflict occurs") },
-      { id: "support", label: "What staff will do to support me", value: answerFor(v, "module-6", "One thing staff can do") },
-      { id: "responsibility", label: "What I'll take responsibility for", value: answerFor(v, "module-6", "One thing I will take responsibility") }
+      { id: "strengths", label: "My strengths", hint: "What I'm good at, and something I've overcome", value: join(m6("One challenge I have overcome"), m6("One thing I am proud of")) },
+      { id: "signs", label: "My warning signs and triggers", hint: "What I notice in my body, thoughts and actions, and the situations that set it off", value: m6("My early warning signs") },
+      { id: "strategies", label: "When I notice them, I will", hint: "2–3 specific strategies", value: join(m6("When I notice these signs"), m6("**Wellbeing:**")) },
+      { id: "break", label: "How I'll ask for a break", hint: "The words I'll use, and where I'll go", value: "" },
+      { id: "behaviour", label: "Behaviour goal (first two weeks)", hint: "Specific and realistic", value: m6("**Behaviour:**") },
+      { id: "learning", label: "Learning goal", hint: "", value: join(m6("**Learning:**"), answerFor(v, "goal-builder", "S What exactly")) },
+      { id: "attendance", label: "Attendance goal", hint: "", value: answerFor(v, "attendance", "My attendance goal") },
+      { id: "staff", label: "Staff I can go to, and when", hint: "", value: m6("If I need help") },
+      { id: "checkins", label: "Check-ins", hint: "Who, how often, for how long", value: "" },
+      { id: "support", label: "What staff will do to support me", hint: "", value: m6("One thing staff can do") },
+      { id: "catchup", label: "Classwork to catch up on", hint: "", value: "" },
+      { id: "conflict", label: "If conflict happens, I will", hint: "", value: m6("If conflict occurs") },
+      { id: "review", label: "Review date", hint: "When we'll check how the plan is going", value: "" }
     ];
     return `
       <div class="card no-print">
         <h2>Return to class plan</h2>
-        <p class="muted">${v.sessions.some(x => x.activity === "module-6" && x.status === "done") ? "Filled in from their Module 6 answers. Edit it together, then print it to sign." : "They haven't finished Module 6 yet, so fill it in together."} Nothing here is saved.</p>
+        <p class="muted">Write it together, then print it (or save it as a PDF) to sign. <strong>Nothing typed here is saved</strong>, so print it before you leave this page.</p>
         <label class="field">Student's name (for printing only) <input data-plan-name maxlength="40" autocomplete="off"></label>
-        ${fields.map(f => `<label class="field">${h(f.label)}<textarea rows="2" data-plan-field="${f.id}">${h(f.value)}</textarea></label>`).join("")}
+        ${fields.map(f => `<label class="field">${h(f.label)}${f.hint ? ` <span class="muted small">${h(f.hint)}</span>` : ""}<textarea rows="2" data-plan-field="${f.id}">${h(f.value)}</textarea></label>`).join("")}
         <div class="actions"><button class="btn primary" data-print-plan>Print to sign</button></div>
       </div>
       <div class="print-area return-plan">
@@ -802,7 +812,7 @@
           <div class="ws-meta">Name: <strong data-plan-name-out>&nbsp;</strong><br>${RP.longDate(new Date().toISOString())}</div>
         </div>
         ${fields.map(f => `<div class="ws-row"><div class="ws-label">${h(f.label)}</div><div class="ws-answer" data-plan-out="${f.id}">${h(f.value)}</div></div>`).join("")}
-        <div class="sheet-sign"><span>Student: ______________________</span><span>Staff: ______________________</span><span>Date: ____________</span></div>
+        <div class="sheet-sign"><span>Student: ______________________</span><span>Staff: ______________________</span><span>Parent/carer: ______________________</span><span>Date: ____________</span></div>
         <p class="cert-motto">"Focusing on our Future"</p>
       </div>`;
   }
@@ -816,7 +826,7 @@
       if (v.paused) return `<td class="muted">Paused</td>`;
       const x = at(v, v.current_day, slot);
       if (!x) return "<td></td>";
-      return `<td class="rs-${x.kind}">${h(titleOf(x).replace(/^Individual:\s*/, "Individual: "))}</td>`;
+      return `<td class="rs-${x.kind}">${x.kind === "one_to_one" ? "Teacher-led: " : ""}${h(titleOf(x))}</td>`;
     };
     app().innerHTML = `
       <div class="page wide">
@@ -1052,28 +1062,61 @@
       <div class="page narrow">
         <div class="page-head"><h1>Session guides</h1><div class="page-actions"><button class="btn" data-print-guides>Print all</button></div></div>
         <div class="card">
-          <p><strong>Running groups with up to 5 students and one staff member.</strong> Laptops closed and to the side. Sit in a circle or around one table so everyone can see and be heard. Give every student a job (reader, timer, card holder) so no one sits out. Use made-up examples; never ask a student to share their own incident in front of the group. Keep each activity short (5–10 minutes) and finish with one thing each student will take away. Tick the session done for everyone from the dashboard when it ends.</p>
+          <p>Every day is made of <strong>modules</strong>. <strong>Group modules</strong> are run by one staff member with up to five students, laptops closed. <strong>Individual modules</strong> are either <strong>independent</strong> (on the laptop, at the student's own pace) or <strong>teacher-led</strong> (one-on-one with a staff member).</p>
         </div>
-        <h2 class="section-title">Group sessions</h2>
+        <details class="card guide" open>
+          <summary><h2>The Thomas Reddall Lesson Routine</h2> <span class="tag">every group module</span></summary>
+          <p>Every group module follows these eight steps in about 31 minutes. Use made-up examples; never ask a student to share their own incident in front of the group. Tick the module done for everyone on the dashboard when it ends.</p>
+          <ol class="routine">${RP.LESSON_ROUTINE.map(r => `<li><strong>${h(r.step)}.</strong> ${h(r.does)} <span class="muted">Purpose: ${h(r.purpose)}</span></li>`).join("")}</ol>
+          <div class="guide-body">${RP.md(RP.SCHOOL_COMMITMENT)}</div>
+          <p class="no-print"><a href="img/lesson-routine.jpg" target="_blank" rel="noopener">Open the lesson routine poster</a></p>
+        </details>
+        <h2 class="section-title">Group modules</h2>
         ${RP.GROUP_SESSIONS.filter(g => !g.movement).map(g => guide(g.title,
           `${g.core ? `<span class="tag core">core</span>` : ""} ${when(g.id) ? `<span class="tag">${h(when(g.id))}</span>` : `<span class="tag">not in a rotation</span>`}`, g.about, g.guide,
           g.slides ? `<button class="btn small" data-present="${g.id}">Present on the projector</button>` : "")).join("")}
-        <h2 class="section-title">Individual sessions</h2>
-        <div class="card"><p>Drag these into an independent session in a student's plan. The other students keep working on their own. You can only be with one student at a time, so the plan editor and dashboard warn you about clashes.</p></div>
-        ${(RP.INDIVIDUAL_SESSIONS || []).map(x => guide(x.title.replace(/^Individual:\s*/, ""), x.day ? `<span class="tag">Day ${x.day}</span>` : `<span class="tag">Either day</span>`, x.about, x.guide)).join("")}
+        <h2 class="section-title">Teacher-led sessions</h2>
+        <div class="card"><p>Drag these into an empty session on a student's daily schedule. The other students keep working on their own. You can only be with one student at a time, so the daily schedule and dashboard warn you about clashes.</p></div>
+        ${(RP.INDIVIDUAL_SESSIONS || []).map(x => guide(x.title, x.day ? `<span class="tag">Day ${x.day}</span>` : `<span class="tag">Either day</span>`, x.about, x.guide)).join("")}
+        <h2 class="section-title">Independent modules</h2>
+        <div class="card"><p>Students do these on the laptop. Click one to see every page and question, with the answers.</p>
+          <div class="module-list">${electives().map(m => `<button class="btn small" data-preview="${h(m.id)}">${m.icon ? m.icon + " " : ""}${h(m.title)}</button>`).join("")}</div></div>
         <h2 class="section-title">Movement breaks</h2>
-        <div class="card"><p>Still being worked out. They're available to drag into a plan (under "Movement" in the plan editor) but aren't in the rotations or counted as core.</p></div>
+        <div class="card"><p>Every group module has a brain break built in. Use these when students need a break at other times.</p></div>
+        ${RP.GROUP_SESSIONS.filter(g => g.movement).map(g => guide(g.title.replace(/^Movement:\s*/, ""), "", "", g.guide)).join("")}
       </div>`;
     $("[data-print-guides]").onclick = () => { app().querySelectorAll("details.guide").forEach(d => d.open = true); window.print(); };
     app().querySelectorAll("[data-present]").forEach(b => b.onclick = () => showPresent(b.dataset.present));
+    app().querySelectorAll("[data-preview]").forEach(b => b.onclick = () => previewModule(b.dataset.preview));
+  }
+
+  // A pop-up with every page and question of an independent module, and the answers.
+  function previewModule(id) {
+    const m = RP.MODULES[id];
+    if (!m) return;
+    const box = document.createElement("dialog");
+    box.className = "preview-dialog";
+    box.innerHTML = `
+      <div class="preview-head"><h2>${m.icon ? m.icon + " " : ""}${h(m.title)}</h2><button class="btn ghost" data-close>Close ✕</button></div>
+      ${RP.previewModule(m)}`;
+    document.body.appendChild(box);
+    box.querySelector("[data-close]").onclick = () => box.close();
+    box.addEventListener("close", () => box.remove());
+    box.addEventListener("click", e => { if (e.target === box) box.close(); });
+    box.showModal();
   }
 
   // ---------------------------------------------------------------- printing
   function renderPrint() {
     const v = student && (student.visits || []).find(x => x.id === view.visitId);
     if (!v) { show({ name: "all" }); return; }
-    const certs = v.sessions.filter(s => s.kind === "independent" && s.status === "done" && s.activity && RP.MODULES[s.activity])
-      .sort((a, b) => a.day - b.day || a.slot - b.slot);
+    // One certificate per day; written answers from that day's independent modules can go after it.
+    const certs = [1, 2].map(day => {
+      const done = v.sessions.filter(s => s.day === day && s.status === "done");
+      const first = done.map(s => s.completed_at || s.updated_at).filter(Boolean).sort()[0];
+      return { id: "day" + day, day, modules: RP.dayModules(v.sessions, day), date: RP.longDate(first || v.start_date),
+        answers: done.filter(s => s.kind === "independent" && s.state && s.state.responses && s.state.responses.length).sort((a, b) => a.slot - b.slot) };
+    }).filter(c => c.modules.length);
     const isCerts = view.what === "certs";
     app().innerHTML = `
       <div class="page print-page">
@@ -1082,15 +1125,12 @@
           <h1>${isCerts ? "Print certificates" : "Print program record"}</h1>
           <label class="field">Student's name <input data-name maxlength="40" autocomplete="off"></label>
           <p class="muted">The name is only used for printing. It isn't saved.</p>
-          ${isCerts && certs.some(s => s.state && s.state.responses) ? `<label class="field inline"><input type="checkbox" data-with-answers checked> Include their written answers after each certificate</label>` : ""}
-          ${isCerts ? `<div class="cert-picks">${certs.map(s => `<label class="field inline"><input type="checkbox" data-pick="${s.id}" checked> ${h(titleOf(s))}${s.result && RP.resultText(s.result) ? ` <span class="muted">(${h(RP.resultText(s.result))})</span>` : ""}</label>`).join("")}</div>` : ""}
+          ${isCerts && certs.some(c => c.answers.length) ? `<label class="field inline"><input type="checkbox" data-with-answers checked> Include their written answers after each certificate</label>` : ""}
+          ${isCerts ? `<div class="cert-picks">${certs.map(c => `<label class="field inline"><input type="checkbox" data-pick="${c.id}" checked> Day ${c.day} <span class="muted">(${c.modules.length} module${c.modules.length === 1 ? "" : "s"})</span></label>`).join("")}</div>` : ""}
           <div class="actions"><button class="btn primary" data-print>Print or save as PDF</button></div>
         </div>
         <div class="print-area">
-          ${isCerts ? certs.map(s => {
-            const cert = Object.assign({ title: titleOf(s), date: RP.longDate(s.completed_at || s.updated_at), worksheet: s.state && s.state.responses }, s.result || {});
-            return `<div class="print-cert" data-cert="${s.id}">${RP.certificateMarkup(cert)}${cert.worksheet && cert.worksheet.length ? `<div class="print-answers">${RP.worksheetMarkup(cert)}</div>` : ""}</div>`;
-          }).join("")
+          ${isCerts ? certs.map(c => `<div class="print-cert" data-cert="${c.id}">${RP.dayCertificateMarkup(c)}${c.answers.map(s => `<div class="print-answers">${RP.worksheetMarkup({ title: titleOf(s), date: RP.longDate(s.completed_at || s.updated_at), worksheet: s.state.responses })}</div>`).join("")}</div>`).join("")
             : recordSheet(v)}
         </div>
       </div>`;
@@ -1114,7 +1154,7 @@
         <thead><tr><th colspan="3">Day ${d}</th></tr></thead>
         <tbody>${sessionsFor(v, d).map(s => {
           const t = RP.slotTimes(s.slot);
-          return `<tr><td>${t ? RP.formatTime(t.start) : "1:1"}</td><td>${h(titleOf(s))}<br><span class="muted">${h(RP.KIND_LABEL[s.kind])}</span></td><td>${s.status === "done" ? "✓ " : ""}${h(statusText(s))}</td></tr>`;
+          return `<tr><td>${t ? RP.formatTime(t.start) : "Any time"}</td><td>${h(titleOf(s))}<br><span class="muted">${h(RP.KIND_LABEL[s.kind])}</span></td><td>${s.status === "done" ? "✓ " : ""}${h(statusText(s))}</td></tr>`;
         }).join("")}</tbody>
       </table>`;
     const missing = RP.missingCore(v.sessions);
@@ -1125,11 +1165,10 @@
           <div class="ws-meta">Name: <strong data-record-name>&nbsp;</strong><br>Code: ${h(RP.formatCode(student.code))}${student.year_level ? ` · Year ${student.year_level}` : ""}<br>Program started ${RP.formatDate(v.start_date)}${v.active ? "" : " · finished"}</div>
         </div>
         <div class="sheet-summary">
-          <div><strong>Modules completed:</strong> ${sum.modules.length ? sum.modules.map(n => "Module " + n).join(", ") : "none"}</div>
-          <div><strong>Numeracy:</strong> ${h(sum.numeracy || "not completed")} &nbsp; <strong>Literacy:</strong> ${h(sum.literacy || "not completed")}</div>
-          ${sum.other.length ? `<div><strong>Other electives:</strong> ${h(sum.other.join(", "))}</div>` : ""}
-          <div><strong>Core group sessions:</strong> ${sum.coreDone} of ${sum.coreTotal}${missing.length ? ` (not done: ${h(missing.map(g => g.title).join(", "))})` : ""}</div>
-          <div><strong>Individual sessions:</strong> ${sum.ones} of ${sum.onesPlanned} done</div>
+          <div><strong>Group modules:</strong> ${sum.coreDone} of ${sum.coreTotal}${missing.length ? ` (not done: ${h(missing.map(g => g.title).join(", "))})` : ""}</div>
+          <div><strong>Independent sessions completed:</strong> ${sum.independent.length ? h(sum.independent.join(", ")) : "none"}</div>
+          <div><strong>Literacy:</strong> ${h(sum.literacy || "not completed")}</div>
+          <div><strong>Teacher-led sessions:</strong> ${sum.ones} of ${sum.onesPlanned} done</div>
           ${Object.keys(sum.surveys).length ? `<div><strong>Surveys (out of 50):</strong> ${RP.SURVEY_ORDER.filter(id => sum.surveys[id] != null).map(id => `${h(RP.SURVEY_SHORT[id])} ${sum.surveys[id]}`).join(" · ")}</div>` : ""}
         </div>
         <div class="sheet-days">${day(1)}${day(2)}</div>
@@ -1166,19 +1205,18 @@
             ${v.active ? `<button class="btn" data-laptop>Student view on this laptop</button><button class="btn danger" data-finish>Finish program</button>` : `<button class="btn" data-reopen>Reopen program</button>`}
           </div>
         </div>
-        <p class="muted">${pick ? `<strong>Click a session to place “${h(pick.title)}”.</strong> <button class="link-btn" data-unpick>Cancel</button>` : "Drag an activity onto a session, or click an activity and then click a session."}
-          ${missing.length ? ` <span class="warn">Core group sessions not done yet: ${missing.map(g => h(g.title)).join(", ")}.</span>` : ""}</p>
+        <h2 class="schedule-title">Daily schedule</h2>
+        <p class="muted">${pick ? `<strong>Click a session to place “${h(pick.title)}”.</strong> <button class="link-btn" data-unpick>Cancel</button>` : "Drag a module onto a session, or click a module and then click a session. 👁 shows what's in a module."}
+          ${missing.length ? ` <span class="warn">Core group modules not done yet: ${missing.map(g => h(g.title)).join(", ")}.</span>` : ""}</p>
         ${planWarnings(v)}
         <div class="plan-layout">
           <aside class="palette">
-            <h3>Electives <span class="muted">(on their own)</span></h3>
-            ${electives().map(m => chip("elective", m.id, m.title, m.sample ? ` <span class="tag">sample</span>` : "")).join("")}
-            <h3>Individual sessions</h3>
-            ${(RP.INDIVIDUAL_SESSIONS || []).map(x => chip("individual", x.id, x.title.replace(/^Individual:\s*/, ""), x.day ? ` <span class="tag">Day ${x.day}</span>` : "")).join("")}
-            <h3>Group sessions</h3>
+            <h3>Individual: independent <span class="muted">(on the laptop)</span></h3>
+            ${electives().map(m => `<div class="chip-row">${chip("elective", m.id, m.title, m.sample ? ` <span class="tag">sample</span>` : "")}<button class="chip-view" data-preview="${h(m.id)}" title="See what's in ${h(m.title)}" aria-label="Preview ${h(m.title)}">👁</button></div>`).join("")}
+            <h3>Individual: teacher-led <span class="muted">(with a staff member)</span></h3>
+            ${(RP.INDIVIDUAL_SESSIONS || []).map(x => chip("individual", x.id, x.title, x.day ? ` <span class="tag">Day ${x.day}</span>` : "")).join("")}
+            <h3>Group modules <span class="muted">(change only if you need to)</span></h3>
             ${RP.GROUP_SESSIONS.filter(g => !g.movement).map(g => chip("group", g.id, g.title, g.core ? ` <span class="tag core">core</span>` : "")).join("")}
-            <h3>Movement <span class="muted">(being worked out)</span></h3>
-            ${RP.GROUP_SESSIONS.filter(g => g.movement).map(g => chip("group", g.id, g.title.replace(/^Movement:\s*/, ""))).join("")}
             <h3>Other</h3>
             ${chip("free", "free", "Free choice")}
             ${chip("clear", "clear", "Empty (choose later)")}
@@ -1225,6 +1263,7 @@
       const s = v.sessions.find(s => s.id === b.dataset.tick);
       b.disabled = true; await setDone(s, s.status !== "done"); reload();
     });
+    app().querySelectorAll("[data-preview]").forEach(b => b.onclick = e => { e.stopPropagation(); previewModule(b.dataset.preview); });
     app().querySelectorAll("[data-open-ind]").forEach(b => b.onclick = () => show({ name: "individual", visitId: v.id, sessionId: b.dataset.openInd, from: view.from }));
     app().querySelectorAll("[data-mark]").forEach(b => b.onclick = async () => {
       const s = v.sessions.find(s => s.id === b.dataset.mark);
@@ -1248,8 +1287,8 @@
   function planWarnings(v) {
     const notes = [];
     const clash = v.active ? clashes(v) : {};
-    Object.keys(clash).forEach(slot => notes.push(`Today's individual session at ${RP.formatTime(RP.slotTimes(Number(slot)).start)} clashes with ${clash[slot].join(", ")}. You can only be with one student at a time.`));
-    [1, 2].forEach(day => missingIndividual(v, day).forEach(x => notes.push(`Day ${day} doesn't have "${x.title.replace(/^Individual:\s*/, "")}" yet. Drag it into one of their independent sessions.`)));
+    Object.keys(clash).forEach(slot => notes.push(`Today's teacher-led session at ${RP.formatTime(RP.slotTimes(Number(slot)).start)} clashes with ${clash[slot].join(", ")}. You can only be with one student at a time.`));
+    [1, 2].forEach(day => missingIndividual(v, day).forEach(x => notes.push(`Day ${day} doesn't have the teacher-led "${x.title}" session yet. Drag it into an empty session.`)));
     return notes.length ? `<div class="card warn-card">${notes.map(n => `<p>⚠ ${h(n)}</p>`).join("")}</div>` : "";
   }
 
@@ -1266,7 +1305,7 @@
       <section class="plan-day${day === v.current_day ? " today" : ""}">
         <div class="plan-day-head">
           <h2>Day ${day}${day === v.current_day ? ` <span class="tag">Today</span>` : ""}</h2>
-          <span class="field inline small">Group sessions
+          <span class="field inline small">Group modules
             <select>${Object.keys(RP.ROTATIONS).map(r => `<option value="${r}"${r === rot ? " selected" : ""}>Rotation ${r}</option>`).join("")}${rot === "custom" ? `<option value="custom" selected>Custom</option>` : ""}</select>
             <button class="btn small" data-apply="${day}">Apply</button>
           </span>
@@ -1283,9 +1322,10 @@
     if (teacherTicks(s)) {
       controls = `${s.kind === "one_to_one" ? `<button class="btn small" data-open-ind="${s.id}">Open</button>` : ""}<button class="btn small${s.status === "done" ? " ok" : ""}" data-tick="${s.id}">${s.status === "done" ? "✓ Done" : "Mark done"}</button>`;
     } else if (m) {
+      controls = `<button class="btn small" data-preview="${h(m.id)}" title="See what's in this module" aria-label="View module">👁</button>`;
       if (s.status === "not_started" && m.levels) {
         const lv = s.state && s.state.level;
-        controls = `<select class="small" data-level="${s.id}" aria-label="Suggested level"><option value="">Level: student picks</option>${m.levels.map(l => `<option value="${l.level}"${lv === l.level ? " selected" : ""}>Suggest ${h(l.title)}</option>`).join("")}</select>`;
+        controls += `<select class="small" data-level="${s.id}" aria-label="Suggested level"><option value="">Level: student picks</option>${m.levels.map(l => `<option value="${l.level}"${lv === l.level ? " selected" : ""}>Suggest ${h(l.title)}</option>`).join("")}</select>`;
       }
       if (s.status !== "done") controls += `<button class="btn small" data-mark="${s.id}" title="For example, if they did it on paper">Mark done</button>`;
       if (s.status !== "not_started") controls += `<button class="btn small" data-reset="${s.id}">Let them redo</button>`;
@@ -1309,8 +1349,15 @@
     else if (item.type === "group") patch = { kind: "group", activity: item.id, title: RP.groupSession(item.id).title };
     else if (item.type === "individual") patch = { kind: "one_to_one", activity: item.id, title: RP.individualSession(item.id).title };
     else if (item.type === "free") patch = { kind: "free", activity: null, title: "Free choice" };
-    else patch = { kind: "independent", activity: null, title: "Elective" };
+    else patch = { kind: "independent", activity: null, title: "Empty" };
     if (s.kind === patch.kind && s.activity === patch.activity) { pick = null; renderPlan(); return; }
+    // Group modules follow the room's rotation, so changing one needs a second check.
+    if (s.kind === "group" || patch.kind === "group") {
+      const t = RP.slotTimes(slot);
+      const what = s.kind === "group" ? `This replaces the group module "${titleOf(s)}" at ${RP.formatTime(t.start)} on Day ${day} with "${patch.kind === "independent" && !patch.activity ? "Empty" : patch.title}".`
+        : `This puts the group module "${patch.title}" at ${RP.formatTime(t.start)} on Day ${day}, replacing "${titleOf(s)}".`;
+      if (!confirm(`Are you sure? ${what}\n\nGroup modules follow the room's rotation, so only change one if you need to.`)) { pick = null; renderPlan(); return; }
+    }
     if (s.status !== "not_started" && !confirm(`"${titleOf(s)}" has already been started. Replace it? Its progress will be cleared.`)) return;
     Object.assign(patch, { status: "not_started", result: null, state: null, completed_at: null });
     pick = null;

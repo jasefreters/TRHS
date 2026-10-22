@@ -205,7 +205,7 @@
       }
       const s = bySlot(t.slot);
       if (!s) return "";
-      const title = s.kind === "independent" && s.activity && RP.MODULES[s.activity] ? RP.MODULES[s.activity].title : s.title.replace(/^Individual:\s*/, "");
+      const title = RP.sessionTitle(s);
       return `
         <li>
           <button class="slot k-${s.kind}${selected === t.slot ? " selected" : ""}${now === t.slot ? " now" : ""}${s.status === "done" ? " is-done" : ""}" data-slot="${t.slot}">
@@ -223,6 +223,7 @@
         <div class="muted">${h(RP.todayLabel())}</div>
       </div>
       <ol class="day-list">${rows}</ol>
+      <div class="cert-buttons">${[1, 2].filter(d => d <= plan.current_day).map(d => `<button class="btn small" data-day-cert="${d}">🏅 My Day ${d} certificate</button>`).join("")}</div>
       ${one ? `
         <button class="slot k-one_to_one oneone${selected === RP.ONE_TO_ONE_SLOT ? " selected" : ""}" data-slot="${RP.ONE_TO_ONE_SLOT}">
           <span class="time">Any time</span>
@@ -230,6 +231,10 @@
           ${statusIcon(one)}
         </button>` : ""}
       <p class="offline" id="offline" ${offline ? "" : "hidden"}>Not connected. Your work is saved on this laptop and will send when the internet is back.</p>`;
+    pane.querySelectorAll("[data-day-cert]").forEach(b => b.onclick = () => {
+      if (mode === "module") return;
+      mode = "cert"; renderSidebar(); showDayCertificate(Number(b.dataset.dayCert));
+    });
     pane.querySelectorAll("[data-slot]").forEach(b => b.onclick = () => {
       if (mode === "module" || mode === "cert") return;
       selected = Number(b.dataset.slot);
@@ -260,45 +265,45 @@
           <h2>${h(survey.title)}</h2>
           ${s.status === "done"
             ? `<p class="done-note">✓ Done. Thank you for filling it in.</p>`
-            : `<p>${intro} It takes about 5 minutes.</p>
-               <div class="actions"><button class="btn primary big" data-survey>${s.status === "in_progress" ? "Keep going" : "Start the survey"}</button></div>`}
+            : `${/^<p>/.test(intro) ? intro : `<p>${intro}</p>`}<p class="muted">About 5 minutes.</p>
+               <div class="actions"><button class="btn primary big" data-survey>${s.status === "in_progress" ? "Keep going" : s.kind === "intro" ? "Start the check-in" : "Start the survey"}</button></div>`}
         </div>` : "";
 
     if (s.kind === "intro") {
       html += head("Morning session", "Whole group") + `
         <div class="card story">${RP.md(RP.CONTENT.story[plan.current_day])}</div>
-        ${surveyCard(RP.SURVEYS[RP.surveyIdFor(s)], "Start with this short survey about how you're feeling this morning.")}
-        <div class="card laptop-away">${RP.md(RP.CONTENT.morning)}</div>`;
+        ${surveyCard(RP.SURVEYS[RP.surveyIdFor(s)], RP.md(RP.CONTENT.morning))}`;
     } else if (s.kind === "group") {
       const g = RP.groupSession(s.activity);
-      html += head(s.title, "Group") +
+      html += head(s.title, "Group module") +
         `<div class="card laptop-away big-note"><div class="laptop-icon" aria-hidden="true">💻 ➜ 👥</div>${RP.md(RP.CONTENT.group)}</div>
         ${g && g.about ? `<div class="card">${RP.md(g.about)}</div>` : ""}${doneNote}`;
     } else if (s.kind === "debrief") {
       html += head("Afternoon debrief", "Whole group") + `<div class="card">${RP.md(RP.CONTENT.debrief)}</div>
-        ${surveyCard(RP.SURVEYS[RP.surveyIdFor(s)], "Your teacher will tell you when to start.")}`;
+        ${surveyCard(RP.SURVEYS[RP.surveyIdFor(s)], "Your teacher will tell you when to start.")}
+        ${s.status === "done" ? `<div class="card"><div class="actions"><button class="btn primary big" data-day-cert-main>🏅 My certificate for today</button></div></div>` : ""}`;
     } else if (s.kind === "one_to_one") {
       const ind = RP.individualSession(s.activity);
-      html += head(s.title.replace(/^Individual:\s*/, ""), "Individual session with your teacher") +
+      html += head(RP.sessionTitle(s), "Teacher-led") +
         `<div class="card">${RP.md(ind ? ind.about : (RP.ONE_TO_ONE[s.day] || RP.ONE_TO_ONE[1]).about)}</div>
-        <p class="muted">${s.slot === RP.ONE_TO_ONE_SLOT ? "There's no set time. Keep working on your activities and your teacher will come and get you." : "If your teacher is still busy when this session starts, keep working on your last activity until they're ready."}</p>${doneNote}`;
+        <p class="muted">${s.slot === RP.ONE_TO_ONE_SLOT ? "Keep working and your teacher will come and get you." : "If your teacher is still busy, keep working on your last activity until they're ready."}</p>${doneNote}`;
     } else if (s.kind === "free" || (s.kind === "independent" && !s.activity && allElectivesDone())) {
       html += head(RP.CONTENT.freeChoice.title, "Free choice") + `<div class="card">${RP.md(RP.CONTENT.freeChoice.text)}</div>`;
     } else if (s.kind === "independent" && !s.activity) {
-      html += head("Elective", "On your own") + `<div class="card">${RP.md(RP.CONTENT.unassigned)}</div>`;
+      html += head("Not chosen yet", "Independent") + `<div class="card">${RP.md(RP.CONTENT.unassigned)}</div>`;
     } else if (s.kind === "independent") {
       const m = RP.MODULES[s.activity];
       if (!m) {
         html += head(s.title) + `<div class="card">This activity isn't available on this website yet. Press <strong>I need help</strong>.</div>`;
       } else if (s.status === "done") {
-        html += head(m.title, "On your own") + `
+        html += head(m.title, "Independent") + `
           <div class="card finished">
             <p class="done-note big">✓ Finished${s.result && RP.resultText(s.result) ? ` · ${h(RP.resultText(s.result))}` : ""}</p>
-            <div class="actions"><button class="btn primary" data-cert>View my certificate${s.state && s.state.responses && s.state.responses.length ? " and answers" : ""}</button></div>
+            ${s.state && s.state.responses && s.state.responses.length ? `<div class="actions"><button class="btn primary" data-cert>View my answers</button></div>` : ""}
           </div>
           ${allElectivesDone() ? `<div class="card"><h2>${h(RP.CONTENT.freeChoice.title)}</h2>${RP.md(RP.CONTENT.freeChoice.text)}</div>` : `<p class="muted">Pick your next activity from the plan on the left.</p>`}`;
       } else {
-        html += head(m.title, "On your own") + `
+        html += head(m.title, "Independent") + `
           <div class="card module-card">
             ${m.icon ? `<div class="module-icon" aria-hidden="true">${m.icon}</div>` : ""}
             <div>${RP.md(m.about || "")}</div>
@@ -311,7 +316,9 @@
     const go = main.querySelector("[data-start]");
     if (go) go.onclick = () => openModule(s);
     const cert = main.querySelector("[data-cert]");
-    if (cert) cert.onclick = () => { mode = "cert"; renderSidebar(); showCertificate(certFor(s)); };
+    if (cert) cert.onclick = () => { mode = "cert"; renderSidebar(); showFinished(certFor(s)); };
+    const dc = main.querySelector("[data-day-cert-main]");
+    if (dc) dc.onclick = () => { mode = "cert"; renderSidebar(); showDayCertificate(s.day); };
     const survey = main.querySelector("[data-survey]");
     if (survey) survey.onclick = () => openSurvey(s);
   }
@@ -332,17 +339,20 @@
       onFinish: (result, state, worksheet) => {
         queueSave(s.id, "done", result, Object.assign({}, state, { responses: worksheet }));
         store.set(answersKey, null);
-        mode = "plan";
-        if (after) after(); else { renderSidebar(); renderMain(); }
+        if (after) { mode = "plan"; after(); return; }
+        // The end-of-day survey leads straight to the day's certificate.
+        if (s.kind === "debrief") { mode = "cert"; renderSidebar(); showDayCertificate(s.day); return; }
+        mode = "plan"; renderSidebar(); renderMain();
       }
     });
   }
 
   function allElectivesDone() {
-    return today().filter(s => s.kind === "independent" && s.activity).every(s => s.status === "done");
+    const planned = today().filter(s => s.kind === "independent" && s.activity);
+    return planned.length > 0 && planned.every(s => s.status === "done");
   }
 
-  // ---------------------------------------------------------------- electives
+  // ---------------------------------------------------------------- independent modules
   function openModule(s) {
     mode = "module";
     const m = RP.MODULES[s.activity];
@@ -362,7 +372,7 @@
         store.set(answersKey, null);
         mode = "cert";
         renderSidebar();
-        showCertificate(Object.assign(certFor(s), { justFinished: true }));
+        showFinished(Object.assign(certFor(s), { justFinished: true }));
       }
     });
   }
@@ -376,18 +386,69 @@
     }, s.result || {});
   }
 
-  function showCertificate(cert) {
-    RP.Player.certificate($("#main"), cert, () => {
-      mode = "plan";
-      renderSidebar(); renderMain();
-    });
+  const backToPlan = () => { mode = "plan"; renderSidebar(); renderMain(); };
+  function showFinished(info) { RP.Player.finished($("#main"), info, backToPlan); }
+  function showDayCertificate(day) {
+    const first = plan.sessions.find(x => x.day === day && x.kind === "intro");
+    const date = day === plan.current_day ? new Date().toISOString() : (first && (first.completed_at || first.updated_at)) || new Date().toISOString();
+    RP.Player.dayCertificate($("#main"), { day, date: RP.longDate(date), modules: RP.dayModules(plan.sessions, day) }, backToPlan);
   }
+
+  // ---------------------------------------------------------------- word help
+  // Look up what a word means. Select a word on the page first to look it up straight away.
+  // Only the word is sent (to a free online dictionary), nothing about the student.
+  function wordHelp() {
+    const picked = String(window.getSelection ? window.getSelection() : "").trim().split(/\s+/)[0] || "";
+    let box = $("#word-help");
+    if (!box) {
+      box = document.createElement("dialog");
+      box.id = "word-help"; box.className = "word-help";
+      box.innerHTML = `
+        <form method="dialog" class="word-form" data-word-form>
+          <h2>What does it mean?</h2>
+          <div class="answer-row"><input data-word autocomplete="off" spellcheck="true" maxlength="40" aria-label="Word to look up" placeholder="Type a word"><button class="btn primary" type="submit">Look up</button></div>
+          <div class="word-result" data-word-result aria-live="polite"></div>
+          <div class="actions"><button class="btn ghost" type="button" data-word-close>Close</button></div>
+        </form>`;
+      document.body.appendChild(box);
+      box.querySelector("[data-word-close]").onclick = () => box.close();
+      box.querySelector("[data-word-form]").onsubmit = e => { e.preventDefault(); lookUp(box.querySelector("[data-word]").value); };
+    }
+    const input = box.querySelector("[data-word]");
+    input.value = picked.replace(/[^A-Za-z'-]/g, "");
+    box.querySelector("[data-word-result]").innerHTML = "";
+    box.showModal();
+    input.focus();
+    if (input.value) lookUp(input.value);
+  }
+  async function lookUp(raw) {
+    const word = String(raw || "").trim().toLowerCase().replace(/[^a-z'-]/g, "");
+    const out = $("[data-word-result]");
+    if (!word) { out.innerHTML = `<p class="muted">Type one word.</p>`; return; }
+    out.innerHTML = `<p class="muted">Looking up “${h(word)}”…</p>`;
+    try {
+      const res = await fetch("https://api.dictionaryapi.dev/api/v2/entries/en/" + encodeURIComponent(word));
+      if (res.status === 404) { out.innerHTML = `<p>Couldn't find “${h(word)}”. Check the spelling, or ask your teacher.</p>`; return; }
+      if (!res.ok) throw new Error(res.status);
+      const data = await res.json();
+      const meanings = data.flatMap(e => e.meanings || []).slice(0, 3);
+      out.innerHTML = `<h3>${h(data[0].word || word)}</h3>` + meanings.map(m => {
+        const d = (m.definitions || [])[0] || {};
+        return `<div class="word-meaning"><span class="tag">${h(m.partOfSpeech || "")}</span> ${h(d.definition || "")}${d.example ? `<div class="muted">e.g. “${h(d.example)}”</div>` : ""}</div>`;
+      }).join("");
+    } catch (e) {
+      out.innerHTML = `<p>Can't look that up right now. Ask your teacher, or try again later.</p>`;
+    }
+  }
+  const wh = $("#word-help-btn");
+  if (wh) { wh.onmousedown = e => e.preventDefault(); wh.onclick = wordHelp; }
 
   // ---------------------------------------------------------------- help button and clock
   function updateHelp() {
     const b = $("#help");
     if (!b) return;
     b.hidden = !plan;
+    const w = $("#word-help-btn"); if (w) w.hidden = !plan;
     const on = plan && plan.help;
     b.classList.toggle("on", !!on);
     b.textContent = on ? "Help is coming" : "I need help";

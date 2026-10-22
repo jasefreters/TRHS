@@ -572,3 +572,65 @@ img[src$="sunburst.svg"], .sunburst-soft { opacity: .18; }
   .stat { box-shadow: none; border: 1px solid var(--line); }
 }
 .present-timer button { font-size: 1rem; font-weight: 600; }
+
+/* ---------- day certificate ---------- */
+.day-cert { gap: .3rem; padding: 2rem 3rem; }
+.day-cert .cert-heading { font-size: 2rem; }
+.day-cert .cert-name { font-size: 1.9rem; }
+.cert-list { list-style: none; margin: .4rem 0 0; padding: 0; columns: 2; column-gap: 2.5rem; text-align: left; font-weight: 600; color: var(--navy); font-size: .98rem; }
+.cert-list li { break-inside: avoid; padding: .1rem 0 .1rem 1.3rem; position: relative; }
+.cert-list li::before { content: "✓"; position: absolute; left: 0; color: var(--green); }
+.cert-kind { color: var(--muted); font-weight: 400; font-size: .85em; }
+.cert-buttons { display: flex; flex-direction: column; gap: .4rem; margin-top: .8rem; }
+
+/* ---------- morning ready-to-learn check ---------- */
+.traffic { display: flex; flex-wrap: wrap; gap: .8rem; margin: .6rem 0 1.4rem; }
+.light { font: inherit; font-weight: 700; display: flex; align-items: center; gap: .6rem; padding: .7em 1.1em; border-radius: 999px; border: 3px solid var(--line); background: #fff; color: var(--navy); cursor: pointer; }
+.light .lamp { width: 1.6rem; height: 1.6rem; border-radius: 50%; opacity: .35; }
+.light-green .lamp { background: var(--green); }
+.light-amber .lamp { background: var(--amber); }
+.light-red .lamp { background: var(--red); }
+.light.picked .lamp { opacity: 1; box-shadow: 0 0 0 4px rgba(0, 0, 0, .06); }
+.light-green.picked { border-color: var(--green); }
+.light-amber.picked { border-color: var(--amber); }
+.light-red.picked { border-color: var(--red); }
+.ready-list { list-style: none; padding: 0; margin: .4rem 0 1rem; display: grid; gap: .5rem; max-width: 460px; }
+.ready-list li { display: flex; justify-content: space-between; align-items: center; gap: 1rem; font-size: 1.05rem; }
+.yesno { display: flex; gap: .4rem; }
+.yesno .rate { width: auto; height: auto; border-radius: 999px; padding: .35em .9em; }
+.ready-line .dot { display: inline-block; width: .8rem; height: .8rem; border-radius: 50%; vertical-align: -1px; }
+.dot-green { background: var(--green); }
+.dot-amber { background: var(--amber); }
+.dot-red { background: var(--red); }
+
+/* ---------- word help ---------- */
+.word-btn { font: inherit; font-weight: 600; cursor: pointer; border: 2px solid rgba(255, 255, 255, .7); background: transparent; color: #fff; border-radius: 999px; padding: .4em 1em; }
+.word-btn:hover { background: rgba(255, 255, 255, .12); }
+dialog { border: none; border-radius: var(--radius); box-shadow: 0 10px 40px rgba(22, 27, 59, .3); padding: 1.4rem 1.6rem; color: var(--ink); }
+dialog::backdrop { background: rgba(22, 27, 59, .45); }
+.word-help { width: min(520px, 92vw); }
+.word-help .answer-row { display: flex; gap: .5rem; }
+.word-help input { flex: 1; font: inherit; font-size: 1.15rem; padding: .45em .6em; border: 1.5px solid var(--line); border-radius: 10px; }
+.word-result { margin-top: 1rem; }
+.word-meaning { margin: .5rem 0; }
+
+/* ---------- teacher: module preview, routine, palette ---------- */
+.preview-dialog { width: min(860px, 94vw); max-height: 88vh; overflow-y: auto; }
+.preview-head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; position: sticky; top: -1.4rem; background: #fff; padding: .4rem 0; margin-top: -.4rem; border-bottom: 1px solid var(--line); }
+.preview-head h2 { margin: 0; }
+.pv-about { margin: 1rem 0; color: var(--muted); }
+.pv-items { padding-left: 1.6rem; }
+.pv-items > li { padding: .7rem 0; border-bottom: 1px solid var(--line); }
+.pv-type { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--blue); }
+.pv-q { font-weight: 600; margin: .2rem 0 .4rem; }
+.pv-right { color: var(--green); font-weight: 700; }
+.pv-node { border-left: 3px solid var(--line); padding-left: .7rem; margin: .5rem 0; }
+.pv-level { margin: .5rem 0; }
+.pv-level summary { cursor: pointer; padding: .4rem 0; }
+.chip-row { display: flex; gap: .3rem; }
+.chip-row .chip { flex: 1; }
+.chip-view { font: inherit; cursor: pointer; border: 2px solid var(--line); background: #fff; border-radius: 10px; padding: 0 .5em; }
+.chip-view:hover { border-color: var(--blue); }
+.routine li { margin: .4rem 0; }
+.module-list { display: flex; flex-wrap: wrap; gap: .4rem; }
+.schedule-title { margin: .4rem 0 .2rem; }

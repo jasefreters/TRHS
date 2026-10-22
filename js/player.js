@@ -1,6 +1,6 @@
 /*
   Runs an independent elective: choose a level (if the module has levels), work through the
-  items one at a time, then show a certificate once.
+  items one at a time, then show the student's answers. Certificates come at the end of the day.
 
   Item types:
     { type: "read", title, text }                          a page to read
@@ -22,13 +22,14 @@
     { type: "tiles", title, q, parts: ["text", { options: ["tile" | { text, warn }] }, ...] }
                                                            build a sentence from word tiles
     { type: "video", title, youtube: "id", text }          a short video, with a summary if it won't play
+    { type: "ready", title }                               morning ready-to-learn check (surveys only)
 
-  Any item can have "easy" (replacement fields for reading levels 1–2) and read items "more"
-  (extra text for levels 4–5). A module's "deeper" prompts are added for level 5.
+  Only modules with "levels" (Literacy) have a reading level. Within them, items can have "easy"
+  (replacement fields for levels 1–2) and read items "more" (extra text for levels 4–5).
 
   What students choose in "select" and write in "write" stays on the laptop while they work. When
   they finish the module it is saved with the module (state.responses) for the teacher to read,
-  and shown with the certificate.
+  and shown on the finished page.
 */
 window.RP = window.RP || {};
 
@@ -101,37 +102,8 @@ RP.Player = (function () {
     let tries = 0;
 
     function persist() { opts.save("in_progress", null, state); }
-    // Literacy and numeracy levels are reading levels too; other modules ask for one.
-    function readingLevel() { return module.levels ? state.level : state.readingLevel; }
-
-    function chooseReading() {
-      let remembered = null;
-      try { remembered = Number(localStorage.getItem("rp-reading-level")) || null; } catch (e) { /* private window */ }
-      el.innerHTML = `
-        <div class="player">
-          ${header()}
-          <div class="player-body">
-            <h2>Choose your reading level</h2>
-            <p>Pick the level that suits you. You can use the <strong>Read aloud</strong> button on any page.</p>
-            <div class="level-grid">
-              ${RP.READING_LEVELS.map(l => `
-                <button class="level-card${l.level === remembered ? " suggested" : ""}" data-reading="${l.level}">
-                  <span class="level-name">${h(l.title)}</span>
-                  <span class="level-about">${h(l.about)}</span>
-                  ${l.level === remembered ? `<span class="tag">Last time</span>` : ""}
-                </button>`).join("")}
-            </div>
-          </div>
-        </div>`;
-      bindHeader();
-      el.querySelectorAll("[data-reading]").forEach(b => b.onclick = () => {
-        state.readingLevel = Number(b.dataset.reading);
-        try { localStorage.setItem("rp-reading-level", state.readingLevel); } catch (e) { /* private window */ }
-        state.index = 0;
-        persist();
-        showItem();
-      });
-    }
+    // Only modules with levels (Literacy) have a reading level; others use their standard text.
+    function readingLevel() { return module.levels ? state.level : null; }
 
     function chooseLevel() {
       const suggested = state.level;
@@ -172,7 +144,7 @@ RP.Player = (function () {
       return `
         <div class="player-head">
           <div>
-            <div class="player-title">${h(module.title)}${state.level && module.levels ? ` <span class="muted">· ${h(levelTitle(state.level))}</span>` : ""}${!module.levels && state.readingLevel ? ` <span class="muted">· Reading level ${state.readingLevel}</span>` : ""}</div>
+            <div class="player-title">${h(module.title)}${state.level && module.levels ? ` <span class="muted">· ${h(levelTitle(state.level))}</span>` : ""}</div>
             ${items ? `<div class="progress" aria-label="Progress"><div style="width:${pct}%"></div></div>` : ""}
           </div>
           ${RP.speech.button()}
@@ -315,6 +287,20 @@ RP.Player = (function () {
         body = `${it.title ? `<h2>${h(it.title)}</h2>` : ""}
           <div class="video"><iframe src="https://www.youtube-nocookie.com/embed/${encodeURIComponent(it.youtube)}?rel=0&modestbranding=1" title="${h(it.title || "Video")}" allow="encrypted-media; picture-in-picture" allowfullscreen loading="lazy"></iframe></div>
           ${it.text ? `<details class="video-summary"><summary>Can't watch it? Read what it says</summary><div class="reading">${RP.md(it.text)}</div></details>` : ""}
+          <div class="actions"><button class="btn primary" data-next>Next</button></div>`;
+      }
+      if (it.type === "ready") {
+        const a = answers[i] || (answers[i] = { light: null, have: {} });
+        body = `<h2>${h(it.title || "Ready to learn?")}</h2>
+          <p class="q-small">How ready to learn do you feel right now?</p>
+          <div class="traffic" role="group" aria-label="Traffic light">${RP.READY_LIGHTS.map(l => `
+            <button class="light light-${l.id}${a.light === l.id ? " picked" : ""}" data-light="${l.id}" aria-pressed="${a.light === l.id}"><span class="lamp" aria-hidden="true"></span>${h(l.label)}</button>`).join("")}</div>
+          <ul class="ready-list">${RP.READY_ITEMS.map(x => `
+            <li><span>${h(x.q)}</span><span class="yesno" role="group" aria-label="${h(x.q)}">
+              <button class="rate${a.have[x.id] === true ? " picked" : ""}" data-have="${x.id}:1" aria-pressed="${a.have[x.id] === true}">Yes</button>
+              <button class="rate${a.have[x.id] === false ? " picked" : ""}" data-have="${x.id}:0" aria-pressed="${a.have[x.id] === false}">No</button>
+            </span></li>`).join("")}</ul>
+          <p class="muted small">If you said no to anything, your teacher will help you sort it out.</p>
           <div class="actions"><button class="btn primary" data-next>Next</button></div>`;
       }
       if (it.type === "rating") {
@@ -655,16 +641,24 @@ RP.Player = (function () {
         };
       }
 
+      if (it.type === "ready") {
+        const a = answers[i];
+        el.querySelectorAll("[data-light]").forEach(b => b.onclick = () => {
+          a.light = b.dataset.light; keepAnswers();
+          el.querySelectorAll("[data-light]").forEach(x => { const on = x === b; x.classList.toggle("picked", on); x.setAttribute("aria-pressed", on); });
+        });
+        el.querySelectorAll("[data-have]").forEach(b => b.onclick = () => {
+          const [id, v] = b.dataset.have.split(":");
+          a.have[id] = v === "1"; keepAnswers();
+          b.parentNode.querySelectorAll("[data-have]").forEach(x => { const on = x === b; x.classList.toggle("picked", on); x.setAttribute("aria-pressed", on); });
+        });
+      }
       if (it.type === "write") {
         const a = answers[i];
         el.querySelectorAll("[data-write]").forEach(t => t.oninput = () => { a[Number(t.dataset.write)] = t.value; keepAnswers(); });
         const first = el.querySelector("[data-write]"); if (first) first.focus();
       }
       if (it.type === "read") next.focus();
-      if (readingLevel() === 1 && RP.speech.supported) {
-        const b = el.querySelector("[data-read-aloud]");
-        RP.speech.say(RP.speech.textOf(el.querySelector(".player-body")), b);
-      }
     }
 
     // Everything the student chose or wrote, for the printable worksheet.
@@ -686,6 +680,10 @@ RP.Player = (function () {
         }
         if (it.type === "tiles") {
           return { heading: it.title || "", rows: [{ label: it.q || "My sentence", text: (a && a.sentence) || "" }] };
+        }
+        if (it.type === "ready") {
+          const r = RP.readyResult(a);
+          return { heading: it.title || "Ready to learn", rows: [{ label: "How ready I feel", text: r.light ? RP.READY_LIGHTS.find(l => l.id === r.light).label : "" }].concat(RP.READY_ITEMS.map(x => ({ label: x.q, text: r.have.includes(x.id) ? "Yes" : r.missing.includes(x.id) ? "No" : "" }))) };
         }
         if (it.type === "select") {
           const chosen = a ? a.picked.slice().sort((x, y) => x - y).map(k => it.options[k]).concat(a.other.trim() ? [a.other.trim()] : []) : [];
@@ -709,44 +707,70 @@ RP.Player = (function () {
         const ratings = ri >= 0 ? items[ri].statements.map((st, k) => (answers[ri] || [])[k] || null) : [];
         Object.assign(result, { survey: module.survey, ratings, total: ratings.reduce((n, v) => n + (v || 0), 0), max: ratings.length * 5 });
       }
+      const ready = items.findIndex(it => it.type === "ready");
+      if (ready >= 0) result.ready = RP.readyResult(answers[ready]);
       opts.onFinish(result, state, worksheet(items));
     }
 
     if (module.levels && state.index == null) chooseLevel();
-    else if (!module.levels && !module.survey && state.readingLevel == null) chooseReading();
     else { if (state.index == null) state.index = 0; showItem(); }
   }
 
-  // Shown straight after finishing, and again whenever the student opens a finished module.
-  // The name is typed here and never saved.
-  function certificate(el, cert, onDone) {
-    const sheet = cert.worksheet && cert.worksheet.length ? cert.worksheet : null;
+  // Shown straight after finishing a module, and again whenever the student opens a finished one:
+  // their answers (if any) to save or email. Certificates are given at the end of each day.
+  function finished(el, info, onDone) {
+    const sheet = info.worksheet && info.worksheet.length ? info.worksheet : null;
     el.innerHTML = `
       <div class="cert-wrap">
         <div class="cert-controls no-print">
-          <h2>${cert.justFinished ? "Well done! You finished" : "Your certificate for"} ${h(cert.title)}${cert.justFinished ? "." : ""}</h2>
-          <label class="field">Type your name for your certificate${sheet ? " and answers" : ""}
-            <input data-name autocomplete="off" maxlength="40">
-          </label>
-          <p class="muted">Your name isn't saved anywhere. ${sheet ? "Your answers have been sent to your teacher. " : ""}To keep a copy, choose <strong>Save as PDF</strong> (then "Save as PDF" or "Save to Google Drive" as the destination), or <strong>Email</strong> it to yourself or a staff member. You can come back to this page any time from your plan.</p>
+          <h2>${info.justFinished ? "Well done! You finished" : "You finished"} ${h(info.title)}${info.justFinished ? "." : ""}</h2>
+          ${info.outOf ? `<p><strong>${info.score} out of ${info.outOf}</strong> correct first time.</p>` : ""}
+          <p class="muted">${sheet ? "Your answers have been sent to your teacher. " : ""}It will be on your certificate at the end of the day.</p>
+          ${sheet ? `<label class="field">Type your name to keep a copy of your answers <input data-name autocomplete="off" maxlength="40"></label>
+            <p class="muted small">Your name isn't saved anywhere.</p>` : ""}
           <div class="actions">
-            <button class="btn primary" data-print>Save as PDF</button>
-            <a class="btn" data-email href="${RP.mailtoFor(cert)}">Email</a>
-            <button class="btn ghost" data-done>Back to my plan</button>
+            ${sheet ? `<button class="btn" data-print>Save as PDF</button><a class="btn" data-email href="${RP.mailtoFor(info)}">Email</a>` : ""}
+            <button class="btn primary" data-done>Back to my plan</button>
           </div>
         </div>
-        ${RP.certificateMarkup(cert)}
-        ${sheet ? RP.worksheetMarkup(cert) : ""}
+        ${sheet ? RP.worksheetMarkup(info) : ""}
       </div>`;
-    const name = el.querySelector("[data-name]"), out = el.querySelector("[data-cert-name]"), wsName = el.querySelector("[data-ws-name]");
-    name.oninput = () => { out.textContent = name.value.trim() || " "; if (wsName) wsName.textContent = name.value.trim(); };
-    name.focus();
-    el.querySelector("[data-print]").onclick = () => {
-      if (!name.value.trim()) { name.focus(); name.classList.add("wrong"); setTimeout(() => name.classList.remove("wrong"), 600); return; }
-      window.print();
-    };
+    bindName(el, !!sheet);
     el.querySelector("[data-done]").onclick = onDone;
   }
 
-  return { open, certificate };
+  // The end-of-day certificate, listing every module finished that day.
+  function dayCertificate(el, cert, onDone) {
+    el.innerHTML = `
+      <div class="cert-wrap">
+        <div class="cert-controls no-print">
+          <h2>Your certificate for Day ${h(cert.day)}</h2>
+          <label class="field">Type your name for your certificate <input data-name autocomplete="off" maxlength="40"></label>
+          <p class="muted">Your name isn't saved anywhere. To keep a copy, choose <strong>Save as PDF</strong> (then "Save as PDF" or "Save to Google Drive"), or <strong>Email</strong> it.</p>
+          <div class="actions">
+            <button class="btn primary" data-print>Save as PDF</button>
+            <a class="btn" data-email href="${RP.dayMailto(cert)}">Email</a>
+            <button class="btn ghost" data-done>Back to my plan</button>
+          </div>
+        </div>
+        ${RP.dayCertificateMarkup(cert)}
+      </div>`;
+    bindName(el, true);
+    el.querySelector("[data-done]").onclick = onDone;
+  }
+
+  function bindName(el, needed) {
+    const name = el.querySelector("[data-name]");
+    if (!name) return;
+    const out = el.querySelector("[data-cert-name]"), wsName = el.querySelector("[data-ws-name]");
+    name.oninput = () => { if (out) out.textContent = name.value.trim() || " "; if (wsName) wsName.textContent = name.value.trim(); };
+    name.focus();
+    const print = el.querySelector("[data-print]");
+    if (print) print.onclick = () => {
+      if (needed && !name.value.trim()) { name.focus(); name.classList.add("wrong"); setTimeout(() => name.classList.remove("wrong"), 600); return; }
+      window.print();
+    };
+  }
+
+  return { open, finished, dayCertificate };
 })();

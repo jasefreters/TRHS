@@ -2,6 +2,7 @@
 RP.registerModule({
   id: "literacy-vocab",
   title: "Literacy: Vocabulary",
+  hidden: true, // used inside the Literacy module (literacy.js); kept so older plans still work
   icon: "🔤",
   about: "Word meanings, opposites, word parts and choosing the best word. Check each answer as you go.",
   levels: [

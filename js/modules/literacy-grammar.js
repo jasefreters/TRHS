@@ -2,6 +2,7 @@
 RP.registerModule({
   id: "literacy-grammar",
   title: "Literacy: Grammar and Sentences",
+  hidden: true, // used inside the Literacy module (literacy.js); kept so older plans still work
   icon: "🧩",
   about: "Build sentences, join ideas, use the right tense and put paragraphs in order.",
   levels: [

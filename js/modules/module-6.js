@@ -3,6 +3,7 @@ RP.registerModule({
   id: "module-6",
   title: "Module 6: My Return Plan",
   icon: "🎯",
+  hidden: true, // now the teacher-led "My return plan" session; kept so older plans still work
   score: false,
   deeper: ["What will you do on your first day back if something goes wrong?"],
   about: `**My Return-to-School Success Plan.** Name your strengths, set your goals and make a support plan for going back to class. You'll print your plan to take to your 1:1 with your teacher.

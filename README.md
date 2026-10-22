@@ -1,6 +1,10 @@
 # Reset Program
 
-Thomas Reddall High School's two-day Reset Program (pre- and post-suspension), run in the Hub. Each student has a Chromebook for the day. The website shows them their plan and walks them through it, so one staff member can run group sessions, individual sessions and different independent activities for up to five students at once.
+Thomas Reddall High School's two-day Reset Program (pre- and post-suspension), run in the Hub. Each student has a Chromebook for the day. The website shows them their plan and walks them through it, so one staff member can run group and individual modules for up to five students at once.
+
+Everything in the day is a **module**:
+- **Group modules:** a staff member with the group, laptops to the side.
+- **Individual modules:** either **independent** sessions (on the laptop, at the student's own pace) or **teacher-led** sessions (one-on-one with a staff member).
 
 **Live site:** https://jasefreters.github.io/TRHS/
 
@@ -10,16 +14,17 @@ Thomas Reddall High School's two-day Reset Program (pre- and post-suspension), r
 ## How a day works
 
 1. **Set up a student.** On the dashboard, click **New student**. The website makes an 8-character code such as `K7Q3-M2XD`. Write it next to the student's name on your offline list; the website never stores names.
-2. **Plan the two days.** Each day has 10 sessions (below). Group sessions come from the room's rotation, and a default set of independent modules fills the rest. Drag modules and **individual sessions** onto sessions, or click one and then click a session. The plan editor warns if two students have an individual session at the same time, and reminds you about each day's review or success plan.
-3. **Staffing.** On the **Run sheet**, type who's running each session. Whoever is on for a session runs any individual session in it. Print the run sheet for the day.
+2. **Fill in their daily schedule.** Each day has 10 sessions (below). Group modules come from the room's rotation; the rest start empty. Drag independent modules and **teacher-led sessions** onto the empty sessions, or click one and then click a session. Click 👁 to see what's in a module. Changing a group module asks "Are you sure?" first. The schedule warns if two students have a teacher-led session at the same time, and reminds you about each day's review or return plan.
+3. **Staffing.** On the **Run sheet**, type who's running each session. Whoever is on for a session runs any teacher-led session in it. Print the run sheet for the day.
 4. **Hand over the laptop.** Click **Student view on this laptop**. This logs you out of that laptop only and opens the student's plan. (Or the student types their code.)
 5. **The student follows the plan.** The left pane shows the day, with the current session marked "Now" and a tick next to each finished part.
-   - Morning session: social story and the morning survey.
-   - Group sessions: laptops to the side.
-   - Independent modules: on the laptop, at a reading level the student chooses (1–5), with a **Read aloud** button on every page. Finishing one shows a certificate and their answers, which they can save as a PDF or email.
-   - Breaks: go to recess and lunch as normal, back to the Hub afterwards.
-   - Afternoon debrief: the afternoon survey.
-6. **Follow along.** The dashboard updates live: each student's sessions, results, missing core group sessions, **I need help** requests and who's staffing now. Tick a group session done for everyone in one click, and **Present** it on the projector. Open an individual session to see the student's surveys and module answers; the Day 2 success plan prints a **Return to class plan** to sign.
+   - Morning session: social story, then the morning check-in: a ready-to-learn traffic light, whether they've had breakfast and have a pen, uniform, bag, lunch and other food, then a short survey.
+   - Group modules: laptops to the side.
+   - Independent modules: on the laptop, with a **Read aloud** button on every page. Finishing one shows their answers, which they can save as a PDF or email. Only Literacy has reading levels (1–5).
+   - **What does it mean?** in the top bar looks up any word (select it on the page, or type it).
+   - Breaks: go to B1 and B2 as normal, back to the Hub afterwards.
+   - Afternoon debrief: the afternoon survey, then their **certificate for the day**, listing every module they finished. They can reopen it from their plan.
+6. **Follow along.** The dashboard updates live: each student's ready-to-learn traffic light and anything they don't have (breakfast, lunch…), their sessions, results, missing core group modules, **I need help** requests and who's staffing now. Tick a group module done for everyone in one click, and **Present** it on the projector. Open a teacher-led session to see the student's surveys and module answers; **My return plan** and the **Return from suspension meeting** print a **Return to class plan** to sign.
 7. **Day 2 and finishing.** Click **Move to Day 2** the next morning. **Pause** a program if a student is away. **Finish program** turns the code off. The record stays.
 8. **Follow-up.** About 4–6 weeks after they return, open the student's record and click **Start follow-up survey**. Their code works again for the survey only.
 
@@ -27,20 +32,22 @@ Thomas Reddall High School's two-day Reset Program (pre- and post-suspension), r
 
 | Session | Time | |
 | --- | --- | --- |
-| 1 | 8:20–8:50 | Morning session (whole group): social story and morning survey |
-| 2 | 8:50–9:23 | Group session |
-| 3 | 9:23–9:55 | Independent or individual |
-| 4 | 9:55–10:26 | Group session |
-| | 10:26–10:56 | Recess |
-| 5 | 10:56–11:23 | Independent or individual |
-| 6 | 11:23–11:50 | Group session |
-| 7 | 11:50–12:26 | Independent or individual |
-| 8 | 12:26–1:02 | Group session |
-| | 1:02–1:32 | Lunch |
-| 9 | 1:32–2:05 | Independent or individual |
-| 10 | 2:05–2:35 | Afternoon debrief (whole group) and afternoon survey |
+| 1 | 8:20–8:50 | Morning session (whole group): social story and morning check-in |
+| 2 | 8:50–9:23 | Group module |
+| 3 | 9:23–9:55 | Independent or teacher-led |
+| 4 | 9:55–10:26 | Group module |
+| | 10:26–10:56 | B1 |
+| 5 | 10:56–11:27 | Independent or teacher-led |
+| 6 | 11:27–11:59 | Group module |
+| 7 | 11:59–12:30 | Independent or teacher-led |
+| 8 | 12:30–1:02 | Group module |
+| | 1:02–1:32 | B2 |
+| 9 | 1:32–2:03 | Independent or teacher-led |
+| 10 | 2:03–2:35 | Afternoon debrief (whole group) and afternoon survey |
 
-**Group sessions** run on a two-day rotation, so every student gets all eight across their two days whichever day they start. Each stands alone.
+Every session ends with a school bell or in the middle of a period.
+
+**Group modules** run on a two-day rotation, so every student gets all eight across their two days whichever day they start. Each stands alone, and each follows the **Thomas Reddall Lesson Routine**: entry, Do Now, learning intention and success criteria, explicit teaching, brain break, application (butcher's paper, discussion, card sorts), recap, exit.
 
 | Time | Rotation A | Rotation B |
 | --- | --- | --- |
@@ -49,18 +56,18 @@ Thomas Reddall High School's two-day Reset Program (pre- and post-suspension), r
 | 11:23 | Wellbeing | Classroom Expectations |
 | 12:26 | Chain Analysis | Self-Regulation |
 
-Run sheets and projector slides for each are on the dashboard's **Session guides** page. RIOT, Wellbeing and Self-Regulation are outlines until the RIOT materials are added. Movement breaks are on hold.
+Run sheets and projector slides for each are on the dashboard's **Session guides** page, with the lesson routine and written **movement breaks** to pull out when students need one. RIOT, Wellbeing and Self-Regulation are outlines until the RIOT materials are added.
 
-**Individual sessions:** *Review of plans, goals and Sentral* (Day 1), *My success plan* (Day 2), *Classwork and assessment check-in*, and *Learning and support check*. Notes and testing results stay in Sentral and the school's usual systems.
+**Teacher-led sessions:** *Review of plans, goals and Sentral* (Day 1), *My return plan* (Day 2), *Return from suspension meeting*, *Classwork and assessment check-in*, and *Learning and support check*. Notes and testing results stay in Sentral and the school's usual systems.
 
 ## Independent modules
 
 All of these stand alone and can be done in any order:
 
-- **Modules 1–6:** the reflection halves of the school's module documents.
+- **Modules 1–5:** the reflection halves of the school's module documents. (Module 6, the return plan, is now the teacher-led *My return plan*.)
 - **My Chain** (chain analysis), **T-RED Values in Action**, **Code of Conduct Check**.
-- **Say It Better**, **Online Conflict and Social Media**, **Restorative Conversation Prep**, **Growth Mindset**, **Goal Builder**, **Healthy Habits Check**, **Asking for Help**, **Study Skills**.
-- **Literacy:** Reading; Vocabulary; Spelling and Punctuation; Grammar and Sentences. Each has levels 1–5 (NSW Stages 1–5).
+- **Say It Better**, **Online Conflict and Social Media**, **Restorative Conversation Prep**, **Growth Mindset**, **Goal Builder**, **Healthy Habits Check**, **Asking for Help**, **Study Skills**, **Attendance and Truancy**.
+- **Literacy:** one half-hour module with levels 1–5 (NSW Stages 1–5): a reading passage and questions, then vocabulary, spelling and punctuation, and grammar.
 - **Numeracy:** a sample for now, to be replaced with questions from The Daily Dash.
 
 **Videos** (in Module 2, My Chain and Growth Mindset) are YouTube clips chosen by title and channel. Preview each one before students use it, and change any in its module file. Each has a written summary underneath in case it won't play.
@@ -81,17 +88,17 @@ The **Reports** page shows, for any date range (for example a term):
 
 ## Records
 
-**All students** lists everyone who has been through the program. Search by code, filter by year, status or date, **Download spreadsheet** (one row per program), or **Delete old records** (for example at the end of the year). Click a student for their record:
+**All students** lists everyone who has been through the program, with their group modules and individual sessions. Search by code, filter by year, status or date, **Download spreadsheet** (one row per program), or **Delete old records** (for example at the end of the year). Click a student for their record:
 
 - **Each program:** shown day by day, with their written answers and surveys and the reading levels they chose.
 - **Edit program:** opens the plan editor. **Mark done** records an elective done another way. **Let them redo** clears one.
-- **Print certificates** (optionally with answers) and **Print program record**. You type the name when printing; it isn't saved.
+- **Print certificates** (one per day, optionally with their answers) and **Print program record**. You type the name when printing; it isn't saved.
 - **Pause / Resume**, **Reopen**, **Start a new program**, **Start follow-up survey**.
 - **Delete program** removes one program. **Delete student** removes everything about a student; you confirm by typing their code.
 
 ## Changing things
 
-- **Timetable, group sessions (guides and slides), rotations, individual sessions, default modules:** [`js/config.js`](js/config.js).
+- **Timetable, lesson routine, group modules (guides and slides), movement breaks, rotations, teacher-led sessions, default modules:** [`js/config.js`](js/config.js).
 - **Surveys:** [`js/surveys.js`](js/surveys.js).
 - **Words students see** (social stories, group, debrief and break messages, free choice): [`js/content.js`](js/content.js).
 - **Modules:** one file each in [`js/modules/`](js/modules). Copy an existing one, give it a new `id`, and add a `<script>` line for it in both `index.html` and `teacher.html`. A module has either `items`, or `levels` (each with `items`). Add `score: false` for reflection modules. Item types:
@@ -112,9 +119,9 @@ The **Reports** page shows, for any date range (for example a term):
   - `rating`: rate statements 1–5 (surveys)
   - `breathe`: guided box breathing
 
-  **Reading levels:** any item can have `easy` (replacement text for levels 1–2), read items can have `more` (extra detail for levels 4–5), and a module can have `deeper` prompts (added for level 5). Level 1 reads each page aloud.
+  **Levels:** only modules with `levels` (Literacy) ask for a level. Within them, items can have `easy` (replacement text for levels 1–2) and read items `more` (extra detail for levels 4–5).
 
-  Answers stay on the laptop while the student works, then are saved with the module when it's finished, locked, and shown to the student with their certificate and to staff on the record.
+  Answers stay on the laptop while the student works, then are saved with the module when it's finished, locked, and shown to the student and to staff on the record.
 
 Text can use `**bold**`, blank lines between paragraphs, `- ` at the start of a line for lists, and `[text](https://link)`.
 
@@ -129,8 +136,9 @@ Open the site with `?demo=1` on the end (for example `teacher.html?demo=1`) to u
 - No names or personal details are stored. Students are random codes; the code-to-name list stays offline with staff.
 - Students don't log in. Their code only opens their own plan, and only while their program (or follow-up) is open.
 - Teachers log in with their own Supabase accounts. Only emails on the staff list can see anything.
-- The database stores session ticks, scores and reading levels, written answers from finished modules, and survey answers, all linked to the code only. Students are told their teacher reads their answers, and survey and module questions ask them not to write names or identifying details. Everything is deleted with the program or the student, or with **Delete old records**.
+- The database stores session ticks, scores and Literacy levels, written answers from finished modules, the morning ready-to-learn check, and survey answers, all linked to the code only. Students are told their teacher reads their answers, and survey and module questions ask them not to write names or identifying details. Everything is deleted with the program or the student, or with **Delete old records**.
 - Staff names typed on the run sheet are stored so the dashboard can show who's running each session.
+- **What does it mean?** sends only the word being looked up to a free online dictionary (dictionaryapi.dev), nothing about the student.
 - This repository and the website are public, so never put student information in them.
 
 ## Setting up

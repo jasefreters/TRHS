@@ -2,6 +2,7 @@
 RP.registerModule({
   id: "literacy-reading",
   title: "Literacy: Reading",
+  hidden: true, // used inside the Literacy module (literacy.js); kept so older plans still work
   icon: "📖",
   about: "Read a short text, then answer questions about it. Use **Back to the text** to look at it again, and **Read aloud** if you'd like to hear it.",
   levels: [

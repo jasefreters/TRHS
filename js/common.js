@@ -57,14 +57,24 @@ RP.formatDate = iso => new Date(iso).toLocaleDateString("en-AU", { day: "numeric
 // ---- Plans ----
 RP.groupSession = id => RP.GROUP_SESSIONS.find(g => g.id === id);
 
+// Everything in the day is a module: group modules, and individual modules, which are either
+// independent (on the laptop) or teacher-led (one-on-one with a staff member).
 RP.KIND_LABEL = {
-  intro: "Whole group", debrief: "Whole group", group: "Group", independent: "On your own",
-  free: "Free choice", one_to_one: "Individual", break: "Break"
+  intro: "Whole group", debrief: "Whole group", group: "Group module", independent: "Independent",
+  free: "Free choice", one_to_one: "Teacher-led", break: "Break", survey: "Survey"
+};
+
+// The title to show for a planned session. Older plans saved teacher-led titles as "Individual: …".
+RP.sessionTitle = function (s) {
+  if (s.kind === "independent" && s.activity && RP.MODULES[s.activity]) return RP.MODULES[s.activity].title;
+  if (s.kind === "independent" && !s.activity) return "Empty";
+  if (s.kind === "one_to_one") { const x = RP.individualSession(s.activity); return x ? x.title : String(s.title || "").replace(/^Individual:\s*/, ""); }
+  return s.title;
 };
 
 // A fresh day using one of the rotations: fixed morning and debrief, the rotation's group
-// sessions, and the default electives in the free slots. Individual sessions are dragged in by
-// the teacher, so they're not placed here (they'd clash between students).
+// modules, and the default electives (none, unless set in config.js) in the free slots.
+// Teacher-led sessions are dragged in by the teacher, so they're not placed here.
 RP.buildDay = function (day, rotation) {
   const groups = RP.ROTATIONS[rotation] || {};
   const free = [];
@@ -79,7 +89,7 @@ RP.buildDay = function (day, rotation) {
     else {
       const id = electives[free.indexOf(slot)];
       rows.push(id ? { day, slot, kind: "independent", activity: id, title: RP.MODULES[id].title }
-        : { day, slot, kind: "independent", activity: null, title: "Elective" });
+        : { day, slot, kind: "independent", activity: null, title: "Empty" });
     }
   }
   return rows;
@@ -233,16 +243,9 @@ RP.speech = (function () {
 })();
 
 // ---- Reading levels ----
-// Students pick a reading level (1–5) when they start a module; it's saved with their result.
-// Items can give an "easy" version (levels 1–2), "more" detail (levels 4–5) and a "deeper"
-// question (level 5). Level 1 also reads each page aloud automatically.
-RP.READING_LEVELS = [
-  { level: 1, title: "Level 1", about: "Short and simple, and read aloud to you" },
-  { level: 2, title: "Level 2", about: "Short and simple" },
-  { level: 3, title: "Level 3", about: "Standard" },
-  { level: 4, title: "Level 4", about: "A bit more detail" },
-  { level: 5, title: "Level 5", about: "More detail and extra thinking questions" }
-];
+// Only the Literacy module has levels (1–5, its own "levels"). Other modules use their standard
+// text. Items can still give an "easy" version (levels 1–2) and read items "more" detail
+// (levels 4–5), used if a module is ever opened at a reading level.
 RP.atLevel = function (item, level) {
   let it = item;
   if (level && level <= 2 && item.easy) it = Object.assign({}, item, item.easy);
@@ -262,4 +265,68 @@ RP.mailtoFor = function (cert) {
   let body = lines.join("\n");
   if (body.length > 1800) body = body.slice(0, 1800) + "\n…";
   return `mailto:?subject=${encodeURIComponent("Reset Program: " + cert.title)}&body=${encodeURIComponent(body)}`;
+};
+
+// ---- End-of-day certificate ----
+// One certificate per day, listing every module finished that day. Students get it after the
+// afternoon survey (and any time from their plan); teachers can reprint it.
+RP.dayModules = function (sessions, day) {
+  return sessions.filter(s => s.day === day && s.status === "done" && ["group", "independent", "one_to_one"].includes(s.kind))
+    .sort((a, b) => a.slot - b.slot)
+    .map(s => ({ title: RP.sessionTitle(s), kind: RP.KIND_LABEL[s.kind], result: s.kind === "independent" ? RP.resultText(s.result) : "" }));
+};
+RP.dayCertificateMarkup = function (cert) {
+  const h = RP.h;
+  return `
+    <div class="certificate day-cert">
+      <div class="cert-burst">${RP.logo(110)}</div>
+      <div class="cert-school">Thomas Reddall High School</div>
+      <div class="cert-heading">Certificate of Completion</div>
+      <div class="cert-small">This certificate is awarded to</div>
+      <div class="cert-name" data-cert-name>&nbsp;</div>
+      <div class="cert-small">for completing Day ${h(cert.day)} of the Reset Program</div>
+      ${cert.modules.length ? `<ul class="cert-list">${cert.modules.map(m => `<li>${h(m.title)} <span class="cert-kind">${h(m.kind)}${m.result ? " · " + h(m.result) : ""}</span></li>`).join("")}</ul>`
+        : `<div class="cert-small">No modules finished yet.</div>`}
+      <div class="cert-motto">"Focusing on our Future"</div>
+      <div class="cert-foot"><span>Reset Program</span><span>${h(cert.date)}</span></div>
+    </div>`;
+};
+RP.dayMailto = function (cert) {
+  const body = [`Reset Program: Day ${cert.day}`, cert.date, "", "Modules completed:", ...cert.modules.map(m => `- ${m.title} (${m.kind}${m.result ? ", " + m.result : ""})`)].join("\n");
+  return `mailto:?subject=${encodeURIComponent("Reset Program: Day " + cert.day + " certificate")}&body=${encodeURIComponent(body)}`;
+};
+
+// ---- Teacher's preview of an independent module ----
+// Every page and question, with the answers, so staff can see what a student is working on.
+RP.previewModule = function (m) {
+  const h = RP.h, md = RP.md, inline = RP.inlineMd;
+  const item = (it, n) => {
+    const head = t => `<div class="pv-type">${h(t)}</div>`;
+    switch (it.type) {
+      case "read": return `${head("Page")}${it.title ? `<h4>${h(it.title)}</h4>` : ""}${md(it.text)}`;
+      case "mc": return `${head("Multiple choice")}<div class="pv-q">${inline(it.q)}</div><ol class="pv-choices" type="A">${it.choices.map((c, k) => `<li class="${k === it.answer ? "pv-right" : ""}">${h(c)}${k === it.answer ? " ✓" : ""}</li>`).join("")}</ol>${it.explain ? `<p class="muted">${h(it.explain)}</p>` : ""}`;
+      case "input": return `${head("Type the answer")}<div class="pv-q">${inline(it.q)}</div><p class="pv-right">Answer: ${h((it.prefix || "") + it.answer + (it.suffix || ""))}${it.accept ? ` <span class="muted">(also: ${h(it.accept.join(", "))})</span>` : ""}</p>`;
+      case "sort": return `${head("Sort into groups")}<div class="pv-q">${inline(it.q)}</div>${it.buckets.map((b, k) => `<p><strong>${h(b)}:</strong> ${it.cards.filter(c => c.bucket === k).map(c => h(c.text)).join("; ")}</p>`).join("")}`;
+      case "order": return `${head("Put in order")}<div class="pv-q">${inline(it.q)}</div><ol>${it.cards.map(c => `<li>${h(c)}</li>`).join("")}</ol>`;
+      case "match": return `${head("Match")}<div class="pv-q">${inline(it.q)}</div><ul>${it.pairs.map(p => `<li>${h(p.left)} → <strong>${h(p.right)}</strong></li>`).join("")}</ul>`;
+      case "select": return `${head("Choose what fits you")}${it.title ? `<h4>${h(it.title)}</h4>` : ""}<div class="pv-q">${inline(it.q)}</div><p>${it.options.map(h).join(" · ")}${it.other ? " · (something else)" : ""}</p>`;
+      case "write": return `${head("Written answers (optional)")}${it.title ? `<h4>${h(it.title)}</h4>` : ""}${it.q ? md(it.q) : ""}<ul>${it.prompts.map(p => `<li>${inline(p)}</li>`).join("")}</ul>`;
+      case "slider": return `${head("Sliders")}${it.title ? `<h4>${h(it.title)}</h4>` : ""}<ul>${it.sliders.map(x => `<li>${h(x.label)} <span class="muted">(${h(x.left || x.min || 0)} → ${h(x.right || x.max || 10)})</span></li>`).join("")}</ul>`;
+      case "bodymap": return `${head("Body map")}<div class="pv-q">${inline(it.q)}</div>`;
+      case "story": return `${head("Choose-your-path story")}${it.title ? `<h4>${h(it.title)}</h4>` : ""}${Object.keys(it.nodes).map(k => { const nd = it.nodes[k]; return `<div class="pv-node"><p>${inline(nd.text)}${nd.end ? ` <span class="tag">${nd.end === "good" ? "good ending" : "try again"}</span>` : ""}</p>${nd.choices ? `<ul>${nd.choices.map(c => `<li>${h(c.label)}</li>`).join("")}</ul>` : ""}</div>`; }).join("")}`;
+      case "tiles": return `${head("Build a sentence")}${it.title ? `<h4>${h(it.title)}</h4>` : ""}<p>${it.parts.map(p => typeof p === "string" ? h(p) : `[${p.options.map(o => h(typeof o === "string" ? o : o.text + (o.warn ? " ✗" : ""))).join(" / ")}]`).join(" ")}</p>`;
+      case "video": return `${head("Video")}${it.title ? `<h4>${h(it.title)}</h4>` : ""}<p><a href="https://www.youtube.com/watch?v=${h(it.youtube)}" target="_blank" rel="noopener">Watch on YouTube</a></p>${it.text ? md(it.text) : ""}`;
+      case "scale": return `${head("Quick check-in (not saved)")}<div class="pv-q">${inline(it.q)}</div><p>${it.labels.map(h).join(" · ")}</p>`;
+      case "rating": return `${head("Rate 1–5")}<ol>${it.statements.map(x => `<li>${h(x)}</li>`).join("")}</ol>`;
+      case "breathe": return `${head("Box breathing")}${it.title ? `<h4>${h(it.title)}</h4>` : ""}${it.text ? md(it.text) : ""}`;
+      case "ready": return `${head("Ready to learn")}<p>Traffic light, then: ${RP.READY_ITEMS.map(x => h(x.label)).join(" · ")}</p>`;
+      default: return head(it.type);
+    }
+  };
+  const list = items => `<ol class="pv-items">${items.map((it, n) => `<li>${item(it, n)}</li>`).join("")}</ol>`;
+  return `
+    <div class="preview">
+      ${m.about ? `<div class="pv-about">${md(m.about)}</div>` : ""}
+      ${m.levels ? m.levels.map(l => `<details class="pv-level"><summary><strong>${h(l.title)}</strong> <span class="muted">${h(l.about || "")}</span></summary>${list(l.items)}</details>`).join("") : list(m.items)}
+    </div>`;
 };
