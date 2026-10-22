@@ -58,17 +58,25 @@ Every session ends with a school bell or in the middle of a period.
 
 Run sheets and projector slides for each are on the dashboard's **Session guides** page, with the lesson routine and written **movement breaks** to pull out when students need one. RIOT, Wellbeing and Self-Regulation are outlines until the RIOT materials are added.
 
-**Teacher-led sessions:** *Review of plans, goals and Sentral* (Day 1), *My return plan* (Day 2), *Return from suspension meeting*, *Classwork and assessment check-in*, and *Learning and support check*. Notes and testing results stay in Sentral and the school's usual systems.
+**Teacher-led sessions:** *Teacher-led: My Reset Plan* (Day 1), *Teacher-led: My Return Plan* (Day 2), *Return from suspension meeting*, *Classwork and assessment check-in*, and *Learning and support check*. Put the independent **My Reset Plan** or **My Return Plan** before its teacher-led session: the session page shows what the student wrote.
+
+**Optional group module:** *RAGE Recap* can replace another group module when it suits the group.
+
+**Other:** drag **Other** onto a session and type what it is (for example "Sport with Mr B"). The student sees it and is told they won't need their laptop.
+
+**Morning session:** drag **Morning session** to a later time if a student arrives late or has a return meeting first thing. Notes and testing results stay in Sentral and the school's usual systems.
 
 ## Independent modules
 
 All of these stand alone and can be done in any order:
 
-- **Modules 1–5:** the reflection halves of the school's module documents. (Module 6, the return plan, is now the teacher-led *My return plan*.)
+- **Modules 1–5:** the reflection halves of the school's module documents.
+- **My Reset Plan** (the Behaviour Chain Analysis worksheet; a printable copy is in [`resources/`](resources)) and **My Return Plan**: done before the teacher-led versions.
+- **Suspension Booklet:** students choose a subject (Maths, English, Drama, Science, History, Geography, PDHPE, TAS, RIOT, Wellbeing), use the booklet on screen, a paper copy or their own, and type their answers. The day certificate lists the subjects they started and finished. The Year 7 booklet is split by subject in [`booklets/year7/`](booklets/year7) without the teacher answer sheets. To add another year, split its booklet the same way and add it to `books` in [`js/modules/suspension-booklet.js`](js/modules/suspension-booklet.js).
 - **My Chain** (chain analysis), **T-RED Values in Action**, **Code of Conduct Check**.
 - **Say It Better**, **Online Conflict and Social Media**, **Restorative Conversation Prep**, **Growth Mindset**, **Goal Builder**, **Healthy Habits Check**, **Asking for Help**, **Study Skills**, **Attendance and Truancy**.
 - **Literacy:** one half-hour module with levels 1–5 (NSW Stages 1–5): a reading passage and questions, then vocabulary, spelling and punctuation, and grammar.
-- **Numeracy:** a sample for now, to be replaced with questions from The Daily Dash.
+- **Numeracy: Day 1** and **Numeracy: Day 2**, about 30 minutes each. Levels 1–4 are Years 3–6 from [The Daily Dash](https://jasefreters.github.io/mathswarmup/); levels 5–6 are Years 7–8 and 9–10. To refresh the Dash questions, check out the Dash next to this repo and run `node tools/dash-numeracy.js ../mathswarmup`.
 
 **Videos** (in Module 2, My Chain and Growth Mindset) are YouTube clips chosen by title and channel. Preview each one before students use it, and change any in its module file. Each has a written summary underneath in case it won't play.
 

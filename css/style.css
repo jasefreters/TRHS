@@ -634,3 +634,14 @@ dialog::backdrop { background: rgba(22, 27, 59, .45); }
 .routine li { margin: .4rem 0; }
 .module-list { display: flex; flex-wrap: wrap; gap: .4rem; }
 .schedule-title { margin: .4rem 0 .2rem; }
+
+/* ---------- suspension booklet ---------- */
+.subject-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: .6rem; margin: .4rem 0 1rem; }
+.subject-card { font: inherit; font-weight: 700; cursor: pointer; display: flex; flex-direction: column; align-items: flex-start; gap: .3rem; padding: .9rem 1rem; border-radius: 12px; border: 2px solid var(--line); background: var(--blue-soft); color: var(--navy); text-align: left; }
+.subject-card:hover { border-color: var(--blue); }
+.booklet-using { margin-bottom: 1rem; }
+.booklet-pdf iframe { width: 100%; height: 70vh; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+.booklet-rows { display: grid; gap: .8rem; margin: .6rem 0; }
+.booklet-row { display: grid; grid-template-columns: 180px 1fr; gap: .8rem; align-items: start; padding-bottom: .8rem; border-bottom: 1px solid var(--line); }
+.booklet-row input { font: inherit; padding: .45em .6em; border: 1.5px solid var(--line); border-radius: 10px; width: 100%; }
+@media (max-width: 700px) { .booklet-row { grid-template-columns: 1fr; } }

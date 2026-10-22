@@ -155,7 +155,8 @@
   const sessionsFor = (v, day) => v.sessions.filter(s => s.day === day).sort((a, b) => a.slot - b.slot);
   const at = (v, day, slot) => v.sessions.find(s => s.day === day && s.slot === slot);
   const titleOf = s => RP.sessionTitle(s);
-  const teacherTicks = s => ["group", "one_to_one"].includes(s.kind);
+  const ledTitle = s => /^Teacher-led/i.test(titleOf(s)) ? titleOf(s) : "Teacher-led: " + titleOf(s);
+  const teacherTicks = s => ["group", "one_to_one"].includes(s.kind) || RP.isCustom(s);
   const individualsOn = (v, day) => v.sessions.filter(s => s.day === day && s.kind === "one_to_one").sort((a, b) => a.slot - b.slot);
 
   // Individual sessions in the same slot today as another student's: the teacher can't do both.
@@ -302,7 +303,7 @@
           `<span class="muted">${typeof now === "object" && now.brk ? h(now.brk) : "Outside program hours"}</span>`}</div>
         ${inds.length ? inds.map(one => {
           const t = RP.slotTimes(one.slot);
-          return `<div class="row"><button class="link-btn" data-ind="${one.id}">${t ? RP.formatTime(t.start) + " " : ""}Teacher-led: ${h(titleOf(one))}</button>
+          return `<div class="row"><button class="link-btn" data-ind="${one.id}">${t ? RP.formatTime(t.start) + " " : ""}${h(ledTitle(one))}</button>
             <button class="btn small${one.status === "done" ? " ok" : ""}" data-tick="${one.id}">${one.status === "done" ? "✓ Done" : "Mark done"}</button>
             ${t && staffing[one.slot] ? `<span class="muted">with ${h(staffing[one.slot])}</span>` : ""}
             ${clash[one.slot] ? `<span class="warn">Clashes with ${h(clash[one.slot].join(", "))}</span>` : ""}</div>`;
@@ -683,7 +684,7 @@
           const t = RP.slotTimes(s.slot);
           return `<li class="${s.status === "done" ? "is-done" : ""}">
             <span class="time">${t ? RP.formatTime(t.start) : "Any time"}</span>
-            <span class="r-title">${h(titleOf(s))} <span class="muted">· ${h(RP.KIND_LABEL[s.kind])}</span></span>
+            <span class="r-title">${h(titleOf(s))} <span class="muted">· ${h(RP.kindLabel(s))}</span></span>
             <span class="r-status">${s.status === "done" ? "✓ " : ""}${h(statusText(s))}</span>
           </li>`;
         }).join("")}</ol>
@@ -740,12 +741,21 @@
     let info = "";
     const surveys = ids => ids.map(id => surveyIn(v, id)).filter(Boolean);
     const shown = list => list.length ? list.map(x => answerBlock(x, false)).join("") : `<p class="muted">Nothing submitted yet.</p>`;
+    // The independent version of a plan, opened first: its answers once the student finishes it.
+    const plan = (id, name) => {
+      const done = responsesOf(v, x => x.activity === id);
+      if (done.length) return `<h3>Their ${h(name)} (independent)</h3>${done.map(x => answerBlock(x, true)).join("")}`;
+      const started = v.sessions.find(x => x.activity === id);
+      return `<h3>Their ${h(name)} (independent)</h3><p class="muted">${started ? `Not finished yet. Their answers appear here when they finish ${h(name)} on their laptop${started.status === "in_progress" ? " (they've started it)" : ""}.` : `Not on their schedule. Drag the independent ${h(name)} into a session before this one, or go through it together on their laptop.`}</p>`;
+    };
     if (s.activity === "ind-review") {
-      info = `<h3>Surveys</h3>${shown(surveys(["d1am", "d1pm"]))}
-        <h3>Module answers</h3>${shown(responsesOf(v, x => ["module-1", "my-chain"].includes(x.activity)))}`;
+      info = `${plan("reset-plan", "My Reset Plan")}
+        <h3>Surveys</h3>${shown(surveys(["d1am", "d1pm"]))}
+        <h3>Other module answers</h3>${shown(responsesOf(v, x => ["module-1", "my-chain"].includes(x.activity)))}`;
     } else if (s.activity === "ind-success" || s.activity === "ind-return-meeting") {
-      info = `<h3>Surveys</h3>${shown(surveys(["d1am", "d1pm", "d2am", "d2pm"]))}
-        <h3>Module answers</h3>${shown(responsesOf(v, x => ["module-6", "goal-builder", "asking-for-help", "attendance", "my-chain"].includes(x.activity)))}`;
+      info = `${plan("module-6", "My Return Plan")}
+        <h3>Surveys</h3>${shown(surveys(["d1am", "d1pm", "d2am", "d2pm"]))}
+        <h3>Other module answers</h3>${shown(responsesOf(v, x => ["reset-plan", "goal-builder", "asking-for-help", "attendance", "my-chain"].includes(x.activity)))}`;
     } else {
       info = `<h3>Surveys</h3>${shown(surveys(RP.SURVEY_ORDER))}`;
     }
@@ -826,7 +836,7 @@
       if (v.paused) return `<td class="muted">Paused</td>`;
       const x = at(v, v.current_day, slot);
       if (!x) return "<td></td>";
-      return `<td class="rs-${x.kind}">${x.kind === "one_to_one" ? "Teacher-led: " : ""}${h(titleOf(x))}</td>`;
+      return `<td class="rs-${x.kind}">${h(x.kind === "one_to_one" ? ledTitle(x) : titleOf(x))}</td>`;
     };
     app().innerHTML = `
       <div class="page wide">
@@ -1154,7 +1164,7 @@
         <thead><tr><th colspan="3">Day ${d}</th></tr></thead>
         <tbody>${sessionsFor(v, d).map(s => {
           const t = RP.slotTimes(s.slot);
-          return `<tr><td>${t ? RP.formatTime(t.start) : "Any time"}</td><td>${h(titleOf(s))}<br><span class="muted">${h(RP.KIND_LABEL[s.kind])}</span></td><td>${s.status === "done" ? "✓ " : ""}${h(statusText(s))}</td></tr>`;
+          return `<tr><td>${t ? RP.formatTime(t.start) : "Any time"}</td><td>${h(titleOf(s))}<br><span class="muted">${h(RP.kindLabel(s))}</span></td><td>${s.status === "done" ? "✓ " : ""}${h(statusText(s))}</td></tr>`;
         }).join("")}</tbody>
       </table>`;
     const missing = RP.missingCore(v.sessions);
@@ -1216,8 +1226,10 @@
             <h3>Individual: teacher-led <span class="muted">(with a staff member)</span></h3>
             ${(RP.INDIVIDUAL_SESSIONS || []).map(x => chip("individual", x.id, x.title, x.day ? ` <span class="tag">Day ${x.day}</span>` : "")).join("")}
             <h3>Group modules <span class="muted">(change only if you need to)</span></h3>
-            ${RP.GROUP_SESSIONS.filter(g => !g.movement).map(g => chip("group", g.id, g.title, g.core ? ` <span class="tag core">core</span>` : "")).join("")}
+            ${RP.GROUP_SESSIONS.filter(g => !g.movement).map(g => chip("group", g.id, g.title, g.core ? ` <span class="tag core">core</span>` : g.optional ? ` <span class="tag">optional</span>` : "")).join("")}
             <h3>Other</h3>
+            ${chip("custom", "custom", "Other (type what it is)")}
+            ${chip("morning", "morning", "Morning session (check-in)")}
             ${chip("free", "free", "Free choice")}
             ${chip("clear", "clear", "Empty (choose later)")}
           </aside>
@@ -1241,7 +1253,7 @@
 
     // Palette: drag, or click to pick.
     app().querySelectorAll(".chip").forEach(c => {
-      const item = { type: c.dataset.type, id: c.dataset.id, title: c.textContent.replace(/\s*(sample|core)\s*$/i, "").trim() };
+      const item = { type: c.dataset.type, id: c.dataset.id, title: c.textContent.replace(/\s*(sample|core|optional)\s*$/i, "").trim() };
       c.ondragstart = e => { dragging = true; e.dataTransfer.setData("text/plain", JSON.stringify(item)); e.dataTransfer.effectAllowed = "copy"; };
       c.ondragend = () => { dragging = false; };
       c.onclick = () => { pick = pick && pick.type === item.type && pick.id === item.id ? null : item; renderPlan(); };
@@ -1316,7 +1328,7 @@
   }
 
   function slotRow(s, t, isNow) {
-    const fixed = s.slot === RP.FIRST_SLOT || s.slot === RP.LAST_SLOT || s.slot === RP.ONE_TO_ONE_SLOT;
+    const fixed = s.slot === RP.LAST_SLOT || s.slot === RP.ONE_TO_ONE_SLOT;
     const m = s.kind === "independent" && s.activity && RP.MODULES[s.activity];
     let controls = "";
     if (teacherTicks(s)) {
@@ -1335,7 +1347,7 @@
         <span class="time">${t ? RP.formatTime(t.start) : "Any time"}</span>
         <span class="slot-text">
           <span class="slot-title">${h(titleOf(s))}</span>
-          <span class="slot-kind">${h(RP.KIND_LABEL[s.kind])} · ${h(statusText(s))}</span>
+          <span class="slot-kind">${h(RP.kindLabel(s))} · ${h(statusText(s))}</span>
         </span>
         <span class="slot-controls">${controls}</span>
       </li>`;
@@ -1343,14 +1355,28 @@
 
   async function place(day, slot, item) {
     const s = at(visit, day, slot);
-    if (!s || slot === RP.FIRST_SLOT || slot === RP.LAST_SLOT || slot === RP.ONE_TO_ONE_SLOT) return;
-    let patch;
+    if (!s || slot === RP.LAST_SLOT || slot === RP.ONE_TO_ONE_SLOT) return;
+    let patch, moveFrom = null;
     if (item.type === "elective") patch = { kind: "independent", activity: item.id, title: RP.MODULES[item.id].title };
     else if (item.type === "group") patch = { kind: "group", activity: item.id, title: RP.groupSession(item.id).title };
     else if (item.type === "individual") patch = { kind: "one_to_one", activity: item.id, title: RP.individualSession(item.id).title };
     else if (item.type === "free") patch = { kind: "free", activity: null, title: "Free choice" };
+    else if (item.type === "custom") {
+      const name = prompt("What will this session be? Students will see this and be told they won't need their laptop.", RP.isCustom(s) ? s.title : "");
+      if (name == null || !name.trim()) { pick = null; renderPlan(); return; }
+      patch = { kind: "free", activity: "custom", title: name.trim().slice(0, 80) };
+    }
+    else if (item.type === "morning") {
+      // Move the morning session (social story, check-in and survey), e.g. for a late arrival.
+      patch = { kind: "intro", activity: null, title: "Morning session" };
+      moveFrom = visit.sessions.find(x => x.day === day && x.kind === "intro" && x.slot !== slot) || null;
+      if (moveFrom && !confirm(`Move the morning session from ${RP.formatTime(RP.slotTimes(moveFrom.slot).start)} to ${RP.formatTime(RP.slotTimes(slot).start)} on Day ${day}? ${RP.formatTime(RP.slotTimes(moveFrom.slot).start)} will become empty.` +
+        (moveFrom.status !== "not_started" ? "\n\nThey've already started the morning check-in; it will start again." : ""))) { pick = null; renderPlan(); return; }
+    }
     else patch = { kind: "independent", activity: null, title: "Empty" };
-    if (s.kind === patch.kind && s.activity === patch.activity) { pick = null; renderPlan(); return; }
+    if (s.kind === patch.kind && s.activity === patch.activity && !RP.isCustom(patch)) { pick = null; renderPlan(); return; }
+    if (s.kind === "intro" && patch.kind !== "intro" && !visit.sessions.some(x => x.day === day && x.kind === "intro" && x.id !== s.id) &&
+      !confirm(`This replaces the morning session (check-in and survey) on Day ${day}. To keep it, drag "Morning session" to a later time first.\n\nReplace it anyway?`)) { pick = null; renderPlan(); return; }
     // Group modules follow the room's rotation, so changing one needs a second check.
     if (s.kind === "group" || patch.kind === "group") {
       const t = RP.slotTimes(slot);
@@ -1361,7 +1387,9 @@
     if (s.status !== "not_started" && !confirm(`"${titleOf(s)}" has already been started. Replace it? Its progress will be cleared.`)) return;
     Object.assign(patch, { status: "not_started", result: null, state: null, completed_at: null });
     pick = null;
-    try { await api.updateSession(s.id, patch); [visit, visits] = await Promise.all([api.getVisit(visit.id), api.listActive()]); renderPlan(); }
+    try {
+      if (moveFrom) await api.updateSession(moveFrom.id, { kind: "independent", activity: null, title: "Empty", status: "not_started", result: null, state: null, completed_at: null });
+      await api.updateSession(s.id, patch); [visit, visits] = await Promise.all([api.getVisit(visit.id), api.listActive()]); renderPlan(); }
     catch (ex) { failed(ex); }
   }
 

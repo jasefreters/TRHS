@@ -4,6 +4,7 @@ RP.registerModule({
   title: "Numeracy",
   icon: "🔢",
   sample: true,
+  hidden: true, // replaced by numeracy-day1 and numeracy-day2; kept so older plans still work
   about: "Work through a set of maths questions at your level. Check each answer as you go. You can have more than one try.",
   levels: [
     {

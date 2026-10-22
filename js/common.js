@@ -64,10 +64,15 @@ RP.KIND_LABEL = {
   free: "Free choice", one_to_one: "Teacher-led", break: "Break", survey: "Survey"
 };
 
+// "Other" sessions: staff type what the session is (kind "free", activity "custom").
+RP.isCustom = s => s.kind === "free" && s.activity === "custom";
+RP.kindLabel = s => RP.isCustom(s) ? "Other" : RP.KIND_LABEL[s.kind];
+
 // The title to show for a planned session. Older plans saved teacher-led titles as "Individual: …".
 RP.sessionTitle = function (s) {
   if (s.kind === "independent" && s.activity && RP.MODULES[s.activity]) return RP.MODULES[s.activity].title;
   if (s.kind === "independent" && !s.activity) return "Empty";
+  if (s.kind === "free" && s.activity === "custom") return s.title;
   if (s.kind === "one_to_one") { const x = RP.individualSession(s.activity); return x ? x.title : String(s.title || "").replace(/^Individual:\s*/, ""); }
   return s.title;
 };
@@ -108,6 +113,7 @@ RP.resultText = function (r) {
   const parts = [];
   if (r.byTeacher && !r.outOf) return "marked done by teacher";
   if (r.survey) return `survey ${r.total}/${r.max || 50}`;
+  if (r.subjects) return RP.subjectsText(r.subjects);
   if (r.levelTitle) parts.push(r.levelTitle);
   if (r.outOf) parts.push(r.score + "/" + r.outOf);
   return parts.join(", ");
@@ -267,13 +273,26 @@ RP.mailtoFor = function (cert) {
   return `mailto:?subject=${encodeURIComponent("Reset Program: " + cert.title)}&body=${encodeURIComponent(body)}`;
 };
 
+// Suspension Booklet subjects: "English finished, Maths started".
+RP.subjectsText = function (subjects) {
+  const m = RP.MODULES["suspension-booklet"];
+  return Object.keys(subjects || {}).map(id => {
+    const sub = m && m.books.flatMap(b => b.subjects).find(x => x.id === id);
+    return `${sub ? sub.title : id} ${subjects[id] === "completed" ? "finished" : "started"}`;
+  }).join(", ");
+};
+
 // ---- End-of-day certificate ----
 // One certificate per day, listing every module finished that day. Students get it after the
 // afternoon survey (and any time from their plan); teachers can reprint it.
+// A Suspension Booklet counts as soon as a subject is started, even if it isn't finished.
 RP.dayModules = function (sessions, day) {
-  return sessions.filter(s => s.day === day && s.status === "done" && ["group", "independent", "one_to_one"].includes(s.kind))
+  const booklet = s => s.kind === "independent" && s.status === "in_progress" && s.state && s.state.subjects && Object.keys(s.state.subjects).length;
+  return sessions.filter(s => s.day === day && ["group", "independent", "one_to_one", "free"].includes(s.kind) && (s.status === "done" || booklet(s)))
+    .filter(s => s.kind !== "free" || s.activity === "custom")
     .sort((a, b) => a.slot - b.slot)
-    .map(s => ({ title: RP.sessionTitle(s), kind: RP.KIND_LABEL[s.kind], result: s.kind === "independent" ? RP.resultText(s.result) : "" }));
+    .map(s => ({ title: RP.sessionTitle(s), kind: RP.kindLabel(s),
+      result: s.kind !== "independent" ? "" : booklet(s) ? RP.subjectsText(s.state.subjects) : RP.resultText(s.result) }));
 };
 RP.dayCertificateMarkup = function (cert) {
   const h = RP.h;
@@ -327,6 +346,7 @@ RP.previewModule = function (m) {
   return `
     <div class="preview">
       ${m.about ? `<div class="pv-about">${md(m.about)}</div>` : ""}
-      ${m.levels ? m.levels.map(l => `<details class="pv-level"><summary><strong>${h(l.title)}</strong> <span class="muted">${h(l.about || "")}</span></summary>${list(l.items)}</details>`).join("") : list(m.items)}
+      ${m.booklet ? m.books.map(b => `<h4>${h(b.title)}</h4><p>${b.subjects.map(x => x.pdf ? `<a href="${h(x.pdf)}" target="_blank" rel="noopener">${h(x.title)}</a>` : h(x.title)).join(" · ")}</p>`).join("") + `<p class="muted">Students choose a subject, type the page or question and their answer, and mark each subject started or finished.</p>`
+        : m.levels ? m.levels.map(l => `<details class="pv-level"><summary><strong>${h(l.title)}</strong> <span class="muted">${h(l.about || "")}</span></summary>${list(l.items)}</details>`).join("") : list(m.items)}
     </div>`;
 };

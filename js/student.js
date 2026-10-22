@@ -210,7 +210,7 @@
         <li>
           <button class="slot k-${s.kind}${selected === t.slot ? " selected" : ""}${now === t.slot ? " now" : ""}${s.status === "done" ? " is-done" : ""}" data-slot="${t.slot}">
             <span class="time">${RP.formatTime(t.start)}</span>
-            <span class="slot-text"><span class="slot-title">${h(title)}</span><span class="slot-kind">${h(RP.KIND_LABEL[s.kind])}</span></span>
+            <span class="slot-text"><span class="slot-title">${h(title)}</span><span class="slot-kind">${h(RP.kindLabel(s))}</span></span>
             ${now === t.slot ? `<span class="now-tag">Now</span>` : ""}
             ${statusIcon(s)}
           </button>
@@ -252,7 +252,7 @@
     const when = times ? `${RP.formatTime(times.start)} – ${RP.formatTime(times.end)}` : "";
     const head = (title, kind) => `
       <div class="session-head k-${s.kind}">
-        <span class="kind-chip">${h(kind || RP.KIND_LABEL[s.kind])}</span>
+        <span class="kind-chip">${h(kind || RP.kindLabel(s))}</span>
         <h1>${h(title)}</h1>
         ${when ? `<div class="when">${when}</div>` : ""}
       </div>`;
@@ -287,6 +287,9 @@
       html += head(RP.sessionTitle(s), "Teacher-led") +
         `<div class="card">${RP.md(ind ? ind.about : (RP.ONE_TO_ONE[s.day] || RP.ONE_TO_ONE[1]).about)}</div>
         <p class="muted">${s.slot === RP.ONE_TO_ONE_SLOT ? "Keep working and your teacher will come and get you." : "If your teacher is still busy, keep working on your last activity until they're ready."}</p>${doneNote}`;
+    } else if (RP.isCustom(s)) {
+      html += head(s.title, "Other") +
+        `<div class="card laptop-away big-note"><div class="laptop-icon" aria-hidden="true">💻 ➜ 🚶</div><p>This session is <strong>${h(s.title)}</strong>.</p><p>You won't need your laptop. Put it to the side.</p></div>${doneNote}`;
     } else if (s.kind === "free" || (s.kind === "independent" && !s.activity && allElectivesDone())) {
       html += head(RP.CONTENT.freeChoice.title, "Free choice") + `<div class="card">${RP.md(RP.CONTENT.freeChoice.text)}</div>`;
     } else if (s.kind === "independent" && !s.activity) {

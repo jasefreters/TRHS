@@ -94,6 +94,7 @@ RP.Player = (function () {
     state saved on the session: { level, index, firstTry: { [index]: true|false } }
   */
   function open(opts) {
+    if (opts.module.booklet) return openBooklet(opts);
     const { el, module, session } = opts;
     let state = Object.assign({}, session.state || {});
     if (state.firstTry == null) state.firstTry = {};
@@ -714,6 +715,108 @@ RP.Player = (function () {
 
     if (module.levels && state.index == null) chooseLevel();
     else { if (state.index == null) state.index = 0; showItem(); }
+  }
+
+  /*
+    The Suspension Booklet: a list of subjects. Opening one marks it started; the student types
+    answers (page or question, and the answer) and can mark it finished. Typed answers stay on the
+    laptop until they finish for the day, like other modules; which subjects were started and
+    finished is saved as they go (state.subjects), so it shows on the day certificate either way.
+  */
+  const USING = [
+    { id: "online", label: "The booklet on this laptop" },
+    { id: "paper", label: "A paper copy" },
+    { id: "own", label: "The booklet from my suspension" }
+  ];
+  function openBooklet(opts) {
+    const { el, module, session } = opts;
+    const state = Object.assign({ subjects: {} }, session.state || {});
+    const answers = (opts.answers && opts.answers.get()) || {};
+    const keep = () => { if (opts.answers) opts.answers.set(answers); };
+    const persist = () => opts.save("in_progress", null, state);
+    const statusTag = id => state.subjects[id] === "completed" ? `<span class="tag done-tag">Finished</span>` : state.subjects[id] === "started" ? `<span class="tag">Started</span>` : "";
+    const head = () => `
+      <div class="player-head">
+        <div><div class="player-title">${h(module.title)}${state.current ? ` <span class="muted">· ${h(subject(state.current).title)}</span>` : ""}</div></div>
+        ${RP.speech.button()}
+        <button class="btn ghost" data-exit>Save and close</button>
+      </div>`;
+    const book = () => module.books.find(b => b.id === state.book) || module.books[0];
+    const subject = id => book().subjects.find(x => x.id === id);
+    const bind = () => {
+      el.querySelector("[data-exit]").onclick = () => { RP.speech.stop(); keep(); persist(); opts.onExit(); };
+      RP.speech.bind(el, () => el.querySelector(".player-body"));
+    };
+
+    function menu() {
+      state.current = null;
+      const started = Object.keys(state.subjects).length;
+      el.innerHTML = `<div class="player">${head()}<div class="player-body" data-booklet="menu">
+        ${module.books.length > 1 ? `<h2>Which year's booklet?</h2>
+        <div class="choices">${module.books.map(b => `<button class="choice${book().id === b.id ? " picked" : ""}" data-book="${b.id}">${h(b.title)}</button>`).join("")}</div>` : ""}
+        <h2>Which booklet are you using?</h2>
+        <div class="choices booklet-using">${USING.map(u => `<button class="choice${state.using === u.id ? " picked" : ""}" data-using="${u.id}" aria-pressed="${state.using === u.id}">${h(u.label)}</button>`).join("")}</div>
+        <h2>Choose a subject</h2>
+        <div class="subject-grid">${book().subjects.map(x => `<button class="subject-card" data-subject="${x.id}"><span class="subject-name">${h(x.title)}</span>${statusTag(x.id)}</button>`).join("")}</div>
+        <div class="actions"><button class="btn primary" data-finish ${started ? "" : "disabled"}>I'm finished for today</button></div>
+        <p class="muted small">${started ? "When you finish for today, your answers are sent to your teacher." : "Choose a subject to start."}</p>
+      </div></div>`;
+      bind();
+      el.querySelectorAll("[data-book]").forEach(b => b.onclick = () => { state.book = b.dataset.book; persist(); menu(); });
+      el.querySelectorAll("[data-using]").forEach(b => b.onclick = () => { state.using = b.dataset.using; persist(); menu(); });
+      el.querySelectorAll("[data-subject]").forEach(b => b.onclick = () => openSubject(b.dataset.subject));
+      el.querySelector("[data-finish]").onclick = finishBooklet;
+    }
+
+    function openSubject(id) {
+      const sub = subject(id);
+      state.current = id;
+      if (!state.subjects[id]) state.subjects[id] = "started";
+      persist();
+      const rows = answers[id] || (answers[id] = [{ where: "", text: "" }]);
+      const draw = () => {
+        el.innerHTML = `<div class="player">${head()}<div class="player-body" data-booklet="${id}">
+          <h2>${h(sub.title)}</h2>
+          ${sub.pdf && state.using !== "paper" && state.using !== "own" ? `<div class="booklet-pdf"><iframe src="${h(sub.pdf)}" title="${h(sub.title)} booklet"></iframe><p><a href="${h(sub.pdf)}" target="_blank" rel="noopener">Open the booklet in a new tab</a></p></div>`
+            : `<p class="muted">${sub.pdf ? "" : "There isn't an online copy of this booklet yet. "}Use your paper booklet, and type your answers here.</p>`}
+          <p>Type the page or question number, then your answer. Add as many answers as you need.</p>
+          <div class="booklet-rows">${rows.map((r, k) => `
+            <div class="booklet-row">
+              <label class="field">Page or question <input data-where="${k}" maxlength="40" value="${h(r.where)}" autocomplete="off"></label>
+              <label class="field">My answer <textarea rows="3" data-text="${k}" maxlength="3000">${h(r.text)}</textarea></label>
+            </div>`).join("")}</div>
+          <div class="actions">
+            <button class="btn" data-add>+ Add another answer</button>
+            <button class="btn" data-back>Back to subjects</button>
+            <button class="btn primary" data-done-subject>${state.subjects[id] === "completed" ? "✓ Finished (undo)" : "I've finished this subject"}</button>
+          </div>
+        </div></div>`;
+        bind();
+        el.querySelectorAll("[data-where]").forEach(t => t.oninput = () => { rows[Number(t.dataset.where)].where = t.value; keep(); });
+        el.querySelectorAll("[data-text]").forEach(t => t.oninput = () => { rows[Number(t.dataset.text)].text = t.value; keep(); });
+        el.querySelector("[data-add]").onclick = () => { rows.push({ where: "", text: "" }); keep(); draw(); const last = el.querySelectorAll("[data-where]"); last[last.length - 1].focus(); };
+        el.querySelector("[data-back]").onclick = () => { keep(); menu(); };
+        el.querySelector("[data-done-subject]").onclick = () => {
+          state.subjects[id] = state.subjects[id] === "completed" ? "started" : "completed";
+          keep(); persist();
+          if (state.subjects[id] === "completed") menu(); else draw();
+        };
+      };
+      draw();
+    }
+
+    function finishBooklet() {
+      keep();
+      const using = USING.find(u => u.id === state.using);
+      const worksheet = book().subjects.filter(x => state.subjects[x.id]).map(x => ({
+        heading: `${x.title} (${state.subjects[x.id] === "completed" ? "finished" : "started"})`,
+        rows: (answers[x.id] || []).filter(r => r.where.trim() || r.text.trim()).map(r => ({ label: r.where.trim() || "Answer", text: r.text.trim() }))
+      }));
+      worksheet.unshift({ heading: "Booklet", rows: [{ label: "Booklet", text: book().title }].concat(using ? [{ label: "I used", text: using.label }] : []) });
+      opts.onFinish({ subjects: Object.assign({}, state.subjects) }, state, worksheet);
+    }
+
+    if (state.current && subject(state.current)) openSubject(state.current); else menu();
   }
 
   // Shown straight after finishing a module, and again whenever the student opens a finished one:

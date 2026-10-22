@@ -331,6 +331,37 @@ ${EXIT}
       { title: "Chain breakers", points: ["Sleep and breakfast", "Notice warning signs early", "Slow breathing", "Ask for a minute", "\"Can we talk after class?\"", "Talk to someone you trust"], note: "Each student picks one chain breaker." }
     ]
   },
+  {
+    id: "rage-recap", title: "RAGE Recap", core: false, optional: true,
+    about: `A recap of what you've learned about anger: what sets it off, how it builds, and what you can do to stay in control.`,
+    guide: `**Optional.** Swap it in for another group module when it suits the group (drag it onto the group module on each student's daily schedule). **To be updated** with the school's RAGE materials; until then use this outline. **Learning intention:** we are recapping how anger works and what helps. **Success criteria:** I can name my triggers and warning signs, and two strategies that help me stay in control. **Materials:** butcher's paper with a big iceberg drawn on it, markers, sticky notes.
+
+${ENTRY}
+
+**2. Do Now (4 min).** On the slide: "Anger is normal. It's what we do with it that matters. True or false?" Students write a reason and share.
+
+**3. Intention and success criteria (1 min).** Read them from the slide.
+
+**4. Explicit teaching (7 min).** The anger iceberg: anger is the tip; underneath are feelings like embarrassment, hurt, worry, unfairness, tiredness. The anger cycle: trigger → warning signs → explosion → after. Use a made-up example ("Sam gets laughed at when he answers a question…").
+
+**5. Brain break (2 min).** Shake it out: shake hands, arms, legs for 10 seconds each, then three slow breaths.
+
+**6. Application (9 min).** On the butcher's paper iceberg, students write feelings that can hide under anger (below the water) and the things people do when angry (above it). Then on sticky notes, strategies that cool anger down; sort them into "in the moment" and "afterwards".
+
+**7. Recap (3 min).** Each student names one trigger to watch for and one strategy they'll use.
+
+${EXIT}`,
+    slides: [
+      { title: "RAGE Recap", points: ["How anger works, and what helps"] },
+      { title: "Do Now", points: ["\"Anger is normal. It's what we do with it that matters.\"", "True or false? Why?"] },
+      { title: "Today", points: ["**We are recapping** how anger works and what helps.", "**I can** name my triggers and warning signs.", "**I can** name two strategies that help me stay in control."] },
+      { title: "The anger iceberg", points: ["Anger is the tip you can see.", "Underneath: embarrassed, hurt, worried, treated unfairly, tired, hungry…"] },
+      { title: "The anger cycle", points: ["Trigger", "Warning signs", "Explosion", "Afterwards"], note: "Where is the easiest place to step in?" },
+      { title: "Brain break: shake it out", points: ["Hands, arms, legs: 10 seconds each", "Three slow breaths"] },
+      { title: "Butcher's paper", points: ["Below the water: feelings that hide under anger", "Above the water: what people do when angry", "Sticky notes: what cools anger down?"] },
+      { title: "Recap", points: ["One trigger I'll watch for", "One strategy I'll use"] }
+    ]
+  },
   // Movement breaks: written resources staff can pull out when students need a break (Session
   // guides page). Each group module also has a brain break built in. They aren't planned into the
   // day; the entries stay here so older plans that used them still show a title.
@@ -361,9 +392,9 @@ RP.ROTATIONS = {
 // plan editor reminds you), or null for either day.
 RP.INDIVIDUAL_SESSIONS = [
   {
-    id: "ind-review", day: 1, title: "Review of plans, goals and Sentral",
-    about: `Time with a staff member, just the two of you. You'll look at what happened, your current plans and goals, and what you'd like to get out of the Reset Program.`,
-    guide: `**Day 1, about 25–30 minutes.** The session page shows the student's Day 1 surveys and their Module 1 and My Chain answers once they've done them.
+    id: "ind-review", day: 1, title: "Teacher-led: My Reset Plan",
+    about: `Time with a staff member, just the two of you. You'll go through your Reset Plan together: what happened, your current plans and goals, and what you'd like to get out of the Reset Program.`,
+    guide: `**Day 1, about 25–30 minutes.** Best after the student has done the independent **My Reset Plan** module: the session page shows their answers once they've finished it, with their Day 1 surveys and Module 1 and My Chain answers. If they haven't finished it, ask them to, or go through it together on their laptop.
 - Check in: how are they feeling about being here? Check the morning ready-to-learn answers (breakfast, lunch, equipment).
 - Go through the Sentral incident(s) together. Hear the student's side; focus on understanding, not blame.
 - Review the current learning support plan (LSP), behaviour or wellbeing plans, and previous goals: what's working, what isn't?
@@ -371,9 +402,9 @@ RP.INDIVIDUAL_SESSIONS = [
 - Agree 1–2 things to focus on during the program.`
   },
   {
-    id: "ind-success", day: 2, title: "My return plan",
+    id: "ind-success", day: 2, title: "Teacher-led: My Return Plan",
     about: `Time with a staff member to write your plan for going back to class: your warning signs, your strategies, your goals, and the staff who will support you.`,
-    guide: `**Day 2, about 30 minutes.** Write the student's *Return to class plan* together on the session page, then print it to sign. It's brought to the return from suspension meeting. Nothing typed on the page is saved, so print it (or save it as a PDF) before you leave the page.
+    guide: `**Day 2, about 30 minutes.** Best after the student has done the independent **My Return Plan** module: the plan below fills in from their answers. Write the student's *Return to class plan* together on the session page, then print it to sign. It's brought to the return from suspension meeting. Nothing typed on the page is saved, so print it (or save it as a PDF) before you leave the page.
 - **Strengths (3 min):** what are they good at? What have they overcome? (Use their Goal Builder or Asking for Help answers if they've done them.)
 - **Warning signs and triggers (5 min):** what happens in their body, thoughts and actions before things go wrong? Which situations set it off?
 - **Strategies (5 min):** 2–3 specific things they'll do when they notice the signs, and exactly how they'll ask for a break (the words they'll use, where they'll go).
