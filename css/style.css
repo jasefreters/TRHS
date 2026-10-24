@@ -650,3 +650,13 @@ dialog::backdrop { background: rgba(22, 27, 59, .45); }
 .preview-note { margin: .6rem 0 0; }
 .preview-try { background: var(--bg); border-radius: var(--radius); padding: 1rem; margin-top: .6rem; }
 .preview-dialog { width: min(1000px, 96vw); }
+
+/* ---------- Student Return to Class Plan ---------- */
+.plan-section { margin: 1.4rem 0 .4rem; color: var(--maroon); border-bottom: 2px solid var(--maroon-soft); padding-bottom: .2rem; }
+.plan-note { color: var(--muted); }
+.plan-ticks { border: 1px solid var(--line); border-radius: 10px; padding: .6rem .9rem; margin: .6rem 0; display: grid; gap: .3rem; }
+.plan-ticks legend { font-weight: 700; padding: 0 .3rem; }
+.plan-tick-list { list-style: none; padding: 0; margin: 0; }
+.plan-tick-list li { color: var(--muted); }
+.plan-tick-list li.on { color: var(--ink); font-weight: 600; }
+@media print { .return-plan .plan-section { break-after: avoid; } .return-plan .ws-row { break-inside: avoid; } }

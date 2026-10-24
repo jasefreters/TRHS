@@ -404,14 +404,13 @@ RP.INDIVIDUAL_SESSIONS = [
   {
     id: "ind-success", day: 2, title: "Teacher-led: My Return Plan",
     about: `Time with a staff member to write your plan for going back to class: your warning signs, your strategies, your goals, and the staff who will support you.`,
-    guide: `**Day 2, about 30 minutes.** Best after the student has done the independent **My Return Plan** module: the plan below fills in from their answers. Write the student's *Return to class plan* together on the session page, then print it to sign. It's brought to the return from suspension meeting. Nothing typed on the page is saved, so print it (or save it as a PDF) before you leave the page.
-- **Strengths (3 min):** what are they good at? What have they overcome? (Use their Goal Builder or Asking for Help answers if they've done them.)
-- **Warning signs and triggers (5 min):** what happens in their body, thoughts and actions before things go wrong? Which situations set it off?
-- **Strategies (5 min):** 2–3 specific things they'll do when they notice the signs, and exactly how they'll ask for a break (the words they'll use, where they'll go).
-- **Goals (5 min):** one behaviour, one learning and one attendance goal for the first two weeks. Specific and realistic ("I'll start the Do Now in every lesson", not "be good").
-- **Support (5 min):** the staff they'll go to and when, check-ins (who, how often), what staff will do to help, and classwork to catch up on.
-- **If conflict happens (3 min):** what they'll do instead of reacting.
-- **Review date (1 min):** when you'll check how the plan is going. Read it back together, then print and sign.`
+    guide: `**Day 2, about 30 minutes.** Best after the student has done the independent **My Return Plan** module (the Student Return to Class Plan): the plan on the session page fills in from their answers. Go through it together, change anything you agree on, then print it to sign. It's brought to the return from suspension meeting. Nothing typed on the page is saved, so print it (or save it as a PDF) before you leave the page.
+- **Section 1, What have I learnt? (5 min):** the strategies they chose, and which one they'll use first.
+- **Section 2, Student Code of Conduct (5 min):** the respect, responsibility and safety commitments they ticked, and what they'll do if they're frustrated or disagree with a teacher.
+- **Section 3, My goal (5 min):** one goal for the first week, and how they'll know it's working.
+- **Section 4, Support (10 min):** go through the supports they ticked and agree which are appropriate (SLSO, self-regulation card, Year Adviser or Head Teacher check-ins, RAGE, NASCA and so on). Untick any that aren't.
+- **Section 5, My first week back (3 min):** what success looks like and what they'll do after a difficult lesson.
+- **Section 6, Commitment (2 min):** read it together, then print and sign.`
   },
   {
     id: "ind-return-meeting", day: null, title: "Return from suspension meeting",

@@ -779,52 +779,84 @@
     $("[data-back]").onclick = () => view.from === "board" ? show({ name: "board" }) : show({ name: "plan", visitId: v.id, from: view.from });
     $("[data-tick]").onclick = async () => { await setDone(s, s.status !== "done"); show(view); };
     const rp = $("[data-print-plan]");
-    if (rp) {
-      const name = $("[data-plan-name]");
-      name.oninput = () => { $("[data-plan-name-out]").textContent = name.value.trim() || " "; };
-      app().querySelectorAll("[data-plan-field]").forEach(t => { t.oninput = () => { app().querySelector(`[data-plan-out="${t.dataset.planField}"]`).textContent = t.value; }; });
-      rp.onclick = () => { if (!name.value.trim()) { name.focus(); name.classList.add("wrong"); setTimeout(() => name.classList.remove("wrong"), 600); return; } window.print(); };
-    }
+    if (rp) bindReturnPlan(rp);
   }
 
-  // The Return to class plan, written together in the "My return plan" session and printed to sign
-  // (and printed again for the return from suspension meeting). It starts from anything the
-  // student has already written in their modules. Nothing typed here is saved.
+  // The Student Return to Class Plan (the independent My Return Plan module), printed to sign in
+  // the teacher-led My Return Plan session and again for the return from suspension meeting. It
+  // follows the module's sections and starts from the student's submitted answers; staff can tick,
+  // untick and edit it together with the student. Nothing typed here is saved.
+  function planBlocks(v) {
+    const m = RP.MODULES["module-6"];
+    const done = v.sessions.find(x => x.activity === "module-6" && x.status === "done" && x.state && x.state.responses);
+    const rows = done ? done.state.responses.flatMap(sec => sec.rows) : [];
+    const answer = label => { const r = rows.find(x => x.label === label); return r ? r.text || "" : ""; };
+    const blocks = [];
+    let section = null, n = 0;
+    m.items.forEach(it => {
+      if (it.section && it.section !== section) { section = it.section; blocks.push({ type: "heading", text: section }); }
+      if (it.type === "write") {
+        if (it.q) blocks.push({ type: "note", text: it.q });
+        it.prompts.forEach(p => blocks.push({ type: "text", id: "f" + n++, label: p, value: answer(p) }));
+      } else if (it.type === "select") {
+        const picked = answer(it.q).split("; ").filter(Boolean);
+        const other = picked.filter(x => !it.options.includes(x)).join("; ");
+        blocks.push({ type: "ticks", id: "f" + n++, label: it.q, options: it.options.map(o => ({ text: o, on: picked.includes(o) })), other: it.other ? other : null });
+      }
+    });
+    return { blocks, submitted: !!done };
+  }
+
   function returnPlan(v) {
-    const m6 = p => answerFor(v, "module-6", p);
-    const join = (...xs) => xs.filter(Boolean).join("\n");
-    const fields = [
-      { id: "strengths", label: "My strengths", hint: "What I'm good at, and something I've overcome", value: join(m6("One challenge I have overcome"), m6("One thing I am proud of")) },
-      { id: "signs", label: "My warning signs and triggers", hint: "What I notice in my body, thoughts and actions, and the situations that set it off", value: m6("My early warning signs") },
-      { id: "strategies", label: "When I notice them, I will", hint: "2–3 specific strategies", value: join(m6("When I notice these signs"), m6("**Wellbeing:**")) },
-      { id: "break", label: "How I'll ask for a break", hint: "The words I'll use, and where I'll go", value: "" },
-      { id: "behaviour", label: "Behaviour goal (first two weeks)", hint: "Specific and realistic", value: m6("**Behaviour:**") },
-      { id: "learning", label: "Learning goal", hint: "", value: join(m6("**Learning:**"), answerFor(v, "goal-builder", "S What exactly")) },
-      { id: "attendance", label: "Attendance goal", hint: "", value: answerFor(v, "attendance", "My attendance goal") },
-      { id: "staff", label: "Staff I can go to, and when", hint: "", value: m6("If I need help") },
-      { id: "checkins", label: "Check-ins", hint: "Who, how often, for how long", value: "" },
-      { id: "support", label: "What staff will do to support me", hint: "", value: m6("One thing staff can do") },
-      { id: "catchup", label: "Classwork to catch up on", hint: "", value: "" },
-      { id: "conflict", label: "If conflict happens, I will", hint: "", value: m6("If conflict occurs") },
-      { id: "review", label: "Review date", hint: "When we'll check how the plan is going", value: "" }
-    ];
+    const { blocks, submitted } = planBlocks(v);
+    const edit = b => {
+      if (b.type === "heading") return `<h3 class="plan-section">${h(b.text)}</h3>`;
+      if (b.type === "note") return `<div class="plan-note">${RP.md(b.text)}</div>`;
+      if (b.type === "text") return `<label class="field">${RP.inlineMd(b.label)}<textarea rows="2" data-plan-field="${b.id}">${h(b.value)}</textarea></label>`;
+      return `<fieldset class="plan-ticks"><legend>${RP.inlineMd(b.label)}</legend>
+        ${b.options.map((o, k) => `<label class="field inline"><input type="checkbox" data-plan-tick="${b.id}:${k}"${o.on ? " checked" : ""}> ${h(o.text)}</label>`).join("")}
+        ${b.other != null ? `<label class="field inline">Other: <input data-plan-other="${b.id}" value="${h(b.other)}" maxlength="200"></label>` : ""}
+      </fieldset>`;
+    };
     return `
       <div class="card no-print">
-        <h2>Return to class plan</h2>
-        <p class="muted">Write it together, then print it (or save it as a PDF) to sign. <strong>Nothing typed here is saved</strong>, so print it before you leave this page.</p>
+        <h2>Student Return to Class Plan</h2>
+        <p class="muted">${submitted ? "Filled in from their My Return Plan answers." : "They haven't submitted My Return Plan yet, so fill it in together."} Go through it together, change anything you agree on, then print it (or save it as a PDF) to sign. <strong>Nothing typed here is saved</strong>, so print it before you leave this page.</p>
         <label class="field">Student's name (for printing only) <input data-plan-name maxlength="40" autocomplete="off"></label>
-        ${fields.map(f => `<label class="field">${h(f.label)}${f.hint ? ` <span class="muted small">${h(f.hint)}</span>` : ""}<textarea rows="2" data-plan-field="${f.id}">${h(f.value)}</textarea></label>`).join("")}
+        ${blocks.map(edit).join("")}
         <div class="actions"><button class="btn primary" data-print-plan>Print to sign</button></div>
       </div>
-      <div class="print-area return-plan">
+      <div class="print-area return-plan" data-plan-print></div>`;
+  }
+
+  function bindReturnPlan(button) {
+    const { blocks } = planBlocks(visit);
+    const out = $("[data-plan-print]");
+    const name = $("[data-plan-name]");
+    const draw = () => {
+      out.innerHTML = `
         <div class="ws-head">
-          <div><div class="cert-school">Thomas Reddall High School · Reset Program</div><h2>Return to class plan</h2></div>
-          <div class="ws-meta">Name: <strong data-plan-name-out>&nbsp;</strong><br>${RP.longDate(new Date().toISOString())}</div>
+          <div><div class="cert-school">Thomas Reddall High School · Reset Program</div><h2>Student Return to Class Plan</h2></div>
+          <div class="ws-meta">Name: <strong>${h(name.value.trim()) || "&nbsp;"}</strong><br>${RP.longDate(new Date().toISOString())}</div>
         </div>
-        ${fields.map(f => `<div class="ws-row"><div class="ws-label">${h(f.label)}</div><div class="ws-answer" data-plan-out="${f.id}">${h(f.value)}</div></div>`).join("")}
+        ${blocks.map(b => {
+          if (b.type === "heading") return `<h3 class="plan-section">${h(b.text)}</h3>`;
+          if (b.type === "note") return `<div class="plan-note">${RP.md(b.text)}</div>`;
+          if (b.type === "text") return `<div class="ws-row"><div class="ws-label">${RP.inlineMd(b.label)}</div><div class="ws-answer">${h(b.value) || "&nbsp;"}</div></div>`;
+          return `<div class="ws-row"><div class="ws-label">${RP.inlineMd(b.label)}</div><ul class="plan-tick-list">${b.options.map(o => `<li class="${o.on ? "on" : ""}">${o.on ? "☑" : "☐"} ${h(o.text)}</li>`).join("")}${b.other != null ? `<li class="${b.other ? "on" : ""}">${b.other ? "☑" : "☐"} Other: ${h(b.other) || "____________________"}</li>` : ""}</ul></div>`;
+        }).join("")}
+        <p>I will aim to:</p>
+        <ul>${RP.RETURN_PLAN_COMMITMENT.map(x => `<li>${h(x)}</li>`).join("")}</ul>
         <div class="sheet-sign"><span>Student: ______________________</span><span>Staff: ______________________</span><span>Parent/carer: ______________________</span><span>Date: ____________</span></div>
-        <p class="cert-motto">"Focusing on our Future"</p>
-      </div>`;
+        <p class="cert-motto">"Focusing on our Future"</p>`;
+    };
+    const byId = id => blocks.find(b => b.id === id);
+    name.oninput = draw;
+    app().querySelectorAll("[data-plan-field]").forEach(t => t.oninput = () => { byId(t.dataset.planField).value = t.value; draw(); });
+    app().querySelectorAll("[data-plan-tick]").forEach(c => c.onchange = () => { const [id, k] = c.dataset.planTick.split(":"); byId(id).options[Number(k)].on = c.checked; draw(); });
+    app().querySelectorAll("[data-plan-other]").forEach(t => t.oninput = () => { byId(t.dataset.planOther).other = t.value; draw(); });
+    button.onclick = () => { if (!name.value.trim()) { name.focus(); name.classList.add("wrong"); setTimeout(() => name.classList.remove("wrong"), 600); return; } window.print(); };
+    draw();
   }
 
   // ---------------------------------------------------------------- run sheet
