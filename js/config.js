@@ -71,7 +71,9 @@ RP.GROUP_SESSIONS = [
     // laptop, or interactively on their laptop. The slides come from the chosen lesson.
     id: "riot", title: "RIOT", core: true, riot: true,
     about: `Resilience in our Teens: reducing anxiety and building resilience thinking skills. Your teacher will go through the lesson on the projector.`,
-    guide: `**RIOT: Resilience in our Teens.** Eight lessons, each condensed to 25 minutes, from the school's RIOT PowerPoints and student workbook. On each student's daily schedule, choose the **lesson** and the **worksheet format**: a paper worksheet, a PDF on their laptop, or the interactive version on their laptop. Project the slides with **Present**: every worksheet exercise has a matching slide. Each lesson stands alone, so students can join at any lesson.`
+    guide: `**RIOT: Resilience in our Teens.** Eight lessons, each condensed to 25 minutes, from the school's RIOT PowerPoints and student workbook. On each student's daily schedule, choose the **lesson** and the **worksheet format**: a paper worksheet, a PDF on their laptop, or the interactive version on their laptop. Project the slides with **Present**: every worksheet exercise has a matching slide. Each lesson stands alone, so students can join at any lesson.
+
+**No staff member free?** With a laptop format, students see the lesson slides beside their worksheet (or in a new tab) and can work through it on their own. You can also drag a RIOT lesson into an independent session (**RIOT lessons** on the daily schedule). The answers for every lesson are below, and **Print answers** prints them.`
   },
   {
     id: "t-red", title: "T-RED Values", core: true,

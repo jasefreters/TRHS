@@ -4,26 +4,32 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>RIOT worksheet | Reset Program</title>
-  <link rel="stylesheet" href="css/style.css?v=202610261500">
+  <link rel="stylesheet" href="css/style.css?v=202610271000">
 </head>
 <body class="riot-print-page">
   <div class="rs-toolbar no-print">
     <label>Lesson <select id="lesson"></select></label>
+    <label><input type="checkbox" id="answers"> Answers (for staff)</label>
     <button class="btn primary" onclick="window.print()">Print or save as PDF</button>
   </div>
   <div id="sheet"></div>
-  <script src="js/config.js?v=202610261500"></script>
-  <script src="js/common.js?v=202610261500"></script>
-  <script src="js/riot.js?v=202610261500"></script>
+  <script src="js/config.js?v=202610271000"></script>
+  <script src="js/common.js?v=202610271000"></script>
+  <script src="js/riot.js?v=202610271000"></script>
   <script>
     (function () {
       const sel = document.getElementById("lesson");
-      const n = Number(new URLSearchParams(location.search).get("lesson")) || 1;
+      const q = new URLSearchParams(location.search), n = Number(q.get("lesson")) || 1, answers = q.get("answers") === "1";
+      const box = document.getElementById("answers");
+      box.checked = answers;
+      box.onchange = () => { location.search = "?lesson=" + n + (box.checked ? "&answers=1" : ""); };
       sel.innerHTML = RP.RIOT.map(L => '<option value="' + L.n + '"' + (L.n === n ? " selected" : "") + ">" + RP.h(L.fullTitle) + "</option>").join("");
-      sel.onchange = () => { location.search = "?lesson=" + sel.value; };
+      sel.onchange = () => { location.search = "?lesson=" + sel.value + (answers ? "&answers=1" : ""); };
       const L = RP.riotLesson(n);
-      document.title = "RIOT " + L.fullTitle + " worksheet";
-      document.getElementById("sheet").innerHTML = RP.riotWorksheetMarkup(L);
+      document.title = "RIOT " + L.fullTitle + (answers ? " answers" : " worksheet");
+      document.getElementById("sheet").innerHTML = answers
+        ? '<div class="riot-sheet"><div class="rs-head"><span class="rs-badge">RIOT</span><h1>LESSON ' + L.n + ": " + RP.h(L.title) + " · ANSWERS</h1></div>" + RP.riotAnswersMarkup(L) + "</div>"
+        : RP.riotWorksheetMarkup(L);
     })();
   </script>
 </body>

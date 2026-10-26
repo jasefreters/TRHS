@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RIOT slides | Reset Program</title>
+  <link rel="stylesheet" href="css/style.css?v=202610271000">
+</head>
+<body class="riot-slides-page">
+  <!-- A RIOT lesson's slides, for a student to read beside their worksheet (opened in a new tab). -->
+  <div id="slides"></div>
+  <script src="js/config.js?v=202610271000"></script>
+  <script src="js/common.js?v=202610271000"></script>
+  <script src="js/riot.js?v=202610271000"></script>
+  <script>
+    (function () {
+      const q = new URLSearchParams(location.search);
+      const L = RP.riotLesson(q.get("lesson")) || RP.RIOT[0];
+      document.title = "RIOT " + L.fullTitle + " slides";
+      const viewer = RP.riotSlides(document.getElementById("slides"), L, 0);
+      if (q.get("exercise")) viewer.toExercise(Number(q.get("exercise")));
+      document.addEventListener("keydown", e => {
+        const next = document.querySelector("[data-sl-next]"), prev = document.querySelector("[data-sl-prev]");
+        if (e.key === "ArrowRight" && next) next.click();
+        if (e.key === "ArrowLeft" && prev) prev.click();
+      });
+    })();
+  </script>
+</body>
+</html>

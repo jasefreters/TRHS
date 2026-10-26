@@ -183,10 +183,11 @@
 
   function slotForClock(now) {
     if (typeof now === "number") return now;
-    if (now === "before") return RP.FIRST_SLOT;
-    if (now === "after") return RP.LAST_SLOT;
-    const after = tt().find(t => t.slot && RP.toMinutes(t.start) >= RP.toMinutes(now.end));
-    return after ? after.slot : RP.LAST_SLOT;
+    const slots = tt().filter(t => t.slot), last = slots[slots.length - 1].slot;
+    if (now === "before") return slots[0].slot;
+    if (now === "after") return last;
+    const after = slots.find(t => RP.toMinutes(t.start) >= RP.toMinutes(now.end));
+    return after ? after.slot : last;
   }
 
   function statusIcon(s) {
@@ -374,7 +375,7 @@
     const st = s.state || {}, L = RP.riotLesson(st.lesson);
     if (!L) return;
     const m = st.format === "pdf"
-      ? { id: "riot-pdf", title: `RIOT ${L.fullTitle}`, booklet: true, single: true, score: false,
+      ? { id: "riot-pdf", title: `RIOT ${L.fullTitle}`, booklet: true, single: true, score: false, riot: L.n,
           books: [{ id: "riot", title: "RIOT", subjects: [{ id: "lesson" + L.n, title: L.fullTitle, pdf: RP.riotPdf(L.n) }] }] }
       : RP.MODULES[L.id];
     openModule(s, m);
@@ -387,7 +388,7 @@
     renderSidebar();
     const answersKey = "rp-answers:" + s.id;
     RP.Player.open({
-      el: $("#main"), module: m, session: s,
+      el: m.riot ? riotSplit(m) : $("#main"), module: m, session: s,
       // Written answers stay on this laptop while the student works; they're sent when the module is finished.
       answers: { get: () => store.get(answersKey), set: a => store.set(answersKey, a) },
       save: (status, result, state) => queueSave(s.id, status, result, state),
@@ -404,6 +405,40 @@
     });
   }
 
+  // A RIOT lesson on the laptop: the worksheet next to the lesson's slides, so a student can work
+  // through it on their own if no teacher is free. The slides follow the exercise they're on; they
+  // can hide them or open them in a new tab. Returns the element the worksheet goes in.
+  function riotSplit(m) {
+    const L = RP.riotLesson(m.riot);
+    let shown = true;
+    try { shown = localStorage.getItem("rp-riot-slides") !== "hidden"; } catch (e) { /* private window */ }
+    $("#main").innerHTML = `
+      <div class="riot-split${shown ? "" : " slides-hidden"}">
+        <div class="riot-work"></div>
+        <aside class="riot-slides-panel" aria-label="Lesson slides">
+          <div class="riot-slides-head"><strong>Lesson slides</strong>
+            <span><a class="btn small" href="riot-slides.html?lesson=${L.n}" target="_blank" rel="noopener" data-slides-tab>Open in a new tab</a>
+            <button class="btn small" data-slides-toggle>Hide slides</button></span></div>
+          <div data-slides></div>
+        </aside>
+        <button class="btn small riot-slides-show" data-slides-show>Show the slides</button>
+      </div>`;
+    const split = $(".riot-split"), work = $(".riot-work");
+    const viewer = RP.riotSlides($("[data-slides]"), L, 0);
+    const setShown = v => { split.classList.toggle("slides-hidden", !v); try { localStorage.setItem("rp-riot-slides", v ? "shown" : "hidden"); } catch (e) { /* private window */ } };
+    $("[data-slides-toggle]").onclick = () => setShown(false);
+    $("[data-slides-show]").onclick = () => setShown(true);
+    // Follow the student: show the slide for the exercise on screen.
+    let last = null;
+    new MutationObserver(() => {
+      const body = work.querySelector(".player-body"), i = body ? Number(body.dataset.item) : NaN;
+      const it = Number.isInteger(i) && m.items ? m.items[i] : null;
+      const n = it && it.actNo;
+      if (n && n !== last) { last = n; viewer.toExercise(n); $("[data-slides-tab]").href = `riot-slides.html?lesson=${L.n}&exercise=${n}`; }
+    }).observe(work, { childList: true });
+    return work;
+  }
+
   function certFor(s) {
     return Object.assign({
       title: RP.sessionTitle(s),
@@ -417,7 +452,7 @@
   function showDayCertificate(day) {
     const first = plan.sessions.find(x => x.day === day && x.kind === "intro");
     const date = day === plan.current_day ? new Date().toISOString() : (first && (first.completed_at || first.updated_at)) || new Date().toISOString();
-    RP.Player.dayCertificate($("#main"), { day, date: RP.longDate(date), modules: RP.dayModules(plan.sessions, day) }, backToPlan);
+    RP.Player.dayCertificate($("#main"), { day, date: RP.longDate(date), modules: RP.dayModules(plan.sessions, day, plan.times) }, backToPlan);
   }
 
   // ---------------------------------------------------------------- word help

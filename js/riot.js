@@ -17,8 +17,8 @@ window.RP = window.RP || {};
 
 RP.RIOT_FORMATS = [
   { id: "paper", label: "Paper worksheet", student: "Your teacher will give you a printed worksheet." },
-  { id: "pdf", label: "PDF on laptop", student: "Open the worksheet on your laptop and type your answers." },
-  { id: "interactive", label: "Interactive on laptop", student: "Work through the activities on your laptop as your teacher goes through the slides." }
+  { id: "pdf", label: "PDF on laptop", student: "Open the worksheet on your laptop and type your answers. The lesson slides are next to it, so you can follow along." },
+  { id: "interactive", label: "Interactive on laptop", student: "Work through the activities on your laptop. The lesson slides are next to them, so you can follow along." }
 ];
 
 RP.RIOT = [
@@ -381,7 +381,7 @@ RP.RIOT = [
     // The interactive version is a module (hidden from the independent list).
     RP.registerModule({
       id: L.id, title: `RIOT ${L.fullTitle}`, icon: "🌳", riot: L.n, hidden: true, score: false,
-      about: `**${L.fullTitle}.** Work through the activities as your teacher goes through the slides.`,
+      about: `**${L.fullTitle}.** Work through the activities. The lesson slides are next to them: read each slide, then do the exercise.`,
       items: [{ type: "read", title: L.fullTitle, text: `**Learning intentions.** We will:\n${L.intentions.map(x => "- " + x).join("\n")}\n\n**Success criteria.** I can:\n${L.criteria.map(x => "- " + x).join("\n")}` }].concat(L.items)
     });
   });
@@ -421,4 +421,60 @@ RP.riotWorksheetMarkup = function (L) {
         ${body(it)}</section>`).join("")}
       <p class="rs-foot">Reducing anxiety &amp; building resilience thinking skills · Thomas Reddall High School</p>
     </div>`;
+};
+
+// One RIOT slide, in the RIOT theme. Used by the Present view on the projector, the slides panel
+// next to a student's worksheet, and riot-slides.html.
+RP.riotSlideMarkup = function (sl) {
+  const h = RP.h, inline = RP.inlineMd;
+  if (sl.cover) return `<div class="riot-cover"><div class="riot-badge">RESILIENCE<br>IN OUR<br>TEENS</div><h1>${h(sl.title)}</h1><p>${h(sl.points[0])}</p></div>`;
+  if (sl.intentions) return `<h1>${h(sl.title)}</h1><div class="riot-cols"><div><h2>Students will:</h2><ul>${sl.points.map(p => `<li>${inline(p)}</li>`).join("")}</ul></div><div><h2>Success criteria. Students will be able to:</h2><ul>${sl.criteria.map(p => `<li>${inline(p)}</li>`).join("")}</ul></div></div>`;
+  return `<h1>${h(sl.title)}</h1>
+    ${sl.boxes ? `<div class="riot-boxes">${sl.points.map(p => `<div class="riot-box">${inline(p)}</div>`).join("")}</div>`
+      : sl.points && sl.points.length ? `<ul class="${sl.activity ? "riot-activity" : ""}">${sl.points.map((p, i) => `<li${sl.activity && i === 0 ? ` class="riot-q"` : ""}>${inline(p)}</li>`).join("")}</ul>` : ""}
+    ${sl.note ? `<p class="present-note">${inline(sl.note)}</p>` : ""}`;
+};
+
+// The answers to a lesson's worksheet, for staff (Session guides, and riot-worksheet.html?answers=1).
+// Open questions have no single answer, so they show the ideas from the slide they follow.
+RP.riotAnswersMarkup = function (L) {
+  const h = RP.h, inline = RP.inlineMd;
+  const ideas = it => {
+    const t = L.teach[it.at];
+    return t && t.points && t.points.length ? `<p class="muted">Students' own answers. Ideas from the slide <em>${h(t.title)}</em>:</p><ul>${t.points.map(p => `<li>${inline(p)}</li>`).join("")}</ul>` : `<p class="muted">Students' own answers.</p>`;
+  };
+  const body = it => {
+    if (it.type === "sort") return `<table class="rs-table"><thead><tr>${it.buckets.map(b => `<th>${h(b)}</th>`).join("")}</tr></thead><tbody><tr>${it.buckets.map((b, k) => `<td><ul>${it.cards.filter(c => c.bucket === k).map(c => `<li>${h(c.text)}</li>`).join("")}</ul></td>`).join("")}</tr></tbody></table>`;
+    if (it.type === "order") return `<ol>${it.cards.map(c => `<li>${h(c)}</li>`).join("")}</ol>`;
+    if (it.type === "match") return `<ul>${it.pairs.map(p => `<li><strong>${h(p.left)}</strong> → ${h(p.right)}</li>`).join("")}</ul>`;
+    if (it.type === "mc") return `<p><strong>${h(it.choices[it.answer])}</strong></p>${it.explain ? `<p>${inline(it.explain)}</p>` : ""}`;
+    if (it.type === "breathe") return `<p class="muted">A breathing practice: nothing to mark.</p>`;
+    if (it.type === "slider") return `<p class="muted">Students rate themselves: no right answer.</p>`;
+    return ideas(it);
+  };
+  return `<div class="riot-answers">${L.items.filter(it => it.act).map(it => `
+    <section class="rs-ex"><div class="rs-ex-head"><span class="rs-ex-label">EXERCISE ${it.actNo}</span><span class="rs-ex-title">${h(it.act.replace(/^Exercise: /, "").toUpperCase())}</span></div>
+      ${it.type === "mc" || it.type === "sort" || it.type === "order" || it.type === "match" ? `<p class="muted">${inline(String(it.q || "").split("\n\n").pop())}</p>` : ""}
+      ${body(it)}</section>`).join("")}</div>`;
+};
+
+// A small slide viewer (Back / Next) for a lesson's slides, drawn into el. Returns go(k) and
+// toExercise(n), which shows the slide for worksheet exercise n.
+RP.riotSlides = function (el, L, start) {
+  let k = start || 0;
+  const draw = () => {
+    el.innerHTML = `
+      <div class="riot-viewer riot-theme">
+        <div class="present-slide">${RP.riotSlideMarkup(L.slides[k])}</div>
+        <div class="riot-viewer-nav"><button class="btn small" data-sl-prev ${k === 0 ? "disabled" : ""}>← Back</button>
+          <span>Slide ${k + 1} of ${L.slides.length}</span>
+          <button class="btn small" data-sl-next ${k === L.slides.length - 1 ? "disabled" : ""}>Next →</button></div>
+      </div>`;
+    el.querySelector("[data-sl-prev]").onclick = () => go(k - 1);
+    el.querySelector("[data-sl-next]").onclick = () => go(k + 1);
+  };
+  const go = n => { k = Math.max(0, Math.min(L.slides.length - 1, n)); draw(); };
+  const toExercise = n => { const i = L.slides.findIndex(sl => sl.activity && sl.note && new RegExp(`Exercise ${n}$`).test(sl.note)); if (i >= 0 && i !== k) go(i); };
+  draw();
+  return { go, toExercise };
 };

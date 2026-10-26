@@ -136,6 +136,13 @@ window.RP = window.RP || {};
         return visit.id;
       }),
 
+      // Extra sessions staff add to a day on the daily schedule (e.g. three 20-minute sessions in a period).
+      addSessions: teacher(async (visitId, rows) => {
+        const { error } = await sb.from("sessions").insert(rows.map(r => Object.assign({ visit_id: visitId }, r)));
+        if (error) throw new Error(error.message);
+      }),
+      deleteSession: teacher(async id => { const { error } = await sb.from("sessions").delete().eq("id", id); if (error) throw new Error(error.message); }),
+
       updateSession: teacher(async (id, patch) => check(await sb.from("sessions")
         .update(Object.assign({ updated_at: new Date().toISOString() }, patch)).eq("id", id).select(SESSION_FIELDS).single())),
 
@@ -266,6 +273,12 @@ window.RP = window.RP || {};
         rows.forEach(r => db.sessions.push(Object.assign({ id: RP.uuid(), visit_id: v.id, status: "not_started", result: null, state: null, updated_at: now, completed_at: null }, r)));
         store(db); return v.id;
       },
+      async addSessions(visitId, rows) {
+        const db = load(), now = new Date().toISOString();
+        rows.forEach(r => db.sessions.push(Object.assign({ id: RP.uuid(), visit_id: visitId, status: "not_started", result: null, state: null, updated_at: now, completed_at: null }, r)));
+        store(db);
+      },
+      async deleteSession(id) { const db = load(); db.sessions = db.sessions.filter(s => s.id !== id); store(db); },
       async updateSession(id, patch) {
         const db = load(), s = db.sessions.find(s => s.id === id);
         if (!s) throw new Error("Session not found");

@@ -46,6 +46,13 @@ RP.nowMinutes = () => {
 // Tuesday's shorter bell times), or the normal timetable.
 RP.timetableFor = (times, day) => (times && times[day] && times[day].length ? times[day] : RP.TIMETABLE);
 RP.slotTimes = (slot, tt) => (tt || RP.TIMETABLE).find(t => t.slot === slot);
+// Sessions in the order they happen. Staff can add sessions to a day (slots 12 and up, placed
+// anywhere in that day's times), so the slot number isn't always the order.
+RP.slotIndex = (slot, tt) => { const i = (tt || RP.TIMETABLE).findIndex(t => t.slot === slot); return i < 0 ? 100 + slot : i; };
+RP.bySchedule = times => (a, b) => a.day - b.day || RP.slotIndex(a.slot, RP.timetableFor(times, a.day)) - RP.slotIndex(b.slot, RP.timetableFor(times, b.day));
+// The first slot number free for an added session on a day (slot 11 is the old untimed 1:1).
+RP.FIRST_ADDED_SLOT = 12;
+RP.MAX_SLOT = 20;
 // The slot running now: a number, "before", "after", or the break object.
 RP.currentSlot = tt => {
   tt = tt || RP.TIMETABLE;
@@ -114,6 +121,8 @@ RP.individualSession = id => (RP.INDIVIDUAL_SESSIONS || []).find(x => x.id === i
 // Core group sessions not yet done across both days.
 RP.missingCore = function (sessions) {
   const done = new Set(sessions.filter(s => s.kind === "group" && s.status === "done").map(s => s.activity));
+  // A RIOT lesson done on the laptop as an independent module counts as the RIOT group module.
+  if (sessions.some(s => s.kind === "independent" && s.status === "done" && /^riot-lesson-/.test(s.activity || ""))) done.add("riot");
   return RP.GROUP_SESSIONS.filter(g => g.core && !done.has(g.id));
 };
 
@@ -296,11 +305,11 @@ RP.subjectsText = function (subjects) {
 // One certificate per day, listing every module finished that day. Students get it after the
 // afternoon survey (and any time from their plan); teachers can reprint it.
 // A Suspension Booklet counts as soon as a subject is started, even if it isn't finished.
-RP.dayModules = function (sessions, day) {
+RP.dayModules = function (sessions, day, times) {
   const booklet = s => s.kind === "independent" && s.status === "in_progress" && s.state && s.state.subjects && Object.keys(s.state.subjects).length;
   return sessions.filter(s => s.day === day && ["group", "independent", "one_to_one", "free"].includes(s.kind) && (s.status === "done" || booklet(s)))
     .filter(s => s.kind !== "free" || s.activity === "custom")
-    .sort((a, b) => a.slot - b.slot)
+    .sort(RP.bySchedule(times))
     .map(s => ({ title: RP.sessionTitle(s), kind: RP.kindLabel(s),
       result: s.kind !== "independent" ? "" : booklet(s) ? RP.subjectsText(s.state.subjects) : RP.resultText(s.result) }));
 };

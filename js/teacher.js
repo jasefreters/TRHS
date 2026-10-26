@@ -161,20 +161,22 @@
   }
 
   // ---------------------------------------------------------------- helpers
-  const sessionsFor = (v, day) => v.sessions.filter(s => s.day === day).sort((a, b) => a.slot - b.slot);
+  const sessionsFor = (v, day) => v.sessions.filter(s => s.day === day).sort(RP.bySchedule(v.times));
   const at = (v, day, slot) => v.sessions.find(s => s.day === day && s.slot === slot);
   const titleOf = s => RP.sessionTitle(s);
   // A student's timetable for a day (their own times if staff changed them), and their slot now.
   const ttOf = (v, day) => RP.timetableFor(v.times, day);
   const nowOf = v => RP.currentSlot(ttOf(v, v.current_day));
+  // Who's on the run sheet for a session's time (staffing is kept for the normal timetable's rows).
+  const staffAt = t => { if (!t) return ""; const m = RP.toMinutes(t.start), row = RP.TIMETABLE.find(r => r.slot && m >= RP.toMinutes(r.start) && m < RP.toMinutes(r.end)); return row ? staffing[row.slot] || "" : ""; };
   const ledTitle = s => /^Teacher-led/i.test(titleOf(s)) ? titleOf(s) : "Teacher-led: " + titleOf(s);
   const teacherTicks = s => ["group", "one_to_one"].includes(s.kind) || RP.isCustom(s);
-  const individualsOn = (v, day) => v.sessions.filter(s => s.day === day && (s.kind === "one_to_one" || RP.isLedModule(s))).sort((a, b) => a.slot - b.slot);
+  const individualsOn = (v, day) => v.sessions.filter(s => s.day === day && (s.kind === "one_to_one" || RP.isLedModule(s))).sort(RP.bySchedule(v.times));
 
   // Individual sessions in the same slot today as another student's: the teacher can't do both.
   function clashes(v) {
     const out = {};
-    individualsOn(v, v.current_day).filter(s => s.slot <= RP.LAST_SLOT).forEach(s => {
+    individualsOn(v, v.current_day).filter(s => s.slot !== RP.ONE_TO_ONE_SLOT).forEach(s => {
       const others = visits.filter(o => o.id !== v.id && !o.paused && o.kind !== "followup").filter(o => { const x = at(o, o.current_day, s.slot); return x && x.kind === "one_to_one"; });
       if (others.length) out[s.slot] = others.map(o => RP.formatCode(o.student.code));
     });
@@ -240,7 +242,7 @@
     if (bb) bb.onclick = async () => {
       bb.disabled = true;
       for (const v of programs.filter(v => !v.paused)) {
-        const s = at(v, v.current_day, now);
+        const s = at(v, v.current_day, nowOf(v));
         if (s && s.kind === "group" && s.status !== "done") await setDone(s, true);
       }
       reload();
@@ -290,7 +292,7 @@
   function card(v) {
     const tt = ttOf(v, v.current_day), now = RP.currentSlot(tt);
     const day = sessionsFor(v, v.current_day);
-    const mini = day.filter(s => s.slot <= RP.LAST_SLOT).map(s => {
+    const mini = day.filter(s => s.slot !== RP.ONE_TO_ONE_SLOT && RP.slotTimes(s.slot, tt)).map(s => {
       const t = RP.slotTimes(s.slot, tt);
       const icon = s.status === "done" ? "✓" : s.status === "in_progress" ? "•" : "";
       return `<span class="mini k-${s.kind} st-${s.status}${now === s.slot ? " now" : ""}" title="${h(RP.formatTime(t.start) + " " + titleOf(s) + ": " + statusText(s))}">${icon}</span>`;
@@ -319,7 +321,7 @@
           const t = RP.slotTimes(one.slot, tt);
           return `<div class="row"><button class="link-btn" data-ind="${one.id}">${t ? RP.formatTime(t.start) + " " : ""}${h(ledTitle(one))}</button>
             <button class="btn small${one.status === "done" ? " ok" : ""}" data-tick="${one.id}">${one.status === "done" ? "✓ Done" : "Mark done"}</button>
-            ${t && staffing[one.slot] ? `<span class="muted">with ${h(staffing[one.slot])}</span>` : ""}
+            ${staffAt(t) ? `<span class="muted">with ${h(staffAt(t))}</span>` : ""}
             ${clash[one.slot] ? `<span class="warn">Clashes with ${h(clash[one.slot].join(", "))}</span>` : ""}</div>`;
         }).join("") : `<div class="row"><span class="warn">No teacher-led session planned for today</span></div>`}
         ${finished.length ? `<div class="row results"><span class="muted">Finished:</span> ${finished.map(s => `${h(titleOf(s))}${s.result && RP.resultText(s.result) ? ` <span class="muted">(${h(RP.resultText(s.result))})</span>` : ""}`).join(", ")}</div>` : ""}
@@ -687,9 +689,9 @@
         </section>`;
     }
     const sum = summary(v);
-    const certDays = [1, 2].filter(d => RP.dayModules(v.sessions, d).length);
+    const certDays = [1, 2].filter(d => RP.dayModules(v.sessions, d, v.times).length);
     const answered = v.sessions.filter(s => ["independent", "debrief", "intro", "survey"].includes(s.kind) && s.status === "done" && s.state && s.state.responses && s.state.responses.length)
-      .sort((a, b) => a.day - b.day || a.slot - b.slot);
+      .sort(RP.bySchedule(v.times));
     const anyActive = (student.visits || []).some(x => x.active);
     const dayList = day => `
       <div class="record-day">
@@ -734,7 +736,7 @@
   // Everything the staff member needs for one student's individual session, from what the
   // student has already submitted. Notes are kept in Sentral, not here.
   const responsesOf = (v, pred) => v.sessions.filter(x => x.status === "done" && pred(x) && x.state && x.state.responses && x.state.responses.length)
-    .sort((a, b) => a.day - b.day || a.slot - b.slot);
+    .sort(RP.bySchedule(v.times));
   const surveyIn = (v, id) => v.sessions.find(x => x.status === "done" && RP.surveyResultId(x.result) === id);
   const answerBlock = (s, open) => `<details class="answer-block"${open ? " open" : ""}><summary>${h(answerTitle(s))} <span class="muted">· ${RP.formatDate(s.completed_at || s.updated_at)}</span></summary>${RP.worksheetRows(s.state.responses)}</details>`;
   // Find an answer in a module's responses by the start of its prompt.
@@ -752,7 +754,7 @@
     if (watchable(s)) return renderLedModule(v, s);
     const ind = RP.individualSession(s.activity);
     const t = RP.slotTimes(s.slot, ttOf(v, s.day));
-    const staff = t && s.day === v.current_day ? staffing[s.slot] : "";
+    const staff = s.day === v.current_day ? staffAt(t) : "";
     let info = "";
     const surveys = ids => ids.map(id => surveyIn(v, id)).filter(Boolean);
     const shown = list => list.length ? list.map(x => answerBlock(x, false)).join("") : `<p class="muted">Nothing submitted yet.</p>`;
@@ -942,7 +944,7 @@
   function renderLedModule(v, s) {
     const m = moduleFor(s), led = !!m.teacherLed;
     const t = RP.slotTimes(s.slot, ttOf(v, s.day));
-    const staff = t && s.day === v.current_day ? staffing[s.slot] : "";
+    const staff = s.day === v.current_day ? staffAt(t) : "";
     const c = staffCheckins[s.id] || (staffCheckins[s.id] = { attendance: "", positive: "", negative: "", checkin: "", completed: "" });
     const back = view.from === "board" ? "In the program" : "Daily schedule";
     app().innerHTML = `
@@ -1003,13 +1005,19 @@
   function renderRunsheet(date, staff) {
     const progs = visits.filter(v => v.kind !== "followup");
     const isToday = date === todayIso();
+    // A student's sessions in a row of the normal timetable: that session, plus any sessions staff
+    // added to their day that start during it.
     const cell = (v, slot) => {
       if (v.paused) return `<td class="muted">Paused</td>`;
-      const x = at(v, v.current_day, slot);
-      if (!x) return "<td></td>";
-      const own = RP.slotTimes(slot, ttOf(v, v.current_day)), usual = RP.slotTimes(slot);
-      const moved = own && usual && own.start !== usual.start ? `<span class="muted">${RP.formatTime(own.start)}</span> ` : "";
-      return `<td class="rs-${x.kind}">${moved}${h(x.kind === "one_to_one" ? ledTitle(x) : titleOf(x))}</td>`;
+      const tt = ttOf(v, v.current_day), usual = RP.slotTimes(slot);
+      const inRow = x => { const t = RP.slotTimes(x.slot, tt); return t && RP.toMinutes(t.start) >= RP.toMinutes(usual.start) && RP.toMinutes(t.start) < RP.toMinutes(usual.end); };
+      const xs = sessionsFor(v, v.current_day).filter(x => x.slot === slot || (x.slot >= RP.FIRST_ADDED_SLOT && inRow(x)));
+      if (!xs.length) return "<td></td>";
+      return `<td class="rs-${xs[0].kind}">${xs.map(x => {
+        const own = RP.slotTimes(x.slot, tt);
+        const moved = own && (xs.length > 1 || own.start !== usual.start) ? `<span class="muted">${RP.formatTime(own.start)}</span> ` : "";
+        return moved + h(x.kind === "one_to_one" ? ledTitle(x) : titleOf(x));
+      }).join("<br>")}</td>`;
     };
     app().innerHTML = `
       <div class="page wide runsheet-page">
@@ -1184,14 +1192,6 @@
     if (m) { const L = RP.riotLesson(m[1]); return L && { title: `RIOT ${L.fullTitle}`, slides: L.slides, riot: true }; }
     return RP.groupSession(id);
   }
-  function riotSlide(sl) {
-    if (sl.cover) return `<div class="riot-cover"><div class="riot-badge">RESILIENCE<br>IN OUR<br>TEENS</div><h1>${h(sl.title)}</h1><p>${h(sl.points[0])}</p></div>`;
-    if (sl.intentions) return `<h1>${h(sl.title)}</h1><div class="riot-cols"><div><h2>Students will:</h2><ul>${sl.points.map(p => `<li>${RP.inlineMd(p)}</li>`).join("")}</ul></div><div><h2>Success criteria. Students will be able to:</h2><ul>${sl.criteria.map(p => `<li>${RP.inlineMd(p)}</li>`).join("")}</ul></div></div>`;
-    return `<h1>${h(sl.title)}</h1>
-      ${sl.boxes ? `<div class="riot-boxes">${sl.points.map(p => `<div class="riot-box">${RP.inlineMd(p)}</div>`).join("")}</div>`
-        : sl.points && sl.points.length ? `<ul class="${sl.activity ? "riot-activity" : ""}">${sl.points.map((p, i) => `<li${sl.activity && i === 0 ? ` class="riot-q"` : ""}>${RP.inlineMd(p)}</li>`).join("")}</ul>` : ""}
-      ${sl.note ? `<p class="present-note">${RP.inlineMd(sl.note)}</p>` : ""}`;
-  }
   function showPresent(id) {
     const g = presentable(id);
     if (!g || !g.slides) return;
@@ -1209,7 +1209,7 @@
             <button data-t="300">+5 min</button><button data-t="60">+1 min</button><button data-t="0">${ticking ? "Stop" : "Clear"}</button></span>
           <span>${k + 1} / ${g.slides.length} <button data-close>Close ✕</button></span>
         </div>
-        <div class="present-slide">${g.riot ? riotSlide(sl) : `
+        <div class="present-slide">${g.riot ? RP.riotSlideMarkup(sl) : `
           <h1>${h(sl.title)}</h1>
           ${sl.points && sl.points.length ? `<ul>${sl.points.map(p => `<li>${RP.inlineMd(p)}</li>`).join("")}</ul>` : ""}
           ${sl.note ? `<p class="present-note">${RP.inlineMd(sl.note)}</p>` : ""}`}
@@ -1268,11 +1268,13 @@
               <button class="btn small primary" data-present="riot:${L.n}">Present the slides</button>
               <a class="btn small" href="riot-worksheet.html?lesson=${L.n}" target="_blank" rel="noopener">Print worksheet</a>
               <a class="btn small" href="${RP.riotPdf(L.n)}" target="_blank" rel="noopener">Worksheet PDF</a>
+              <a class="btn small" href="riot-worksheet.html?lesson=${L.n}&answers=1" target="_blank" rel="noopener">Print answers</a>
               <button class="btn small" data-preview="${L.id}">Try it on the laptop</button>
             </div>
             <details><summary><strong>Run sheet (25 minutes)</strong></summary><div class="guide-body">${RP.md(L.guide)}</div></details>
             <details><summary><strong>Slides</strong> <span class="muted">(${L.slides.length})</span></summary><ol class="riot-slide-list">${L.slides.map(sl => `<li>${h(sl.title)}</li>`).join("")}</ol></details>
             <details><summary><strong>Worksheet</strong></summary>${RP.riotWorksheetMarkup(L)}</details>
+            <details class="riot-answer-key"><summary><strong>Answers</strong></summary>${RP.riotAnswersMarkup(L)}</details>
           </section>`).join("")}
       </details>`;
     app().innerHTML = `
@@ -1360,8 +1362,8 @@
     const certs = [1, 2].map(day => {
       const done = v.sessions.filter(s => s.day === day && s.status === "done");
       const first = done.map(s => s.completed_at || s.updated_at).filter(Boolean).sort()[0];
-      return { id: "day" + day, day, modules: RP.dayModules(v.sessions, day), date: RP.longDate(first || v.start_date),
-        answers: done.filter(s => s.kind === "independent" && s.state && s.state.responses && s.state.responses.length).sort((a, b) => a.slot - b.slot) };
+      return { id: "day" + day, day, modules: RP.dayModules(v.sessions, day, v.times), date: RP.longDate(first || v.start_date),
+        answers: done.filter(s => s.kind === "independent" && s.state && s.state.responses && s.state.responses.length).sort(RP.bySchedule(v.times)) };
     }).filter(c => c.modules.length);
     const isCerts = view.what === "certs";
     app().innerHTML = `
@@ -1459,6 +1461,9 @@
           <aside class="palette">
             <h3>Individual: independent <span class="muted">(on the laptop)</span></h3>
             ${electives().map(m => `<div class="chip-row">${chip("elective", m.id, m.title, m.sample ? ` <span class="tag">sample</span>` : "")}<button class="chip-view" data-preview="${h(m.id)}" title="See what's in ${h(m.title)}" aria-label="Preview ${h(m.title)}">👁</button></div>`).join("")}
+            <details class="palette-group"><summary><strong>RIOT lessons</strong> <span class="muted">(independent, with the slides)</span></summary>
+              ${RP.RIOT.map(L => `<div class="chip-row">${chip("elective", L.id, `RIOT ${L.fullTitle}`)}<button class="chip-view" data-preview="${h(L.id)}" title="See what's in RIOT ${h(L.fullTitle)}" aria-label="Preview RIOT ${h(L.fullTitle)}">👁</button></div>`).join("")}
+            </details>
             <h3>Individual: teacher-led <span class="muted">(with a staff member)</span></h3>
             ${(RP.INDIVIDUAL_SESSIONS || []).map(x => chip("individual", x.id, x.title, x.day ? ` <span class="tag">Day ${x.day}</span>` : "")).join("")}
             ${ledModules().map(m => `<div class="chip-row">${chip("elective", m.id, m.title)}<button class="chip-view" data-preview="${h(m.id)}" title="See what's in ${h(m.title)}" aria-label="Preview ${h(m.title)}">👁</button></div>`).join("")}
@@ -1611,50 +1616,112 @@
       </li>`;
   }
 
-  // Change a day's session times (e.g. Tuesday's shorter bell times, or a shorter session). Saved
-  // with the student's program; the student's laptop and the dashboard use them.
+  // Change a day's session times (e.g. Tuesday's shorter bell times, or a shorter session), and add
+  // or remove sessions (e.g. three 20-minute sessions in a period instead of two). Saved with the
+  // student's program; the student's laptop and the dashboard use them. Added sessions get slot
+  // numbers from 12 up and start empty.
   function editTimes(v, day) {
     const presets = RP.TIMETABLE_PRESETS || [];
+    const copy = tt => tt.map(t => Object.assign({}, t));
+    let rows = copy(ttOf(v, day));
+    const mine = slot => at(v, day, slot);
+    // A session can be removed if it hasn't been started and isn't the morning session or debrief.
+    const removable = t => { const x = mine(t.slot); return !x || (x.status === "not_started" && x.kind !== "intro" && x.kind !== "debrief"); };
     const box = document.createElement("dialog");
     box.className = "times-dialog";
-    const rowsHtml = tt => tt.map((t, i) => `<tr><td>${t.brk ? h(t.brk) : `Session ${t.slot}`}</td>
-      <td><input type="time" data-start="${i}" value="${t.start}" required></td><td><input type="time" data-end="${i}" value="${t.end}" required></td></tr>`).join("");
     box.innerHTML = `
       <form method="dialog" data-times-form>
         <h2>Day ${day} times</h2>
-        <p class="muted">Change when each session starts and ends, for example on a day with shorter bell times. The student's laptop follows these times.</p>
+        <p class="muted">Change when each session starts and ends, for example on a day with shorter bell times. Use <strong>＋</strong> to add a session after one (for example, three 20-minute sessions in a period instead of two) and <strong>✕</strong> to remove one that hasn't been started. The student's laptop follows these times.</p>
         <div class="actions">${["Normal times"].concat(presets.map(p => p.name)).map((n, k) => `<button type="button" class="btn small" data-preset="${k}">${h(n)}</button>`).join("")}</div>
-        <table class="records times-table"><thead><tr><th></th><th>Starts</th><th>Ends</th></tr></thead><tbody data-rows>${rowsHtml(ttOf(v, day))}</tbody></table>
-        ${day === v.current_day ? `<label class="field inline"><input type="checkbox" data-everyone> Use these times for everyone else in the program today too</label>` : ""}
+        <table class="records times-table"><thead><tr><th></th><th>Starts</th><th>Ends</th><th></th><th></th></tr></thead><tbody data-rows></tbody></table>
+        ${day === v.current_day ? `<label class="field inline"><input type="checkbox" data-everyone> Use these times and sessions for everyone else in the program today too</label>` : ""}
         <p class="error" aria-live="polite"></p>
         <div class="actions"><button class="btn primary" type="submit">Save</button><button class="btn ghost" type="button" data-cancel>Cancel</button></div>
       </form>`;
     document.body.appendChild(box);
     const err = box.querySelector(".error");
+    const label = (t, i) => t.brk || `Session ${rows.slice(0, i + 1).filter(r => !r.brk).length}`;
+    const draw = () => {
+      box.querySelector("[data-rows]").innerHTML = rows.map((t, i) => {
+        const x = !t.brk && mine(t.slot);
+        return `<tr${t.brk ? ` class="times-brk"` : ""}><td>${h(label(t, i))}${t.slot >= RP.FIRST_ADDED_SLOT ? ` <span class="tag">added</span>` : ""}</td>
+        <td><input type="time" data-start="${i}" value="${t.start}" required></td><td><input type="time" data-end="${i}" value="${t.end}" required></td>
+        <td class="muted small">${x ? h(titleOf(x)) : t.brk ? "" : "Empty"}</td>
+        <td class="nowrap">${t.brk ? "" : `<button type="button" class="btn small" data-add-after="${i}" title="Add a session after this one" aria-label="Add a session after ${h(label(t, i))}">＋</button>${removable(t) ? `<button type="button" class="btn small" data-remove="${i}" title="Remove this session" aria-label="Remove ${h(label(t, i))}">✕</button>` : ""}`}</td></tr>`;
+      }).join("");
+      box.querySelectorAll("[data-start]").forEach(inp => inp.oninput = () => { rows[Number(inp.dataset.start)].start = inp.value; });
+      box.querySelectorAll("[data-end]").forEach(inp => inp.oninput = () => { rows[Number(inp.dataset.end)].end = inp.value; });
+      box.querySelectorAll("[data-add-after]").forEach(b => b.onclick = () => {
+        const i = Number(b.dataset.addAfter), t = rows[i];
+        // Slot numbers used anywhere today, so everyone's added sessions line up.
+        const used = new Set(rows.map(r => r.slot).concat(v.sessions.filter(x => x.day === day).map(x => x.slot), [RP.ONE_TO_ONE_SLOT]));
+        visits.filter(o => o.id !== v.id).forEach(o => o.sessions.filter(x => x.day === o.current_day).forEach(x => used.add(x.slot)));
+        let slot = RP.FIRST_ADDED_SLOT; while (used.has(slot)) slot++;
+        if (slot > RP.MAX_SLOT) { err.textContent = "That's as many sessions as a day can have."; return; }
+        // Split the session's time in half; staff can then change the times.
+        const a = RP.toMinutes(t.start), z = RP.toMinutes(t.end), mid = a + Math.max(1, Math.floor((z - a) / 2));
+        const hhmm = m => String(Math.floor(m / 60)).padStart(2, "0") + ":" + String(m % 60).padStart(2, "0");
+        rows.splice(i + 1, 0, { slot, start: hhmm(mid), end: t.end, period: t.period });
+        t.end = hhmm(mid);
+        err.textContent = ""; draw();
+      });
+      box.querySelectorAll("[data-remove]").forEach(b => b.onclick = () => {
+        if (rows.filter(r => r.slot).length <= 1) return;
+        rows.splice(Number(b.dataset.remove), 1); err.textContent = ""; draw();
+      });
+    };
+    draw();
     box.querySelectorAll("[data-preset]").forEach(b => b.onclick = () => {
       const k = Number(b.dataset.preset);
-      box.querySelector("[data-rows]").innerHTML = rowsHtml(k === 0 ? RP.TIMETABLE : presets[k - 1].times);
+      rows = copy(k === 0 ? RP.TIMETABLE : presets[k - 1].times); err.textContent = ""; draw();
     });
     box.querySelector("[data-cancel]").onclick = () => box.close();
     box.addEventListener("close", () => box.remove());
     box.querySelector("[data-times-form]").onsubmit = async e => {
       e.preventDefault();
-      const tt = RP.TIMETABLE.map((t, i) => Object.assign({}, t, { start: box.querySelector(`[data-start="${i}"]`).value, end: box.querySelector(`[data-end="${i}"]`).value }));
+      const tt = copy(rows);
       for (let i = 0; i < tt.length; i++) {
-        if (!tt[i].start || !tt[i].end || RP.toMinutes(tt[i].start) >= RP.toMinutes(tt[i].end)) { err.textContent = `Check ${tt[i].brk || "Session " + tt[i].slot}: it has to start before it ends.`; return; }
-        if (i && RP.toMinutes(tt[i].start) < RP.toMinutes(tt[i - 1].end)) { err.textContent = `${tt[i].brk || "Session " + tt[i].slot} starts before the one before it ends.`; return; }
+        if (!tt[i].start || !tt[i].end || RP.toMinutes(tt[i].start) >= RP.toMinutes(tt[i].end)) { err.textContent = `Check ${label(tt[i], i)}: it has to start before it ends.`; return; }
+        if (i && RP.toMinutes(tt[i].start) < RP.toMinutes(tt[i - 1].end)) { err.textContent = `${label(tt[i], i)} starts before the one before it ends.`; return; }
       }
-      const normal = JSON.stringify(tt.map(t => [t.start, t.end])) === JSON.stringify(RP.TIMETABLE.map(t => [t.start, t.end]));
-      const withDay = (times, d) => { const out = Object.assign({}, times || {}); if (normal) delete out[d]; else out[d] = tt; return Object.keys(out).length ? out : null; };
+      const kept = new Set(tt.map(t => t.slot).filter(Boolean));
+      const blocked = v.sessions.filter(x => x.day === day && x.slot !== RP.ONE_TO_ONE_SLOT && !kept.has(x.slot) && !removable(x));
+      if (blocked.length) { err.textContent = `"${titleOf(blocked[0])}" can't be removed: ${blocked[0].kind === "intro" || blocked[0].kind === "debrief" ? "move it to another session first" : "it has already been started"}.`; return; }
+      const dropping = v.sessions.filter(x => x.day === day && x.slot !== RP.ONE_TO_ONE_SLOT && !kept.has(x.slot) && !(x.kind === "independent" && !x.activity));
+      if (dropping.length && !confirm(`This removes ${dropping.map(x => `"${titleOf(x)}"`).join(", ")} from Day ${day}. Remove ${dropping.length > 1 ? "them" : "it"}?`)) return;
       try {
-        await api.updateVisit(v.id, { times: withDay(v.times, day) });
+        await saveTimes(v, day, tt);
         const all = box.querySelector("[data-everyone]");
-        if (all && all.checked) for (const o of visits.filter(o => o.id !== v.id && o.kind !== "followup")) await api.updateVisit(o.id, { times: withDay(o.times, o.current_day) });
+        const skipped = [];
+        if (all && all.checked) for (const o of visits.filter(o => o.id !== v.id && o.kind !== "followup")) {
+          if (!(await saveTimes(o, o.current_day, tt))) skipped.push(RP.formatCode(o.student.code));
+        }
         box.close();
+        if (skipped.length) alert(`These students weren't changed, because a session these times leave out has already been started (or is their morning session or debrief): ${skipped.join(", ")}.`);
         [visit, visits] = await Promise.all([api.getVisit(visit.id), api.listActive()]); renderPlan();
       } catch (ex) { err.textContent = ex.message; }
     };
     box.showModal();
+  }
+
+  // Save a day's timetable for a program: its times, plus the empty sessions it adds and the
+  // unstarted sessions it leaves out. Returns false (and changes nothing) if a session it leaves out
+  // has been started or is the morning session or debrief.
+  async function saveTimes(v, day, tt) {
+    const daySessions = v.sessions.filter(x => x.day === day && x.slot !== RP.ONE_TO_ONE_SLOT);
+    const kept = new Set(tt.map(t => t.slot).filter(Boolean));
+    const remove = daySessions.filter(x => !kept.has(x.slot));
+    if (remove.some(x => x.status !== "not_started" || x.kind === "intro" || x.kind === "debrief")) return false;
+    const add = [...kept].filter(slot => !daySessions.some(x => x.slot === slot)).map(slot => ({ day, slot, kind: "independent", activity: null, title: "Empty" }));
+    const key = t => [t.slot || t.brk, t.start, t.end];
+    const normal = JSON.stringify(tt.map(key)) === JSON.stringify(RP.TIMETABLE.map(key));
+    const times = Object.assign({}, v.times || {});
+    if (normal) delete times[day]; else times[day] = tt;
+    await api.updateVisit(v.id, { times: Object.keys(times).length ? times : null });
+    if (add.length) await api.addSessions(v.id, add);
+    for (const x of remove) await api.deleteSession(x.id);
+    return true;
   }
 
   // Choose a RIOT lesson or worksheet format, and offer the same to the other students in that

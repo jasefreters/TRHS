@@ -45,7 +45,7 @@ Everything in the day is a **module**:
 | 9 | 1:32–2:03 | Independent or teacher-led |
 | 10 | 2:03–2:35 | Afternoon debrief (whole group) and afternoon survey |
 
-Every session ends with a school bell or in the middle of a period. To change a day's times (for example Tuesday's shorter bell times, or a shorter session), click **⏱ Times** on the daily schedule; you can apply the new times to everyone in the program that day.
+Every session ends with a school bell or in the middle of a period. To change a day's times (for example Tuesday's shorter bell times, or a shorter session), click **⏱ Times** on the daily schedule; you can apply the new times to everyone in the program that day. In the same box, **＋** adds a session after another (it splits that session's time in half, so you can make three 20-minute sessions in a period instead of two) and **✕** removes a session that hasn't been started. New sessions start empty.
 
 **Group modules** run on a two-day rotation, so every student gets all eight across their two days whichever day they start. Each stands alone, and each follows the **Thomas Reddall Lesson Routine**: entry, Do Now, learning intention and success criteria, explicit teaching, brain break, application (butcher's paper, discussion, card sorts), recap, exit.
 
@@ -68,7 +68,9 @@ Run sheets and projector slides for each are on the dashboard's **Session guides
 
 **Morning session and afternoon debrief:** drag either to a different time, for example if a student arrives late or has a return meeting.
 
-**RIOT** has eight lessons, each condensed to 25 minutes. On the daily schedule, choose the lesson and how students do the worksheet: on **paper**, as a **PDF on their laptop**, or **interactive on their laptop**. Changing one student offers the same for everyone else in that RIOT session. Click **Present** to show the lesson slides; every worksheet exercise has a matching slide. Session guides has each lesson's run sheet, slides, worksheet and PDF.
+**RIOT** has eight lessons, each condensed to 25 minutes. On the daily schedule, choose the lesson and how students do the worksheet: on **paper**, as a **PDF on their laptop**, or **interactive on their laptop**. Changing one student offers the same for everyone else in that RIOT session. Click **Present** to show the lesson slides; every worksheet exercise has a matching slide. Session guides has each lesson's run sheet, slides, worksheet, PDF and **answers** (with **Print answers**).
+
+If no staff member is free, students can do a RIOT lesson on their own: with a laptop format they see the lesson slides beside their worksheet (they can hide them or open them in a new tab), and the slides follow the exercise they're on. You can also drag a lesson from **RIOT lessons** on the daily schedule into an independent session; finishing one counts as the core RIOT module.
 
 **Following answers live:** for any module a student has started, click **Answers** on the daily schedule (or **See answers** on the board) to see what they've written so far. Notes and testing results stay in Sentral and the school's usual systems.
 
