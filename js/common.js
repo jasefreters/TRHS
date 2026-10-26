@@ -66,7 +66,10 @@ RP.KIND_LABEL = {
 
 // "Other" sessions: staff type what the session is (kind "free", activity "custom").
 RP.isCustom = s => s.kind === "free" && s.activity === "custom";
-RP.kindLabel = s => RP.isCustom(s) ? "Other" : RP.KIND_LABEL[s.kind];
+// Teacher-led modules (module.teacherLed) are stored as independent sessions, because the
+// student works through them on the laptop, but they're shown as teacher-led.
+RP.isLedModule = s => s.kind === "independent" && !!(s.activity && RP.MODULES[s.activity] && RP.MODULES[s.activity].teacherLed);
+RP.kindLabel = s => RP.isCustom(s) ? "Other" : RP.isLedModule(s) ? RP.KIND_LABEL.one_to_one : RP.KIND_LABEL[s.kind];
 
 // The title to show for a planned session. Older plans saved teacher-led titles as "Individual: …".
 RP.sessionTitle = function (s) {

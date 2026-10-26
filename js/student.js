@@ -299,14 +299,14 @@
       if (!m) {
         html += head(s.title) + `<div class="card">This activity isn't available on this website yet. Press <strong>I need help</strong>.</div>`;
       } else if (s.status === "done") {
-        html += head(m.title, "Independent") + `
+        html += head(m.title, RP.kindLabel(s)) + `
           <div class="card finished">
             <p class="done-note big">✓ Finished${s.result && RP.resultText(s.result) ? ` · ${h(RP.resultText(s.result))}` : ""}</p>
             ${s.state && s.state.responses && s.state.responses.length ? `<div class="actions"><button class="btn primary" data-cert>View my answers</button></div>` : ""}
           </div>
           ${allElectivesDone() ? `<div class="card"><h2>${h(RP.CONTENT.freeChoice.title)}</h2>${RP.md(RP.CONTENT.freeChoice.text)}</div>` : `<p class="muted">Pick your next activity from the plan on the left.</p>`}`;
       } else {
-        html += head(m.title, "Independent") + `
+        html += head(m.title, RP.kindLabel(s)) + `
           <div class="card module-card">
             ${m.icon ? `<div class="module-icon" aria-hidden="true">${m.icon}</div>` : ""}
             <div>${RP.md(m.about || "")}</div>

@@ -60,6 +60,8 @@ Run sheets and projector slides for each are on the dashboard's **Session guides
 
 **Teacher-led sessions:** *Teacher-led: My Reset Plan* (Day 1), *Teacher-led: My Return Plan* (Day 2), *Return from suspension meeting*, *Classwork and assessment check-in*, and *Learning and support check*. Put the independent **My Reset Plan** or **My Return Plan** before its teacher-led session: the session page shows what the student wrote.
 
+**Understanding Truancy** is a teacher-led module the student works through on their laptop while you sit with them. Open it from their daily schedule or the board: your page shows each answer as they type, with a "Talk about it" prompt for each activity, a reminder of what to look up in Sentral, and a staff check-in you can print (it isn't saved).
+
 **Optional group module:** *RAGE Recap* can replace another group module when it suits the group.
 
 **Other:** drag **Other** onto a session and type what it is (for example "Sport with Mr B"). The student sees it and is told they won't need their laptop.

@@ -99,10 +99,19 @@ RP.Player = (function () {
     let state = Object.assign({}, session.state || {});
     if (state.firstTry == null) state.firstTry = {};
     const answers = (opts.answers && opts.answers.get()) || {};
-    const keepAnswers = () => { if (opts.answers) opts.answers.set(answers); };
+    // A "live" (teacher-led) module also sends the answers so far with its progress, so the staff
+    // member sitting with the student can see them as they type.
+    let liveTimer = null;
+    const keepAnswers = () => {
+      if (opts.answers) opts.answers.set(answers);
+      if (module.live) { clearTimeout(liveTimer); liveTimer = setTimeout(persist, 1500); }
+    };
     let tries = 0;
 
-    function persist() { opts.save("in_progress", null, state); }
+    function persist() {
+      if (module.live) { clearTimeout(liveTimer); state.draft = answers; }
+      opts.save("in_progress", null, state);
+    }
     // Only modules with levels (Literacy) have a reading level; others use their standard text.
     function readingLevel() { return module.levels ? state.level : null; }
 
@@ -708,6 +717,8 @@ RP.Player = (function () {
         const ratings = ri >= 0 ? items[ri].statements.map((st, k) => (answers[ri] || [])[k] || null) : [];
         Object.assign(result, { survey: module.survey, ratings, total: ratings.reduce((n, v) => n + (v || 0), 0), max: ratings.length * 5 });
       }
+      clearTimeout(liveTimer);
+      delete state.draft;
       const ready = items.findIndex(it => it.type === "ready");
       if (ready >= 0) result.ready = RP.readyResult(answers[ready]);
       opts.onFinish(result, state, worksheet(items));

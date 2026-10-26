@@ -660,3 +660,15 @@ dialog::backdrop { background: rgba(22, 27, 59, .45); }
 .plan-tick-list li { color: var(--muted); }
 .plan-tick-list li.on { color: var(--ink); font-weight: 600; }
 @media print { .return-plan .plan-section { break-after: avoid; } .return-plan .ws-row { break-inside: avoid; } }
+
+/* ---------- teacher-led module, live ---------- */
+.led-layout { display: grid; grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr); gap: 1rem; align-items: start; }
+.led-staff { position: sticky; top: 1rem; }
+.live-items { padding-left: 1.4rem; }
+.live-item { padding: .7rem .6rem; border-bottom: 1px solid var(--line); border-radius: 8px; }
+.live-item.current { background: var(--blue-soft); outline: 2px solid var(--blue); }
+.live-title { font-weight: 700; color: var(--navy); }
+.live-q { font-weight: 400; color: var(--muted); font-size: .92rem; }
+.live-talk { margin: .4rem 0 0; padding: .4rem .6rem; background: var(--maroon-soft); border-radius: 8px; color: var(--maroon); font-size: .92rem; }
+@media (max-width: 900px) { .led-layout { grid-template-columns: 1fr; } .led-staff { position: static; } }
+@media print { .led-print .live-talk, .led-print .link-btn { display: none; } .led-print .live-item { break-inside: avoid; background: none; outline: none; } }

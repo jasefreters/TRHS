@@ -4,7 +4,8 @@
   const h = RP.h;
   const $ = s => document.querySelector(s);
   const app = () => $("#app");
-  const electives = () => Object.values(RP.MODULES).filter(m => !m.hidden);
+  const electives = () => Object.values(RP.MODULES).filter(m => !m.hidden && !m.teacherLed);
+  const ledModules = () => Object.values(RP.MODULES).filter(m => !m.hidden && m.teacherLed);
 
   let view = { name: "board" };
   let visits = [];         // active visits on the board
@@ -146,7 +147,11 @@
     try {
       if (view.name === "board") { [visits] = await Promise.all([api.listActive(), loadStaffing()]); renderBoard(); }
       else if (view.name === "plan") { [visit, visits] = await Promise.all([api.getVisit(view.visitId), api.listActive(), loadStaffing()]); renderPlan(); }
-      else if (view.name === "individual") { visit = await api.getVisit(view.visitId); renderIndividual(); }
+      else if (view.name === "individual") {
+        visit = await api.getVisit(view.visitId);
+        // Don't redraw over a return plan the staff member is filling in.
+        if (!updateLive() && !document.querySelector("[data-plan-field]")) renderIndividual();
+      }
       else if (view.name === "student") { student = await api.getStudent(view.studentId); renderStudent(); }
     } catch (ex) { /* try again on the next change or poll */ }
   }
@@ -157,7 +162,7 @@
   const titleOf = s => RP.sessionTitle(s);
   const ledTitle = s => /^Teacher-led/i.test(titleOf(s)) ? titleOf(s) : "Teacher-led: " + titleOf(s);
   const teacherTicks = s => ["group", "one_to_one"].includes(s.kind) || RP.isCustom(s);
-  const individualsOn = (v, day) => v.sessions.filter(s => s.day === day && s.kind === "one_to_one").sort((a, b) => a.slot - b.slot);
+  const individualsOn = (v, day) => v.sessions.filter(s => s.day === day && (s.kind === "one_to_one" || RP.isLedModule(s))).sort((a, b) => a.slot - b.slot);
 
   // Individual sessions in the same slot today as another student's: the teacher can't do both.
   function clashes(v) {
@@ -735,6 +740,7 @@
   function renderIndividual() {
     const v = visit, s = v && v.sessions.find(x => x.id === view.sessionId);
     if (!s) { show({ name: "board" }); return; }
+    if (RP.isLedModule(s)) return renderLedModule(v, s);
     const ind = RP.individualSession(s.activity);
     const t = RP.slotTimes(s.slot);
     const staff = t && s.day === v.current_day ? staffing[s.slot] : "";
@@ -857,6 +863,109 @@
     app().querySelectorAll("[data-plan-other]").forEach(t => t.oninput = () => { byId(t.dataset.planOther).other = t.value; draw(); });
     button.onclick = () => { if (!name.value.trim()) { name.focus(); name.classList.add("wrong"); setTimeout(() => name.classList.remove("wrong"), 600); return; } window.print(); };
     draw();
+  }
+
+  // ---------------------------------------------------------------- teacher-led modules
+  // A teacher-led module (e.g. Understanding Truancy) runs on the student's laptop; this page shows
+  // what they're up to and their answers as they type, with a prompt for staff on each activity, a
+  // Sentral checklist and a staff check-in to print. Nothing typed on this page is saved.
+  const staffCheckins = {}; // by session id, kept while the dashboard is open
+  function ledAnswers(m, s, i) {
+    const it = m.items[i], st = s.state || {};
+    const a = (st.draft || {})[i];
+    const dash = `<span class="muted">—</span>`;
+    if (it.type === "write") return `<div class="live-rows">${it.prompts.map((p, k) => `<div class="ws-row"><div class="ws-label">${RP.inlineMd(p)}</div><div class="ws-answer">${a && a[k] ? h(a[k]) : dash}</div></div>`).join("")}</div>`;
+    if (it.type === "select") {
+      const picked = a ? a.picked.slice().sort((x, y) => x - y).map(k => it.options[k]).concat(a.other && a.other.trim() ? ["Other: " + a.other.trim()] : []) : [];
+      return `<ul class="plan-tick-list">${it.options.map(o => `<li class="${picked.includes(o) ? "on" : ""}">${picked.includes(o) ? "☑" : "☐"} ${h(o)}</li>`).join("")}${picked.filter(x => /^Other: /.test(x)).map(x => `<li class="on">☑ ${h(x)}</li>`).join("")}</ul>`;
+    }
+    if (["mc", "sort", "order", "match", "input"].includes(it.type)) {
+      const ft = (st.firstTry || {})[i];
+      return `<p class="${ft === true ? "ok-text" : ft === false ? "warn" : "muted"}">${ft === true ? "✓ Right first time" : ft === false ? "Needed another go (worth talking about)" : "Not answered yet"}</p>`;
+    }
+    return "";
+  }
+  function ledLive(v, s) {
+    const m = RP.MODULES[s.activity], st = s.state || {};
+    if (s.status === "done") {
+      const ok = (s.result && s.result.byTeacher) ? "Marked done by a teacher." : `Finished ${RP.formatDate(s.completed_at || s.updated_at)}.`;
+      return `<p class="ok-text">✓ ${h(ok)}</p>${s.state && s.state.responses && s.state.responses.length ? RP.worksheetRows(s.state.responses) : ""}`;
+    }
+    if (s.status === "not_started" || st.index == null) return `<p class="muted">They haven't started yet. On their laptop, they open <strong>${h(m.title)}</strong> from their plan and press Start. This page updates as they work.</p>`;
+    const at = Math.min(st.index, m.items.length - 1);
+    return `<p><strong>On page ${at + 1} of ${m.items.length}:</strong> ${h(m.items[at].title || (m.items[at].q || "").replace(/\*\*/g, "").slice(0, 80))} <a href="#live-${at}" class="link-btn">Jump to it</a></p>
+      <ol class="live-items">${m.items.map((it, i) => i > st.index ? "" : `
+        <li id="live-${i}" class="live-item${i === at ? " current" : ""}">
+          <div class="live-title">${h(it.title || "")}${it.q ? `<div class="live-q">${RP.inlineMd(it.q.split("\n\n").pop())}</div>` : ""}</div>
+          ${ledAnswers(m, s, i)}
+          ${it.talk ? `<p class="live-talk"><strong>Talk about it:</strong> ${RP.inlineMd(it.talk)}</p>` : ""}
+        </li>`).join("")}</ol>`;
+  }
+  function updateLive() {
+    const el = $("[data-live]");
+    const s = visit && visit.sessions.find(x => x.id === view.sessionId);
+    if (!el || !s || !RP.isLedModule(s)) return false;
+    el.innerHTML = ledLive(visit, s);
+    $("[data-live-print]").innerHTML = ledLive(visit, s);
+    return true;
+  }
+  function renderLedModule(v, s) {
+    const m = RP.MODULES[s.activity];
+    const t = RP.slotTimes(s.slot);
+    const staff = t && s.day === v.current_day ? staffing[s.slot] : "";
+    const c = staffCheckins[s.id] || (staffCheckins[s.id] = { attendance: "", positive: "", negative: "", checkin: "", completed: "" });
+    const back = view.from === "board" ? "In the program" : "Daily schedule";
+    app().innerHTML = `
+      <div class="page">
+        <div class="no-print">
+          <button class="link-btn" data-back>← ${back}</button>
+          <div class="page-head">
+            <div>
+              <h1>Teacher-led: ${h(m.title)}</h1>
+              <p class="muted">${h(RP.formatCode(v.student.code))}${v.student.year_level ? ` · Year ${v.student.year_level}` : ""} · Day ${s.day}${t ? ` · ${RP.formatTime(t.start)}–${RP.formatTime(t.end)}` : ""}${staff ? ` · with <strong>${h(staff)}</strong>` : ""}</p>
+            </div>
+            <div class="page-actions"><button class="btn" data-preview="${h(m.id)}">Preview the module</button><button class="btn${s.status === "done" ? " ok" : " primary"}" data-tick>${s.status === "done" ? "✓ Done (undo)" : "Mark done"}</button></div>
+          </div>
+          <details class="card guide" open><summary><h2>How to run it</h2></summary><div class="guide-body">${RP.md(m.guide || "")}</div></details>
+          <div class="led-layout">
+            <section class="card"><h2>What they're doing <span class="tag">live</span></h2><div data-live>${ledLive(v, s)}</div></section>
+            <aside class="card led-staff">
+              <h2>Staff check-in</h2>
+              <p class="muted small">Not saved: print it, or record it in Sentral.</p>
+              <label class="field">Sentral attendance this term <input data-c="attendance" value="${h(c.attendance)}" maxlength="80" placeholder="e.g. 82%, 6 partial absences"></label>
+              <label class="field">Positive entries <input data-c="positive" value="${h(c.positive)}" maxlength="120"></label>
+              <label class="field">Negative entries <input data-c="negative" value="${h(c.negative)}" maxlength="120"></label>
+              <label class="field">Staff check-in <textarea rows="4" data-c="checkin" maxlength="1500">${h(c.checkin)}</textarea></label>
+              <fieldset class="plan-ticks"><legend>Module completed</legend>
+                <label class="field inline"><input type="radio" name="completed" value="Yes"${c.completed === "Yes" ? " checked" : ""}> Yes</label>
+                <label class="field inline"><input type="radio" name="completed" value="Requires further support"${c.completed === "Requires further support" ? " checked" : ""}> Requires further support</label>
+              </fieldset>
+              <label class="field">Student's name (for printing only) <input data-led-name maxlength="40" autocomplete="off"></label>
+              <div class="actions"><button class="btn primary" data-led-print>Print</button></div>
+            </aside>
+          </div>
+        </div>
+        <div class="print-only led-print">
+          <div class="ws-head"><div><div class="cert-school">Thomas Reddall High School · Reset Program</div><h2>${h(m.title)}</h2></div>
+            <div class="ws-meta">Name: <strong data-led-name-out>&nbsp;</strong><br>${RP.longDate(new Date().toISOString())}</div></div>
+          <div data-live-print>${ledLive(v, s)}</div>
+          <h3 class="plan-section">Staff check-in</h3>
+          <div data-c-out></div>
+        </div>
+      </div>`;
+    const drawStaff = () => {
+      $("[data-c-out]").innerHTML = [["Sentral attendance this term", c.attendance], ["Positive entries", c.positive], ["Negative entries", c.negative], ["Staff check-in", c.checkin], ["Module completed", c.completed]]
+        .map(([l, x]) => `<div class="ws-row"><div class="ws-label">${h(l)}</div><div class="ws-answer">${h(x) || "&nbsp;"}</div></div>`).join("");
+    };
+    app().querySelectorAll("[data-c]").forEach(inp => inp.oninput = () => { c[inp.dataset.c] = inp.value; drawStaff(); });
+    app().querySelectorAll("input[name=completed]").forEach(r => r.onchange = () => { c.completed = r.value; drawStaff(); });
+    const name = $("[data-led-name]");
+    name.oninput = () => { $("[data-led-name-out]").textContent = name.value.trim() || " "; };
+    $("[data-led-print]").onclick = () => window.print();
+    $("[data-back]").onclick = () => view.from === "board" ? show({ name: "board" }) : show({ name: "plan", visitId: v.id, from: view.from });
+    $("[data-tick]").onclick = async () => { await setDone(s, s.status !== "done"); show(view); };
+    app().querySelectorAll("[data-preview]").forEach(b => b.onclick = () => previewModule(b.dataset.preview));
+    drawStaff();
   }
 
   // ---------------------------------------------------------------- run sheet
@@ -1120,6 +1229,7 @@
         <h2 class="section-title">Teacher-led sessions</h2>
         <div class="card"><p>Drag these into an empty session on a student's daily schedule. The other students keep working on their own. You can only be with one student at a time, so the daily schedule and dashboard warn you about clashes.</p></div>
         ${(RP.INDIVIDUAL_SESSIONS || []).map(x => guide(x.title, x.day ? `<span class="tag">Day ${x.day}</span>` : `<span class="tag">Either day</span>`, x.about, x.guide)).join("")}
+        ${ledModules().map(m => guide(m.title, `<span class="tag">Either day</span> <span class="tag">on the student's laptop</span>`, m.about, m.guide, `<button class="btn small" data-preview="${h(m.id)}">Preview the module</button>`)).join("")}
         <h2 class="section-title">Independent modules</h2>
         <div class="card"><p>Students do these on the laptop. Click one to see every page and question, with the answers.</p>
           <div class="module-list">${electives().map(m => `<button class="btn small" data-preview="${h(m.id)}">${m.icon ? m.icon + " " : ""}${h(m.title)}</button>`).join("")}</div></div>
@@ -1285,6 +1395,7 @@
             ${electives().map(m => `<div class="chip-row">${chip("elective", m.id, m.title, m.sample ? ` <span class="tag">sample</span>` : "")}<button class="chip-view" data-preview="${h(m.id)}" title="See what's in ${h(m.title)}" aria-label="Preview ${h(m.title)}">👁</button></div>`).join("")}
             <h3>Individual: teacher-led <span class="muted">(with a staff member)</span></h3>
             ${(RP.INDIVIDUAL_SESSIONS || []).map(x => chip("individual", x.id, x.title, x.day ? ` <span class="tag">Day ${x.day}</span>` : "")).join("")}
+            ${ledModules().map(m => `<div class="chip-row">${chip("elective", m.id, m.title)}<button class="chip-view" data-preview="${h(m.id)}" title="See what's in ${h(m.title)}" aria-label="Preview ${h(m.title)}">👁</button></div>`).join("")}
             <h3>Group modules <span class="muted">(change only if you need to)</span></h3>
             ${RP.GROUP_SESSIONS.filter(g => !g.movement).map(g => chip("group", g.id, g.title, g.core ? ` <span class="tag core">core</span>` : g.optional ? ` <span class="tag">optional</span>` : "")).join("")}
             <h3>Other</h3>
@@ -1394,7 +1505,7 @@
     if (teacherTicks(s)) {
       controls = `${s.kind === "one_to_one" ? `<button class="btn small" data-open-ind="${s.id}">Open</button>` : ""}<button class="btn small${s.status === "done" ? " ok" : ""}" data-tick="${s.id}">${s.status === "done" ? "✓ Done" : "Mark done"}</button>`;
     } else if (m) {
-      controls = `<button class="btn small" data-preview="${h(m.id)}" title="See what's in this module" aria-label="View module">👁</button>`;
+      controls = `${m.teacherLed ? `<button class="btn small" data-open-ind="${s.id}">Open</button>` : ""}<button class="btn small" data-preview="${h(m.id)}" title="See what's in this module" aria-label="View module">👁</button>`;
       if (s.status === "not_started" && m.levels) {
         const lv = s.state && s.state.level;
         controls += `<select class="small" data-level="${s.id}" aria-label="Suggested level"><option value="">Level: student picks</option>${m.levels.map(l => `<option value="${l.level}"${lv === l.level ? " selected" : ""}>Suggest ${h(l.title)}${l.staff ? ` (${h(l.staff.replace(/, from.*$/, ""))})` : ""}</option>`).join("")}</select>`;
@@ -1479,6 +1590,7 @@
   // ---------------------------------------------------------------- start
   document.addEventListener("keydown", e => { if (e.key === "Escape" && pick) { pick = null; renderPlan(); } });
   setInterval(() => { if (view.name === "board" || view.name === "plan") reload(); }, 30000);
+  setInterval(() => { if (view.name === "individual" && document.querySelector("[data-live]")) reload(); }, 8000); // follow a teacher-led module
   if (api.demo) $("#demo-banner").hidden = false;
   (async () => {
     try { if (await api.isStaff()) enter(); else renderLogin(); }
