@@ -32,9 +32,17 @@ window.RP = window.RP || {};
     }
     const teacher = fn => async (...args) => { await requireLogin(); return fn(...args); };
 
-    // Until supabase/update-2.sql has been run, the newer columns and tables don't exist.
-    const missingV2 = error => /kind|paused|staffing/.test(error.message || "") && /does not exist|schema cache|Could not find/i.test(error.message || "");
+    // Until supabase/update-2.sql and update-3.sql have been run, the newer columns and tables
+    // don't exist. Ask for what's there and note which update is needed.
+    const missing = error => /does not exist|schema cache|Could not find/i.test(error.message || "");
+    const missingV2 = error => /kind|paused|staffing/.test(error.message || "") && missing(error);
+    const missingV3 = error => /times/.test(error.message || "") && missing(error);
     async function withV2(query) {
+      if (!api.needsUpdate && !api.needsUpdate3) {
+        const res = await query("kind, paused, times, ");
+        if (!res.error || !(missingV3(res.error) || missingV2(res.error))) return res;
+        api.needsUpdate3 = true;
+      }
       if (!api.needsUpdate) {
         const res = await query("kind, paused, ");
         if (!res.error || !missingV2(res.error)) return res;
@@ -45,7 +53,8 @@ window.RP = window.RP || {};
 
     const api = {
       demo: false,
-      needsUpdate: false,
+      needsUpdate: false,   // supabase/update-2.sql not run yet
+      needsUpdate3: false,  // supabase/update-3.sql not run yet
 
       // Student (no login; the code is the key)
       studentLoad: async code => check(await sb.rpc("student_load", { p_code: code })),
@@ -132,6 +141,7 @@ window.RP = window.RP || {};
 
       updateVisit: teacher(async (id, patch) => {
         if ("paused" in patch && api.needsUpdate) throw new Error("Run supabase/update-2.sql in Supabase first.");
+        if ("times" in patch && api.needsUpdate3) throw new Error("Changing session times needs supabase/update-3.sql to be run in Supabase first.");
         return check(await sb.from("visits").update(patch).eq("id", id).select("id").single());
       }),
 
@@ -171,14 +181,14 @@ window.RP = window.RP || {};
         const db = load(), v = activeVisit(db, code);
         if (!v) return null;
         return clone({
-          current_day: v.current_day, help: !!v.help_requested_at, paused: !!v.paused, kind: v.kind || "program",
+          current_day: v.current_day, help: !!v.help_requested_at, paused: !!v.paused, kind: v.kind || "program", times: v.times || null,
           sessions: db.sessions.filter(s => s.visit_id === v.id).sort((a, b) => a.day - b.day || a.slot - b.slot)
         });
       },
       async studentSave(code, sessionId, status, result, state) {
         const db = load(), v = activeVisit(db, code);
         const s = v && db.sessions.find(s => s.id === sessionId && s.visit_id === v.id &&
-          ["intro", "independent", "free", "debrief", "survey"].includes(s.kind) && s.status !== "done");
+          (["intro", "independent", "free", "debrief", "survey"].includes(s.kind) || (s.kind === "group" && s.activity === "riot")) && s.status !== "done");
         if (!s) return false;
         if (status) s.status = status;
         if (result) s.result = result;

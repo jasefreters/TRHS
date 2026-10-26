@@ -45,18 +45,18 @@ Everything in the day is a **module**:
 | 9 | 1:32–2:03 | Independent or teacher-led |
 | 10 | 2:03–2:35 | Afternoon debrief (whole group) and afternoon survey |
 
-Every session ends with a school bell or in the middle of a period.
+Every session ends with a school bell or in the middle of a period. To change a day's times (for example Tuesday's shorter bell times, or a shorter session), click **⏱ Times** on the daily schedule; you can apply the new times to everyone in the program that day.
 
 **Group modules** run on a two-day rotation, so every student gets all eight across their two days whichever day they start. Each stands alone, and each follows the **Thomas Reddall Lesson Routine**: entry, Do Now, learning intention and success criteria, explicit teaching, brain break, application (butcher's paper, discussion, card sorts), recap, exit.
 
 | Time | Rotation A | Rotation B |
 | --- | --- | --- |
 | 8:50 | T-RED Values | Student Code of Conduct |
-| 9:55 | RIOT: My Amazing Brain and Stress | RIOT: Thinking Traps and Problem-Solving |
+| 9:55 | RIOT | RIOT |
 | 11:23 | Wellbeing | Classroom Expectations |
 | 12:26 | Chain Analysis | Self-Regulation |
 
-Run sheets and projector slides for each are on the dashboard's **Session guides** page, with the lesson routine and written **movement breaks** to pull out when students need one. RIOT, Wellbeing and Self-Regulation are outlines until the RIOT materials are added.
+Run sheets and projector slides for each are on the dashboard's **Session guides** page, with the lesson routine and written **movement breaks** to pull out when students need one. Wellbeing and Self-Regulation are still outlines.
 
 **Teacher-led sessions:** *Teacher-led: My Reset Plan* (Day 1), *Teacher-led: My Return Plan* (Day 2), *Return from suspension meeting*, *Classwork and assessment check-in*, and *Learning and support check*. Put the independent **My Reset Plan** or **My Return Plan** before its teacher-led session: the session page shows what the student wrote.
 
@@ -66,7 +66,11 @@ Run sheets and projector slides for each are on the dashboard's **Session guides
 
 **Other:** drag **Other** onto a session and type what it is (for example "Sport with Mr B"). The student sees it and is told they won't need their laptop.
 
-**Morning session:** drag **Morning session** to a later time if a student arrives late or has a return meeting first thing. Notes and testing results stay in Sentral and the school's usual systems.
+**Morning session and afternoon debrief:** drag either to a different time, for example if a student arrives late or has a return meeting.
+
+**RIOT** has eight lessons, each condensed to 25 minutes. On the daily schedule, choose the lesson and how students do the worksheet: on **paper**, as a **PDF on their laptop**, or **interactive on their laptop**. Changing one student offers the same for everyone else in that RIOT session. Click **Present** to show the lesson slides; every worksheet exercise has a matching slide. Session guides has each lesson's run sheet, slides, worksheet and PDF.
+
+**Following answers live:** for any module a student has started, click **Answers** on the daily schedule (or **See answers** on the board) to see what they've written so far. Notes and testing results stay in Sentral and the school's usual systems.
 
 ## Independent modules
 
@@ -77,6 +81,7 @@ All of these stand alone and can be done in any order:
 - **Suspension Booklet:** students choose a subject (Maths, English, Drama, Science, History, Geography, PDHPE, TAS, RIOT, Wellbeing), use the booklet on screen, a paper copy or their own, and type their answers. The day certificate lists the subjects they started and finished. The Year 7 booklet is split by subject in [`booklets/year7/`](booklets/year7) without the teacher answer sheets. To add another year, split its booklet the same way and add it to `books` in [`js/modules/suspension-booklet.js`](js/modules/suspension-booklet.js).
 - **My Chain** (chain analysis), **T-RED Values in Action**, **Code of Conduct Check**.
 - **Say It Better**, **Online Conflict and Social Media**, **Restorative Conversation Prep**, **Growth Mindset**, **Goal Builder**, **Healthy Habits Check**, **Asking for Help**, **Study Skills**, **Attendance and Truancy**.
+- **Friendships:** healthy friendships, support networks and talking to friends.
 - **Literacy:** one half-hour module with levels 1–5 (NSW Stages 1–5): a reading passage and questions, then vocabulary, spelling and punctuation, and grammar.
 - **Numeracy: Day 1** and **Numeracy: Day 2**, about 30 minutes each. Each level is an NSW Stage: Level 1 = Stage 1 (Years 1–2) up to Level 5 = Stage 5 (Years 9–10). Levels 2 and 3 come from [The Daily Dash](https://jasefreters.github.io/mathswarmup/). To refresh the Dash questions, check out the Dash next to this repo and run `node tools/dash-numeracy.js ../mathswarmup`.
 
@@ -135,6 +140,8 @@ The **Reports** page shows, for any date range (for example a term):
 
 Text can use `**bold**`, blank lines between paragraphs, `- ` at the start of a line for lists, and `[text](https://link)`.
 
+Modules are kept to about 20 minutes. Pages marked `extra: true` are skipped unless you choose **Full version** on the daily schedule. In Literacy and Numeracy, students who finish a level are offered the next one.
+
 Updating the site: commit to `main`, and bump the `?v=` number on the script and stylesheet tags in both HTML files so browsers load the new files straight away.
 
 ## Trying it out
@@ -159,6 +166,6 @@ Open the site with `?demo=1` on the end (for example `teacher.html?demo=1`) to u
 4. Put the project URL and publishable key in `js/config.js`.
 5. In GitHub, go to **Settings → Pages**, set **Source** to *Deploy from a branch*, choose `main` and `/ (root)`, and save.
 
-**Database updates:** if your database was set up before staffing, pause and follow-up surveys were added, run [`supabase/update-2.sql`](supabase/update-2.sql) once in a new SQL Editor query. The dashboard shows a reminder until it's done.
+**Database updates:** if your database was set up before staffing, pause and follow-up surveys were added, run [`supabase/update-2.sql`](supabase/update-2.sql) once in a new SQL Editor query, then [`supabase/update-3.sql`](supabase/update-3.sql) (changing session times, and RIOT worksheets on laptops). The dashboard shows a reminder until they're done.
 
 **Adding a teacher:** create them under **Authentication → Users** (email, password, Auto confirm), then paste [`supabase/add-staff.sql`](supabase/add-staff.sql) into a new SQL Editor query, put in their email and run it. Each teacher logs in with their own email; logging out on one computer doesn't affect others.

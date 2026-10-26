@@ -99,7 +99,7 @@ The good news: **if you change any link, the chain can break.**`
       ],
       other: true, pick: 3
     },
-    {
+    { extra: true,
       type: "write", title: "Breaking my chain",
       prompts: [
         "Which link in my chain would be easiest to break next time?",

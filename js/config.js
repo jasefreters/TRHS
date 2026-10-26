@@ -25,6 +25,9 @@ RP.TIMETABLE = [
   { slot: 9, start: "13:32", end: "14:03", period: "P5" },
   { slot: 10, start: "14:03", end: "14:35", period: "P5" }
 ];
+// Other bell times staff can pick when changing a day's times on the daily schedule, e.g.
+// { name: "Tuesday", times: [ ...the same rows as RP.TIMETABLE, with Tuesday's times... ] }.
+RP.TIMETABLE_PRESETS = [];
 RP.FIRST_SLOT = 1;
 RP.LAST_SLOT = 10;
 // Older plans kept the 1:1 as an untimed slot 11. New plans drag individual sessions into a
@@ -63,6 +66,14 @@ const ENTRY = "**1. Entry (1 min).** Laptops closed and to the side. Greet each 
 const EXIT = "**8. Exit (1 min).** Thank each student for one specific thing they did well. Put the butcher's paper on the wall. Students go back to their laptops when you say so. Tick the session done for everyone on the dashboard.";
 RP.GROUP_SESSIONS = [
   {
+    // RIOT is one group module with eight 25-minute lessons (js/riot.js). On the daily schedule
+    // staff choose the lesson and how students do the worksheet: on paper, as a PDF on their
+    // laptop, or interactively on their laptop. The slides come from the chosen lesson.
+    id: "riot", title: "RIOT", core: true, riot: true,
+    about: `Resilience in our Teens: reducing anxiety and building resilience thinking skills. Your teacher will go through the lesson on the projector.`,
+    guide: `**RIOT: Resilience in our Teens.** Eight lessons, each condensed to 25 minutes, from the school's RIOT PowerPoints and student workbook. On each student's daily schedule, choose the **lesson** and the **worksheet format**: a paper worksheet, a PDF on their laptop, or the interactive version on their laptop. Project the slides with **Present**: every worksheet exercise has a matching slide. Each lesson stands alone, so students can join at any lesson.`
+  },
+  {
     id: "t-red", title: "T-RED Values", core: true,
     about: `Our school values: **Thrive, Represent, Excel, Deliver**. What each one means and what it looks like at school.`,
     guide: `**Learning intention:** we are learning what our school values mean. **Success criteria:** I can explain each value in my own words and give a school example of one. Staff-led discussion and butcher's paper; no games (those were for orientation day). **Materials:** the Present view, butcher's paper divided into four (T, R, E, D), markers.
@@ -97,7 +108,7 @@ ${EXIT}`,
     ]
   },
   {
-    id: "riot-1", title: "RIOT: My Amazing Brain and Stress", core: true,
+    id: "riot-1", title: "RIOT: My Amazing Brain and Stress", core: false, retired: true, // replaced by "riot"; kept for older plans
     about: `Resilience in our Teens. What happens in your brain and body when stress builds up, and how to bring it back down.`,
     guide: `${RIOT_NOTE}
 
@@ -131,7 +142,7 @@ ${EXIT}`,
     ]
   },
   {
-    id: "riot-2", title: "RIOT: Thinking Traps and Problem-Solving", core: true,
+    id: "riot-2", title: "RIOT: Thinking Traps and Problem-Solving", core: false, retired: true, // replaced by "riot"; kept for older plans
     about: `Resilience in our Teens. Spot unhelpful thinking, work out what's in your control, and solve problems step by step.`,
     guide: `${RIOT_NOTE}
 
@@ -382,8 +393,8 @@ ${EXIT}`,
 // The room runs a two-day rotation, so students on their Day 1 and Day 2 share the same group
 // sessions. Group modules are at the same times on both rotations: 8:50, 9:55, 11:27 and 12:30.
 RP.ROTATIONS = {
-  A: { 2: "t-red", 4: "riot-1", 6: "wellbeing", 8: "chain-analysis" },
-  B: { 2: "code-of-conduct", 4: "riot-2", 6: "classroom-expectations", 8: "self-regulation" }
+  A: { 2: "t-red", 4: "riot", 6: "wellbeing", 8: "chain-analysis" },
+  B: { 2: "code-of-conduct", 4: "riot", 6: "classroom-expectations", 8: "self-regulation" }
 };
 
 // Teacher-led sessions: an individual module with a staff member, one student at a time. Teachers

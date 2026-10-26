@@ -98,6 +98,8 @@
   }
 
   const today = () => plan.sessions.filter(s => s.day === plan.current_day);
+  // Today's times: changed on the daily schedule (e.g. Tuesday bell times), or the normal ones.
+  const tt = () => RP.timetableFor(plan && plan.times, plan && plan.current_day);
   const bySlot = slot => today().find(s => s.slot === slot);
 
   // ---------------------------------------------------------------- code entry
@@ -143,7 +145,7 @@
     $("#app").innerHTML = `
       <aside class="day-pane" id="day-pane"></aside>
       <main class="main-pane" id="main"></main>`;
-    const now = RP.currentSlot();
+    const now = RP.currentSlot(tt());
     clockSlot = now;
     selected = slotForClock(now);
     renderSidebar();
@@ -183,7 +185,7 @@
     if (typeof now === "number") return now;
     if (now === "before") return RP.FIRST_SLOT;
     if (now === "after") return RP.LAST_SLOT;
-    const after = RP.TIMETABLE.find(t => t.slot && RP.toMinutes(t.start) >= RP.toMinutes(now.end));
+    const after = tt().find(t => t.slot && RP.toMinutes(t.start) >= RP.toMinutes(now.end));
     return after ? after.slot : RP.LAST_SLOT;
   }
 
@@ -197,8 +199,8 @@
   function renderSidebar() {
     const pane = $("#day-pane");
     if (!pane || !plan) return;
-    const now = RP.currentSlot();
-    const rows = RP.TIMETABLE.map(t => {
+    const now = RP.currentSlot(tt());
+    const rows = tt().map(t => {
       if (t.brk) {
         const isNow = now === t;
         return `<li class="brk${isNow ? " now" : ""}"><span class="time">${RP.formatTime(t.start)}</span><span>${h(t.brk)}</span>${isNow ? `<span class="now-tag">Now</span>` : ""}</li>`;
@@ -248,7 +250,7 @@
     if (!main || !plan) return;
     const s = bySlot(selected);
     if (!s) { main.innerHTML = ""; return; }
-    const times = RP.slotTimes(s.slot);
+    const times = RP.slotTimes(s.slot, tt());
     const when = times ? `${RP.formatTime(times.start)} – ${RP.formatTime(times.end)}` : "";
     const head = (title, kind) => `
       <div class="session-head k-${s.kind}">
@@ -257,7 +259,7 @@
         ${when ? `<div class="when">${when}</div>` : ""}
       </div>`;
     const doneNote = s.status === "done" ? `<p class="done-note">✓ Done</p>` : "";
-    const nowSlot = RP.currentSlot();
+    const nowSlot = RP.currentSlot(tt());
     let html = typeof nowSlot === "object" && nowSlot.brk
       ? `<div class="card break-card">${RP.md(RP.CONTENT.breakTime(nowSlot.brk, RP.formatTime(nowSlot.end)))}</div>` : "";
 
@@ -273,6 +275,15 @@
       html += head("Morning session", "Whole group") + `
         <div class="card story">${RP.md(RP.CONTENT.story[plan.current_day])}</div>
         ${surveyCard(RP.SURVEYS[RP.surveyIdFor(s)], RP.md(RP.CONTENT.morning))}`;
+    } else if (s.kind === "group" && RP.isRiot(s)) {
+      // RIOT: the teacher chooses the lesson and how the worksheet is done.
+      const L = RP.riotLesson((s.state || {}).lesson), fmt = RP.RIOT_FORMATS.find(f => f.id === (s.state || {}).format);
+      const onLaptop = L && fmt && fmt.id !== "paper";
+      html += head(L ? `RIOT ${L.fullTitle}` : "RIOT", "Group module") +
+        (onLaptop ? "" : `<div class="card laptop-away big-note"><div class="laptop-icon" aria-hidden="true">💻 ➜ 👥</div>${RP.md(RP.CONTENT.group)}</div>`) +
+        `<div class="card">${RP.md(RP.groupSession("riot").about)}${L && fmt ? `<p><strong>${h(fmt.student)}</strong></p>` : ""}
+          ${onLaptop && s.status !== "done" ? `<div class="actions"><button class="btn primary big" data-riot>${s.status === "in_progress" ? "Keep going" : "Start"}</button></div>` : ""}
+          ${s.status === "done" && s.state && s.state.responses && s.state.responses.length ? `<div class="actions"><button class="btn" data-cert>View my answers</button></div>` : ""}</div>${doneNote}`;
     } else if (s.kind === "group") {
       const g = RP.groupSession(s.activity);
       html += head(s.title, "Group module") +
@@ -316,6 +327,8 @@
     }
     main.innerHTML = `<div class="session"><div class="session-tools">${RP.speech.button()}</div>${html}</div>`;
     RP.speech.bind(main, () => main.querySelector(".session"));
+    const rb = main.querySelector("[data-riot]");
+    if (rb) rb.onclick = () => openRiot(s);
     const go = main.querySelector("[data-start]");
     if (go) go.onclick = () => openModule(s);
     const cert = main.querySelector("[data-cert]");
@@ -356,9 +369,20 @@
   }
 
   // ---------------------------------------------------------------- independent modules
-  function openModule(s) {
+  // A RIOT group module done on the laptop: the interactive lesson, or the PDF with answer boxes.
+  function openRiot(s) {
+    const st = s.state || {}, L = RP.riotLesson(st.lesson);
+    if (!L) return;
+    const m = st.format === "pdf"
+      ? { id: "riot-pdf", title: `RIOT ${L.fullTitle}`, booklet: true, single: true, score: false,
+          books: [{ id: "riot", title: "RIOT", subjects: [{ id: "lesson" + L.n, title: L.fullTitle, pdf: RP.riotPdf(L.n) }] }] }
+      : RP.MODULES[L.id];
+    openModule(s, m);
+  }
+
+  function openModule(s, module) {
     mode = "module";
-    const m = RP.MODULES[s.activity];
+    const m = module || RP.MODULES[s.activity];
     if (s.status === "not_started") queueSave(s.id, "in_progress", null, s.state || {});
     renderSidebar();
     const answersKey = "rp-answers:" + s.id;
@@ -381,9 +405,8 @@
   }
 
   function certFor(s) {
-    const m = RP.MODULES[s.activity];
     return Object.assign({
-      title: m ? m.title : s.title,
+      title: RP.sessionTitle(s),
       date: RP.longDate(s.completed_at || new Date().toISOString()),
       worksheet: (s.state && s.state.responses) || []
     }, s.result || {});
@@ -468,7 +491,7 @@
     const d = new Date();
     $("#clock").textContent = d.toLocaleTimeString("en-AU", { hour: "numeric", minute: "2-digit" });
     if (!plan) return;
-    const now = RP.currentSlot();
+    const now = RP.currentSlot(tt());
     if (JSON.stringify(now) !== JSON.stringify(clockSlot)) {
       clockSlot = now;
       if (mode === "plan") { selected = slotForClock(now); renderMain(); }

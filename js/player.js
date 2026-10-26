@@ -43,10 +43,12 @@ RP.Player = (function () {
   ];
   const inlineMd = RP.inlineMd;
 
-  function itemsFor(module, level, readingLevel) {
+  // "extra" items are left out of the standard (shorter) version of a module; staff can choose the
+  // full version on the daily schedule (state.full).
+  function itemsFor(module, level, readingLevel, full) {
     let items = module.items;
     if (module.levels) items = (module.levels.find(l => l.level === level) || module.levels[0]).items;
-    items = items.map(it => RP.atLevel(it, readingLevel));
+    items = items.filter(it => full || !it.extra).map(it => RP.atLevel(it, readingLevel));
     if (readingLevel === 5 && module.deeper) {
       const deeper = { type: "write", title: "Think deeper", prompts: module.deeper };
       items = items.length && items[items.length - 1].type === "read" ? items.slice(0, -1).concat(deeper, items.slice(-1)) : items.concat(deeper);
@@ -99,17 +101,18 @@ RP.Player = (function () {
     let state = Object.assign({}, session.state || {});
     if (state.firstTry == null) state.firstTry = {};
     const answers = (opts.answers && opts.answers.get()) || {};
-    // A "live" (teacher-led) module also sends the answers so far with its progress, so the staff
-    // member sitting with the student can see them as they type.
+    // Every module (not surveys) also sends the answers so far with its progress, so staff can
+    // follow along as the student types (the teacher's "See answers" page).
+    const live = module.live !== false && !module.survey;
     let liveTimer = null;
     const keepAnswers = () => {
       if (opts.answers) opts.answers.set(answers);
-      if (module.live) { clearTimeout(liveTimer); liveTimer = setTimeout(persist, 1500); }
+      if (live) { clearTimeout(liveTimer); liveTimer = setTimeout(persist, 1500); }
     };
     let tries = 0;
 
     function persist() {
-      if (module.live) { clearTimeout(liveTimer); state.draft = answers; }
+      if (live) { clearTimeout(liveTimer); state.draft = answers; }
       opts.save("in_progress", null, state);
     }
     // Only modules with levels (Literacy) have a reading level; others use their standard text.
@@ -149,7 +152,7 @@ RP.Player = (function () {
     }
 
     function header() {
-      const items = state.index != null ? itemsFor(module, state.level, readingLevel()) : null;
+      const items = state.index != null ? itemsFor(module, state.level, readingLevel(), state.full) : null;
       const pct = items ? Math.round((state.index / items.length) * 100) : 0;
       return `
         <div class="player-head">
@@ -164,14 +167,14 @@ RP.Player = (function () {
     // The most recent reading before this question, so students can look back at it.
     function lastReading() {
       if (state.index == null) return null;
-      const items = itemsFor(module, state.level, readingLevel());
+      const items = itemsFor(module, state.level, readingLevel(), state.full);
       for (let i = Math.min(state.index, items.length) - 1; i >= 0; i--) if (items[i].type === "read") return items[i];
       return null;
     }
     function bindHeader() {
       el.querySelector("[data-exit]").onclick = () => { RP.speech.stop(); keepAnswers(); persist(); opts.onExit(); };
       RP.speech.bind(el, () => el.querySelector(".player-body"));
-      const items = state.index != null ? itemsFor(module, state.level, readingLevel()) : [];
+      const items = state.index != null ? itemsFor(module, state.level, readingLevel(), state.full) : [];
       const reading = items[state.index] && items[state.index].type !== "read" ? lastReading() : null;
       if (!reading) return;
       const head = el.querySelector(".player-head");
@@ -186,7 +189,7 @@ RP.Player = (function () {
     }
 
     function showItem() {
-      const items = itemsFor(module, state.level, readingLevel());
+      const items = itemsFor(module, state.level, readingLevel(), state.full);
       if (state.index >= items.length) return finish();
       const it = items[state.index];
       const i = state.index;
@@ -704,7 +707,7 @@ RP.Player = (function () {
     }
 
     function finish() {
-      const items = itemsFor(module, state.level, readingLevel());
+      const items = itemsFor(module, state.level, readingLevel(), state.full);
       const result = {};
       if (module.score !== false) {
         result.outOf = items.filter(scored).length;
@@ -717,11 +720,38 @@ RP.Player = (function () {
         const ratings = ri >= 0 ? items[ri].statements.map((st, k) => (answers[ri] || [])[k] || null) : [];
         Object.assign(result, { survey: module.survey, ratings, total: ratings.reduce((n, v) => n + (v || 0), 0), max: ratings.length * 5 });
       }
-      clearTimeout(liveTimer);
-      delete state.draft;
       const ready = items.findIndex(it => it.type === "ready");
       if (ready >= 0) result.ready = RP.readyResult(answers[ready]);
+      // Literacy and Numeracy: finished a level? Offer the next one (in the same session).
+      const next = module.levels && !opts.preview && module.levels.find(l => l.level === state.level + 1);
+      if (module.levels) {
+        result.levels = (state.levelsDone || []).concat([{ level: state.level, levelTitle: levelTitle(state.level), score: result.score, outOf: result.outOf }]);
+      }
+      if (next && !state.stopped) return offerNext(result, items, next);
+      clearTimeout(liveTimer);
+      delete state.draft;
       opts.onFinish(result, state, worksheet(items));
+    }
+
+    function offerNext(result, items, next) {
+      el.innerHTML = `<div class="player">${header()}<div class="player-body" data-item="next">
+        <h2>You finished ${h(levelTitle(state.level))}!</h2>
+        ${result.outOf ? `<p class="next-score"><strong>${result.score} out of ${result.outOf}</strong> correct first time.</p>` : ""}
+        <p>Want a challenge? Try ${h(next.title)}.</p>
+        <div class="actions"><button class="btn primary big" data-next-level>Try ${h(next.title)}</button><button class="btn" data-stop>I'm finished</button></div>
+      </div></div>`;
+      bindHeader();
+      el.querySelector("[data-next-level]").onclick = () => {
+        state.levelsDone = result.levels;
+        state.level = next.level; state.index = 0; state.firstTry = {};
+        persist(); showItem();
+      };
+      el.querySelector("[data-stop]").onclick = () => {
+        state.stopped = true;
+        clearTimeout(liveTimer);
+        delete state.draft;
+        opts.onFinish(result, state, worksheet(items));
+      };
     }
 
     if (module.levels && state.index == null) chooseLevel();
@@ -743,8 +773,9 @@ RP.Player = (function () {
     const { el, module, session } = opts;
     const state = Object.assign({ subjects: {} }, session.state || {});
     const answers = (opts.answers && opts.answers.get()) || {};
-    const keep = () => { if (opts.answers) opts.answers.set(answers); };
-    const persist = () => opts.save("in_progress", null, state);
+    let liveTimer = null;
+    const persist = () => { clearTimeout(liveTimer); state.draft = answers; opts.save("in_progress", null, state); };
+    const keep = () => { if (opts.answers) opts.answers.set(answers); clearTimeout(liveTimer); liveTimer = setTimeout(persist, 1500); };
     const statusTag = id => state.subjects[id] === "completed" ? `<span class="tag done-tag">Finished</span>` : state.subjects[id] === "started" ? `<span class="tag">Started</span>` : "";
     const head = () => `
       <div class="player-head">
@@ -798,14 +829,15 @@ RP.Player = (function () {
             </div>`).join("")}</div>
           <div class="actions">
             <button class="btn" data-add>+ Add another answer</button>
-            <button class="btn" data-back>Back to subjects</button>
-            <button class="btn primary" data-done-subject>${state.subjects[id] === "completed" ? "✓ Finished (undo)" : "I've finished this subject"}</button>
+            ${module.single ? `<button class="btn primary" data-finish>I'm finished</button>` : `<button class="btn" data-back>Back to subjects</button>
+            <button class="btn primary" data-done-subject>${state.subjects[id] === "completed" ? "✓ Finished (undo)" : "I've finished this subject"}</button>`}
           </div>
         </div></div>`;
         bind();
         el.querySelectorAll("[data-where]").forEach(t => t.oninput = () => { rows[Number(t.dataset.where)].where = t.value; keep(); });
         el.querySelectorAll("[data-text]").forEach(t => t.oninput = () => { rows[Number(t.dataset.text)].text = t.value; keep(); });
         el.querySelector("[data-add]").onclick = () => { rows.push({ where: "", text: "" }); keep(); draw(); const last = el.querySelectorAll("[data-where]"); last[last.length - 1].focus(); };
+        if (module.single) { el.querySelector("[data-finish]").onclick = () => { state.subjects[id] = "completed"; finishBooklet(); }; return; }
         el.querySelector("[data-back]").onclick = () => { keep(); menu(); };
         el.querySelector("[data-done-subject]").onclick = () => {
           state.subjects[id] = state.subjects[id] === "completed" ? "started" : "completed";
@@ -817,17 +849,21 @@ RP.Player = (function () {
     }
 
     function finishBooklet() {
-      keep();
+      if (opts.answers) opts.answers.set(answers);
+      clearTimeout(liveTimer);
+      delete state.draft;
       const using = USING.find(u => u.id === state.using);
       const worksheet = book().subjects.filter(x => state.subjects[x.id]).map(x => ({
         heading: `${x.title} (${state.subjects[x.id] === "completed" ? "finished" : "started"})`,
         rows: (answers[x.id] || []).filter(r => r.where.trim() || r.text.trim()).map(r => ({ label: r.where.trim() || "Answer", text: r.text.trim() }))
       }));
-      worksheet.unshift({ heading: "Booklet", rows: [{ label: "Booklet", text: book().title }].concat(using ? [{ label: "I used", text: using.label }] : []) });
-      opts.onFinish({ subjects: Object.assign({}, state.subjects) }, state, worksheet);
+      if (!module.single) worksheet.unshift({ heading: "Booklet", rows: [{ label: "Booklet", text: book().title }].concat(using ? [{ label: "I used", text: using.label }] : []) });
+      opts.onFinish(module.single ? {} : { subjects: Object.assign({}, state.subjects) }, state, worksheet);
     }
 
-    if (state.current && subject(state.current)) openSubject(state.current); else menu();
+    // A single worksheet (a RIOT lesson PDF) skips the subject list.
+    if (module.single) { state.using = state.using || "online"; openSubject(book().subjects[0].id); }
+    else if (state.current && subject(state.current)) openSubject(state.current); else menu();
   }
 
   // Shown straight after finishing a module, and again whenever the student opens a finished one:

@@ -78,7 +78,7 @@ These reactions are automatic. Learning to notice them early gives you the chanc
         "How can I recognise that I am starting to lose control?"
       ]
     },
-    {
+    { extra: true,
       type: "write", title: "My emotional warning signs",
       prompts: [
         "**Thoughts:** What do I tell myself when I get angry or frustrated?",
@@ -106,7 +106,7 @@ These reactions are automatic. Learning to notice them early gives you the chanc
       ],
       pick: 3
     },
-    {
+    { extra: true,
       type: "write", title: "Reflection",
       prompts: ["Which strategy could help me before I reach my breaking point?"]
     },

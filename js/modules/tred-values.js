@@ -94,7 +94,7 @@ At school, our values guide us on our learning journey. Thomas Reddall's values 
         "Pick one. How could I achieve it? (For example: practising for 30 minutes a day)"
       ]
     },
-    {
+    { extra: true,
       type: "write", title: "Deliver: my promise",
       prompts: [
         "One goal I know I can deliver on when I go back to class:",

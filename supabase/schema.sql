@@ -61,6 +61,7 @@ create table public.visits (
   active boolean not null default true,
   kind text not null default 'program' constraint visits_kind_check check (kind in ('program', 'followup')),
   paused boolean not null default false,
+  times jsonb,  -- each day's session times when staff change them; empty means the normal timetable
   help_requested_at timestamptz,
   created_at timestamptz not null default now()
 );
@@ -137,6 +138,7 @@ begin
     'help', v.help_requested_at is not null,
     'paused', v.paused,
     'kind', v.kind,
+    'times', v.times,
     'sessions', coalesce((
       select jsonb_agg(
         jsonb_build_object(
@@ -148,8 +150,9 @@ begin
   );
 end $$;
 
--- Saves progress on one session. Students can only update their own independent work;
--- group sessions and 1:1s are ticked off by the teacher. A finished session can't be
+-- Saves progress on one session. Students can only update their own independent work (and a
+-- RIOT group module done on their laptop); other group sessions and 1:1s are ticked off by the
+-- teacher. A finished session can't be
 -- changed again, so a certificate is only ever issued once.
 create or replace function public.student_save(
   p_code text, p_session uuid, p_status text, p_result jsonb default null, p_state jsonb default null
@@ -169,7 +172,7 @@ begin
       completed_at = case when p_status = 'done' then now() else completed_at end
   where id = p_session
     and visit_id = v_visit
-    and kind in ('intro', 'independent', 'free', 'debrief', 'survey')
+    and (kind in ('intro', 'independent', 'free', 'debrief', 'survey') or (kind = 'group' and activity = 'riot'))
     and status <> 'done';
   return found;
 end $$;

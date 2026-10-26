@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RIOT worksheet | Reset Program</title>
+  <link rel="stylesheet" href="css/style.css?v=202610261500">
+</head>
+<body class="riot-print-page">
+  <div class="rs-toolbar no-print">
+    <label>Lesson <select id="lesson"></select></label>
+    <button class="btn primary" onclick="window.print()">Print or save as PDF</button>
+  </div>
+  <div id="sheet"></div>
+  <script src="js/config.js?v=202610261500"></script>
+  <script src="js/common.js?v=202610261500"></script>
+  <script src="js/riot.js?v=202610261500"></script>
+  <script>
+    (function () {
+      const sel = document.getElementById("lesson");
+      const n = Number(new URLSearchParams(location.search).get("lesson")) || 1;
+      sel.innerHTML = RP.RIOT.map(L => '<option value="' + L.n + '"' + (L.n === n ? " selected" : "") + ">" + RP.h(L.fullTitle) + "</option>").join("");
+      sel.onchange = () => { location.search = "?lesson=" + sel.value; };
+      const L = RP.riotLesson(n);
+      document.title = "RIOT " + L.fullTitle + " worksheet";
+      document.getElementById("sheet").innerHTML = RP.riotWorksheetMarkup(L);
+    })();
+  </script>
+</body>
+</html>

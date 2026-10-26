@@ -22,7 +22,7 @@ You only need to share what you're comfortable with. You can leave any question 
 
 When you finish the module, your answers are sent to your teacher, who will talk them through with you in your 1:1. Please don't write other students' names.`
     },
-    { type: "scale", q: "Check-in: how are you feeling about being back at school?", labels: ["Worried", "Unsure", "Okay", "Ready", "Good"] },
+    { extra: true, type: "scale", q: "Check-in: how are you feeling about being back at school?", labels: ["Worried", "Unsure", "Okay", "Ready", "Good"] },
     {
       type: "write", title: "Check-in",
       prompts: [
@@ -48,7 +48,7 @@ Take your time with the next two pages. Answer as honestly as you can, and skip 
         "What choices did I make?"
       ]
     },
-    {
+    { extra: true,
       type: "write", title: "Reflecting on the situation (part 2)",
       prompts: [
         "What were the consequences of those choices?",

@@ -28,7 +28,7 @@ Healthy strategies are like **taps** on the bucket. They let some of the stress 
       options: ["Schoolwork", "Friendships", "Family", "Not enough sleep", "Other people's expectations", "Being in trouble at school", "Sport, work or other commitments", "Money"],
       other: true
     },
-    {
+    { extra: true,
       type: "slider", title: "How full is my bucket?",
       sliders: [{ label: "My stress bucket right now", min: 0, max: 10, left: "Empty", right: "Overflowing" }]
     },
@@ -91,7 +91,7 @@ Checking a thought means asking whether it's really true, and whether there's a 
         { text: "What has already happened", bucket: 1 }
       ]
     },
-    {
+    { extra: true,
       type: "write", title: "Reflection",
       prompts: ["What is one thing within my control that I can change when I return to class?"]
     },

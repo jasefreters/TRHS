@@ -33,7 +33,7 @@ Skipping one lesson a day adds up too: that's a whole subject you barely go to.`
       choices: ["5 days", "10 days", "20 days", "40 days"], answer: 2,
       explain: "40 weeks is 20 fortnights, so 20 days. That's 4 whole school weeks."
     },
-    {
+    { extra: true,
       type: "input", q: "That's 20 days a year. How many days would that be from Year 7 to the end of Year 10 (4 years)?",
       answer: "80", suffix: "days",
       explain: "80 days is 16 school weeks: almost half a year of school."
@@ -50,7 +50,7 @@ Skipping one lesson a day adds up too: that's a whole subject you barely go to.`
         { text: "Fewer choices for courses and jobs", bucket: 1 }
       ]
     },
-    {
+    { extra: true,
       type: "read", title: "What the school has to do",
       text: `Schools have to check every absence. If a student misses class or school without a good reason:
 - the school contacts their parent or carer

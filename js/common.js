@@ -42,14 +42,18 @@ RP.nowMinutes = () => {
   if (forced && /^\d{1,2}:\d{2}$/.test(forced)) return RP.toMinutes(forced);
   const d = new Date(); return d.getHours() * 60 + d.getMinutes();
 };
-RP.slotTimes = slot => RP.TIMETABLE.find(t => t.slot === slot);
+// A day's timetable: the times staff set for that day on the daily schedule (visits.times, e.g.
+// Tuesday's shorter bell times), or the normal timetable.
+RP.timetableFor = (times, day) => (times && times[day] && times[day].length ? times[day] : RP.TIMETABLE);
+RP.slotTimes = (slot, tt) => (tt || RP.TIMETABLE).find(t => t.slot === slot);
 // The slot running now: a number, "before", "after", or the break object.
-RP.currentSlot = () => {
+RP.currentSlot = tt => {
+  tt = tt || RP.TIMETABLE;
   const now = RP.nowMinutes();
-  for (const t of RP.TIMETABLE) {
+  for (const t of tt) {
     if (now >= RP.toMinutes(t.start) && now < RP.toMinutes(t.end)) return t.brk ? t : t.slot;
   }
-  return now < RP.toMinutes(RP.TIMETABLE[0].start) ? "before" : "after";
+  return now < RP.toMinutes(tt[0].start) ? "before" : "after";
 };
 RP.todayLabel = () => new Date().toLocaleDateString("en-AU", { weekday: "long", day: "numeric", month: "long" });
 RP.formatDate = iso => new Date(iso).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" });
@@ -66,6 +70,7 @@ RP.KIND_LABEL = {
 
 // "Other" sessions: staff type what the session is (kind "free", activity "custom").
 RP.isCustom = s => s.kind === "free" && s.activity === "custom";
+RP.isRiot = s => s.kind === "group" && s.activity === "riot";
 // Teacher-led modules (module.teacherLed) are stored as independent sessions, because the
 // student works through them on the laptop, but they're shown as teacher-led.
 RP.isLedModule = s => s.kind === "independent" && !!(s.activity && RP.MODULES[s.activity] && RP.MODULES[s.activity].teacherLed);
@@ -76,6 +81,7 @@ RP.sessionTitle = function (s) {
   if (s.kind === "independent" && s.activity && RP.MODULES[s.activity]) return RP.MODULES[s.activity].title;
   if (s.kind === "independent" && !s.activity) return "Empty";
   if (s.kind === "free" && s.activity === "custom") return s.title;
+  if (RP.isRiot(s)) { const L = RP.riotLesson && RP.riotLesson((s.state || {}).lesson); return L ? `RIOT ${L.fullTitle}` : "RIOT"; }
   if (s.kind === "one_to_one") { const x = RP.individualSession(s.activity); return x ? x.title : String(s.title || "").replace(/^Individual:\s*/, ""); }
   return s.title;
 };
@@ -117,6 +123,7 @@ RP.resultText = function (r) {
   if (r.byTeacher && !r.outOf) return "marked done by teacher";
   if (r.survey) return `survey ${r.total}/${r.max || 50}`;
   if (r.subjects) return RP.subjectsText(r.subjects);
+  if (r.levels && r.levels.length > 1) return r.levels.map(l => `${l.levelTitle}${l.outOf ? " " + l.score + "/" + l.outOf : ""}`).join(", ");
   if (r.levelTitle) parts.push(r.levelTitle);
   if (r.outOf) parts.push(r.score + "/" + r.outOf);
   return parts.join(", ");
@@ -345,7 +352,7 @@ RP.previewModule = function (m) {
       default: return head(it.type);
     }
   };
-  const list = items => `<ol class="pv-items">${items.map((it, n) => `<li>${item(it, n)}</li>`).join("")}</ol>`;
+  const list = items => `<ol class="pv-items">${items.map((it, n) => `<li${it.extra ? ` class="pv-extra"` : ""}>${it.extra ? `<span class="tag">extra: full version only</span>` : ""}${item(it, n)}</li>`).join("")}</ol>`;
   return `
     <div class="preview">
       ${m.about ? `<div class="pv-about">${md(m.about)}</div>` : ""}

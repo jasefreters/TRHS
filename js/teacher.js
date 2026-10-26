@@ -102,7 +102,11 @@
   // ---------------------------------------------------------------- routing and live updates
   function updateNotice() {
     const n = $("#notice");
-    if (n) n.hidden = !api.needsUpdate;
+    if (!n) return;
+    n.hidden = !api.needsUpdate && !api.needsUpdate3;
+    $("#notice-text").innerHTML = api.needsUpdate
+      ? "Pause, follow-up surveys and staffing need <code>supabase/update-2.sql</code>, then <code>supabase/update-3.sql</code>, to be run in the Supabase SQL Editor."
+      : "Changing session times, and RIOT worksheets on laptops, need <code>supabase/update-3.sql</code> to be run once in the Supabase SQL Editor.";
   }
 
   async function show(v) {
@@ -160,6 +164,9 @@
   const sessionsFor = (v, day) => v.sessions.filter(s => s.day === day).sort((a, b) => a.slot - b.slot);
   const at = (v, day, slot) => v.sessions.find(s => s.day === day && s.slot === slot);
   const titleOf = s => RP.sessionTitle(s);
+  // A student's timetable for a day (their own times if staff changed them), and their slot now.
+  const ttOf = (v, day) => RP.timetableFor(v.times, day);
+  const nowOf = v => RP.currentSlot(ttOf(v, v.current_day));
   const ledTitle = s => /^Teacher-led/i.test(titleOf(s)) ? titleOf(s) : "Teacher-led: " + titleOf(s);
   const teacherTicks = s => ["group", "one_to_one"].includes(s.kind) || RP.isCustom(s);
   const individualsOn = (v, day) => v.sessions.filter(s => s.day === day && (s.kind === "one_to_one" || RP.isLedModule(s))).sort((a, b) => a.slot - b.slot);
@@ -199,14 +206,15 @@
     // One click to tick the current group session for everyone, and present it on the projector.
     let bulk = "", present = "";
     if (typeof now === "number") {
-      const due = programs.filter(v => !v.paused).map(v => at(v, v.current_day, now)).filter(s => s && s.kind === "group" && s.status !== "done");
+      const due = programs.filter(v => !v.paused).map(v => at(v, v.current_day, nowOf(v))).filter(s => s && s.kind === "group" && s.status !== "done");
       if (due.length) {
         const names = [...new Set(due.map(titleOf))].join(" / ");
         bulk = `<button class="btn primary" data-bulk>Tick “${h(names)}” done for ${due.length} student${due.length > 1 ? "s" : ""}</button>`;
       }
-      const running = [...new Set(programs.map(v => at(v, v.current_day, now)).filter(s => s && s.kind === "group").map(s => s.activity))]
-        .map(id => RP.groupSession(id)).filter(g => g && g.slides);
-      present = running.map(g => `<button class="btn" data-present="${g.id}">Present: ${h(g.title)}</button>`).join("");
+      const ids = [...new Set(programs.map(v => at(v, v.current_day, nowOf(v))).filter(s => s && s.kind === "group")
+        .map(s => RP.isRiot(s) ? (s.state && s.state.lesson ? "riot:" + s.state.lesson : null) : s.activity).filter(Boolean))];
+      present = ids.map(id => [id, presentable(id)]).filter(([, g]) => g && g.slides)
+        .map(([id, g]) => `<button class="btn" data-present="${id}">Present: ${h(g.title)}</button>`).join("");
     }
     const staffNow = typeof now === "number" && staffing[now] ? staffing[now] : "";
 
@@ -280,10 +288,10 @@
   }
 
   function card(v) {
-    const now = RP.currentSlot();
+    const tt = ttOf(v, v.current_day), now = RP.currentSlot(tt);
     const day = sessionsFor(v, v.current_day);
     const mini = day.filter(s => s.slot <= RP.LAST_SLOT).map(s => {
-      const t = RP.slotTimes(s.slot);
+      const t = RP.slotTimes(s.slot, tt);
       const icon = s.status === "done" ? "✓" : s.status === "in_progress" ? "•" : "";
       return `<span class="mini k-${s.kind} st-${s.status}${now === s.slot ? " now" : ""}" title="${h(RP.formatTime(t.start) + " " + titleOf(s) + ": " + statusText(s))}">${icon}</span>`;
     }).join("");
@@ -304,10 +312,11 @@
         ${readyLine(v)}
         <div class="now-line">${cur ? `<span class="muted">Now:</span> ${h(titleOf(cur))} <span class="muted">· ${h(statusText(cur))}</span>
           ${teacherTicks(cur) ? `<button class="btn small" data-tick="${cur.id}">${cur.status === "done" ? "Undo tick" : "Tick done"}</button>` : ""}
-          ${cur.kind === "independent" && cur.activity && RP.MODULES[cur.activity] ? `<button class="btn small" data-preview="${h(cur.activity)}">View module</button>` : ""}` :
+          ${cur.kind === "independent" && cur.activity && RP.MODULES[cur.activity] ? `<button class="btn small" data-preview="${h(cur.activity)}">View module</button>` : ""}
+          ${watchable(cur) && cur.status !== "not_started" && !RP.isLedModule(cur) ? `<button class="btn small" data-ind="${cur.id}">See answers</button>` : ""}` :
           `<span class="muted">${typeof now === "object" && now.brk ? h(now.brk) : "Outside program hours"}</span>`}</div>
         ${inds.length ? inds.map(one => {
-          const t = RP.slotTimes(one.slot);
+          const t = RP.slotTimes(one.slot, tt);
           return `<div class="row"><button class="link-btn" data-ind="${one.id}">${t ? RP.formatTime(t.start) + " " : ""}${h(ledTitle(one))}</button>
             <button class="btn small${one.status === "done" ? " ok" : ""}" data-tick="${one.id}">${one.status === "done" ? "✓ Done" : "Mark done"}</button>
             ${t && staffing[one.slot] ? `<span class="muted">with ${h(staffing[one.slot])}</span>` : ""}
@@ -686,7 +695,7 @@
       <div class="record-day">
         <h3>Day ${day}</h3>
         <ol class="record-list">${sessionsFor(v, day).map(s => {
-          const t = RP.slotTimes(s.slot);
+          const t = RP.slotTimes(s.slot, ttOf(v, day));
           return `<li class="${s.status === "done" ? "is-done" : ""}">
             <span class="time">${t ? RP.formatTime(t.start) : "Any time"}</span>
             <span class="r-title">${h(titleOf(s))} <span class="muted">· ${h(RP.kindLabel(s))}</span></span>
@@ -740,9 +749,9 @@
   function renderIndividual() {
     const v = visit, s = v && v.sessions.find(x => x.id === view.sessionId);
     if (!s) { show({ name: "board" }); return; }
-    if (RP.isLedModule(s)) return renderLedModule(v, s);
+    if (watchable(s)) return renderLedModule(v, s);
     const ind = RP.individualSession(s.activity);
-    const t = RP.slotTimes(s.slot);
+    const t = RP.slotTimes(s.slot, ttOf(v, s.day));
     const staff = t && s.day === v.current_day ? staffing[s.slot] : "";
     let info = "";
     const surveys = ids => ids.map(id => surveyIn(v, id)).filter(Boolean);
@@ -870,8 +879,20 @@
   // what they're up to and their answers as they type, with a prompt for staff on each activity, a
   // Sentral checklist and a staff check-in to print. Nothing typed on this page is saved.
   const staffCheckins = {}; // by session id, kept while the dashboard is open
+  // The module a session runs: an independent module, or a RIOT lesson done on the laptop.
+  function moduleFor(s) {
+    if (RP.isRiot(s)) {
+      const st = s.state || {}, L = RP.riotLesson(st.lesson);
+      if (!L) return null;
+      return st.format === "pdf" ? { id: L.id, title: `RIOT ${L.fullTitle} (PDF)`, booklet: true, books: [{ subjects: [{ id: "lesson" + L.n, title: L.fullTitle }] }] } : RP.MODULES[L.id];
+    }
+    return s.kind === "independent" && s.activity ? RP.MODULES[s.activity] || null : null;
+  }
+  // Sessions staff can follow live: any module on the laptop.
+  const watchable = s => !!moduleFor(s) && !(RP.isRiot(s) && (s.state || {}).format === "paper");
+  const liveItems = (m, st) => m.levels ? ((m.levels.find(l => l.level === st.level) || { items: [] }).items).map(it => RP.atLevel(it, st.level)) : m.items.filter(it => st.full || !it.extra);
   function ledAnswers(m, s, i) {
-    const it = m.items[i], st = s.state || {};
+    const st = s.state || {}, it = liveItems(m, st)[i];
     const a = (st.draft || {})[i];
     const dash = `<span class="muted">—</span>`;
     if (it.type === "write") return `<div class="live-rows">${it.prompts.map((p, k) => `<div class="ws-row"><div class="ws-label">${RP.inlineMd(p)}</div><div class="ws-answer">${a && a[k] ? h(a[k]) : dash}</div></div>`).join("")}</div>`;
@@ -886,15 +907,24 @@
     return "";
   }
   function ledLive(v, s) {
-    const m = RP.MODULES[s.activity], st = s.state || {};
+    const m = moduleFor(s), st = s.state || {};
     if (s.status === "done") {
       const ok = (s.result && s.result.byTeacher) ? "Marked done by a teacher." : `Finished ${RP.formatDate(s.completed_at || s.updated_at)}.`;
       return `<p class="ok-text">✓ ${h(ok)}</p>${s.state && s.state.responses && s.state.responses.length ? RP.worksheetRows(s.state.responses) : ""}`;
     }
+    if (m.booklet) {
+      // Suspension Booklet or a RIOT PDF: the subjects they've opened and what they've typed.
+      const subs = m.books.flatMap(b => b.subjects).filter(x => (st.subjects || {})[x.id] || (st.draft || {})[x.id]);
+      if (!subs.length) return `<p class="muted">They haven't started yet. This page updates as they work.</p>`;
+      return subs.map(x => `<h3>${h(x.title)} <span class="tag">${(st.subjects || {})[x.id] === "completed" ? "finished" : "started"}</span></h3>
+        ${((st.draft || {})[x.id] || []).filter(r => r.where || r.text).map(r => `<div class="ws-row"><div class="ws-label">${h(r.where || "Answer")}</div><div class="ws-answer">${h(r.text) || "&nbsp;"}</div></div>`).join("") || `<p class="muted">Nothing typed yet.</p>`}`).join("");
+    }
     if (s.status === "not_started" || st.index == null) return `<p class="muted">They haven't started yet. On their laptop, they open <strong>${h(m.title)}</strong> from their plan and press Start. This page updates as they work.</p>`;
-    const at = Math.min(st.index, m.items.length - 1);
-    return `<p><strong>On page ${at + 1} of ${m.items.length}:</strong> ${h(m.items[at].title || (m.items[at].q || "").replace(/\*\*/g, "").slice(0, 80))} <a href="#live-${at}" class="link-btn">Jump to it</a></p>
-      <ol class="live-items">${m.items.map((it, i) => i > st.index ? "" : `
+    const items = liveItems(m, st);
+    if (!items.length) return `<p class="muted">They're choosing a level.</p>`;
+    const at = Math.min(st.index, items.length - 1);
+    return `<p><strong>On page ${at + 1} of ${items.length}${m.levels ? ` (Level ${st.level})` : ""}:</strong> ${h(items[at].title || (items[at].q || "").replace(/\*\*/g, "").slice(0, 80))} <a href="#live-${at}" class="link-btn">Jump to it</a></p>
+      <ol class="live-items">${items.map((it, i) => i > st.index ? "" : `
         <li id="live-${i}" class="live-item${i === at ? " current" : ""}">
           <div class="live-title">${h(it.title || "")}${it.q ? `<div class="live-q">${RP.inlineMd(it.q.split("\n\n").pop())}</div>` : ""}</div>
           ${ledAnswers(m, s, i)}
@@ -904,14 +934,14 @@
   function updateLive() {
     const el = $("[data-live]");
     const s = visit && visit.sessions.find(x => x.id === view.sessionId);
-    if (!el || !s || !RP.isLedModule(s)) return false;
+    if (!el || !s || !watchable(s)) return false;
     el.innerHTML = ledLive(visit, s);
     $("[data-live-print]").innerHTML = ledLive(visit, s);
     return true;
   }
   function renderLedModule(v, s) {
-    const m = RP.MODULES[s.activity];
-    const t = RP.slotTimes(s.slot);
+    const m = moduleFor(s), led = !!m.teacherLed;
+    const t = RP.slotTimes(s.slot, ttOf(v, s.day));
     const staff = t && s.day === v.current_day ? staffing[s.slot] : "";
     const c = staffCheckins[s.id] || (staffCheckins[s.id] = { attendance: "", positive: "", negative: "", checkin: "", completed: "" });
     const back = view.from === "board" ? "In the program" : "Daily schedule";
@@ -921,15 +951,15 @@
           <button class="link-btn" data-back>← ${back}</button>
           <div class="page-head">
             <div>
-              <h1>Teacher-led: ${h(m.title)}</h1>
+              <h1>${led ? "Teacher-led: " : ""}${h(m.title)}</h1>
               <p class="muted">${h(RP.formatCode(v.student.code))}${v.student.year_level ? ` · Year ${v.student.year_level}` : ""} · Day ${s.day}${t ? ` · ${RP.formatTime(t.start)}–${RP.formatTime(t.end)}` : ""}${staff ? ` · with <strong>${h(staff)}</strong>` : ""}</p>
             </div>
-            <div class="page-actions"><button class="btn" data-preview="${h(m.id)}">Preview the module</button><button class="btn${s.status === "done" ? " ok" : " primary"}" data-tick>${s.status === "done" ? "✓ Done (undo)" : "Mark done"}</button></div>
+            <div class="page-actions">${RP.MODULES[m.id] ? `<button class="btn" data-preview="${h(m.id)}">Preview the module</button>` : ""}${led || RP.isRiot(s) ? `<button class="btn${s.status === "done" ? " ok" : " primary"}" data-tick>${s.status === "done" ? "✓ Done (undo)" : "Mark done"}</button>` : ""}</div>
           </div>
-          <details class="card guide" open><summary><h2>How to run it</h2></summary><div class="guide-body">${RP.md(m.guide || "")}</div></details>
-          <div class="led-layout">
+          ${m.guide ? `<details class="card guide" open><summary><h2>How to run it</h2></summary><div class="guide-body">${RP.md(m.guide)}</div></details>` : ""}
+          <div class="${led ? "led-layout" : ""}">
             <section class="card"><h2>What they're doing <span class="tag">live</span></h2><div data-live>${ledLive(v, s)}</div></section>
-            <aside class="card led-staff">
+            ${led ? `<aside class="card led-staff">
               <h2>Staff check-in</h2>
               <p class="muted small">Not saved: print it, or record it in Sentral.</p>
               <label class="field">Sentral attendance this term <input data-c="attendance" value="${h(c.attendance)}" maxlength="80" placeholder="e.g. 82%, 6 partial absences"></label>
@@ -942,28 +972,28 @@
               </fieldset>
               <label class="field">Student's name (for printing only) <input data-led-name maxlength="40" autocomplete="off"></label>
               <div class="actions"><button class="btn primary" data-led-print>Print</button></div>
-            </aside>
+            </aside>` : ""}
           </div>
         </div>
         <div class="print-only led-print">
           <div class="ws-head"><div><div class="cert-school">Thomas Reddall High School · Reset Program</div><h2>${h(m.title)}</h2></div>
             <div class="ws-meta">Name: <strong data-led-name-out>&nbsp;</strong><br>${RP.longDate(new Date().toISOString())}</div></div>
           <div data-live-print>${ledLive(v, s)}</div>
-          <h3 class="plan-section">Staff check-in</h3>
-          <div data-c-out></div>
+          ${led ? `<h3 class="plan-section">Staff check-in</h3><div data-c-out></div>` : ""}
         </div>
       </div>`;
     const drawStaff = () => {
+      if (!led) return;
       $("[data-c-out]").innerHTML = [["Sentral attendance this term", c.attendance], ["Positive entries", c.positive], ["Negative entries", c.negative], ["Staff check-in", c.checkin], ["Module completed", c.completed]]
         .map(([l, x]) => `<div class="ws-row"><div class="ws-label">${h(l)}</div><div class="ws-answer">${h(x) || "&nbsp;"}</div></div>`).join("");
     };
     app().querySelectorAll("[data-c]").forEach(inp => inp.oninput = () => { c[inp.dataset.c] = inp.value; drawStaff(); });
     app().querySelectorAll("input[name=completed]").forEach(r => r.onchange = () => { c.completed = r.value; drawStaff(); });
     const name = $("[data-led-name]");
-    name.oninput = () => { $("[data-led-name-out]").textContent = name.value.trim() || " "; };
-    $("[data-led-print]").onclick = () => window.print();
+    if (name) name.oninput = () => { $("[data-led-name-out]").textContent = name.value.trim() || " "; };
+    const pr = $("[data-led-print]"); if (pr) pr.onclick = () => window.print();
     $("[data-back]").onclick = () => view.from === "board" ? show({ name: "board" }) : show({ name: "plan", visitId: v.id, from: view.from });
-    $("[data-tick]").onclick = async () => { await setDone(s, s.status !== "done"); show(view); };
+    const tk = $("[data-tick]"); if (tk) tk.onclick = async () => { await setDone(s, s.status !== "done"); show(view); };
     app().querySelectorAll("[data-preview]").forEach(b => b.onclick = () => previewModule(b.dataset.preview));
     drawStaff();
   }
@@ -977,10 +1007,12 @@
       if (v.paused) return `<td class="muted">Paused</td>`;
       const x = at(v, v.current_day, slot);
       if (!x) return "<td></td>";
-      return `<td class="rs-${x.kind}">${h(x.kind === "one_to_one" ? ledTitle(x) : titleOf(x))}</td>`;
+      const own = RP.slotTimes(slot, ttOf(v, v.current_day)), usual = RP.slotTimes(slot);
+      const moved = own && usual && own.start !== usual.start ? `<span class="muted">${RP.formatTime(own.start)}</span> ` : "";
+      return `<td class="rs-${x.kind}">${moved}${h(x.kind === "one_to_one" ? ledTitle(x) : titleOf(x))}</td>`;
     };
     app().innerHTML = `
-      <div class="page wide">
+      <div class="page wide runsheet-page">
         <div class="page-head">
           <div><h1>Run sheet</h1><p class="muted no-print">Type who's running each session. It saves as you go. Students are shown as they are today.</p></div>
           <div class="page-actions no-print">
@@ -1146,12 +1178,26 @@
 
   // ---------------------------------------------------------------- present view
   // A group session's slides on the projector, with a countdown timer for the staff member.
+  // A RIOT lesson is presented as "riot:N", in a theme like the original RIOT slides.
+  function presentable(id) {
+    const m = /^riot:(\d)$/.exec(id || "");
+    if (m) { const L = RP.riotLesson(m[1]); return L && { title: `RIOT ${L.fullTitle}`, slides: L.slides, riot: true }; }
+    return RP.groupSession(id);
+  }
+  function riotSlide(sl) {
+    if (sl.cover) return `<div class="riot-cover"><div class="riot-badge">RESILIENCE<br>IN OUR<br>TEENS</div><h1>${h(sl.title)}</h1><p>${h(sl.points[0])}</p></div>`;
+    if (sl.intentions) return `<h1>${h(sl.title)}</h1><div class="riot-cols"><div><h2>Students will:</h2><ul>${sl.points.map(p => `<li>${RP.inlineMd(p)}</li>`).join("")}</ul></div><div><h2>Success criteria. Students will be able to:</h2><ul>${sl.criteria.map(p => `<li>${RP.inlineMd(p)}</li>`).join("")}</ul></div></div>`;
+    return `<h1>${h(sl.title)}</h1>
+      ${sl.boxes ? `<div class="riot-boxes">${sl.points.map(p => `<div class="riot-box">${RP.inlineMd(p)}</div>`).join("")}</div>`
+        : sl.points && sl.points.length ? `<ul class="${sl.activity ? "riot-activity" : ""}">${sl.points.map((p, i) => `<li${sl.activity && i === 0 ? ` class="riot-q"` : ""}>${RP.inlineMd(p)}</li>`).join("")}</ul>` : ""}
+      ${sl.note ? `<p class="present-note">${RP.inlineMd(sl.note)}</p>` : ""}`;
+  }
   function showPresent(id) {
-    const g = RP.groupSession(id);
+    const g = presentable(id);
     if (!g || !g.slides) return;
     let k = 0, left = 0, ticking = null;
     const box = document.createElement("div");
-    box.className = "present";
+    box.className = "present" + (g.riot ? " riot-theme" : "");
     document.body.appendChild(box);
     const draw = () => {
       const sl = g.slides[k];
@@ -1163,12 +1209,12 @@
             <button data-t="300">+5 min</button><button data-t="60">+1 min</button><button data-t="0">${ticking ? "Stop" : "Clear"}</button></span>
           <span>${k + 1} / ${g.slides.length} <button data-close>Close ✕</button></span>
         </div>
-        <div class="present-slide">
+        <div class="present-slide">${g.riot ? riotSlide(sl) : `
           <h1>${h(sl.title)}</h1>
           ${sl.points && sl.points.length ? `<ul>${sl.points.map(p => `<li>${RP.inlineMd(p)}</li>`).join("")}</ul>` : ""}
-          ${sl.note ? `<p class="present-note">${RP.inlineMd(sl.note)}</p>` : ""}
+          ${sl.note ? `<p class="present-note">${RP.inlineMd(sl.note)}</p>` : ""}`}
         </div>
-        <div class="present-nav"><button data-prev ${k === 0 ? "disabled" : ""}>← Back</button><span class="present-motto">"Focusing on our Future"</span><button data-next ${k === g.slides.length - 1 ? "disabled" : ""}>Next →</button></div>`;
+        <div class="present-nav"><button data-prev ${k === 0 ? "disabled" : ""}>← Back</button><span class="present-motto">${g.riot ? "RIOT · Resilience in our Teens · " : ""}"Focusing on our Future"</span><button data-next ${k === g.slides.length - 1 ? "disabled" : ""}>Next →</button></div>`;
       box.querySelector("[data-prev]").onclick = () => { if (k > 0) { k--; draw(); } };
       box.querySelector("[data-next]").onclick = () => { if (k < g.slides.length - 1) { k++; draw(); } };
       box.querySelector("[data-close]").onclick = close;
@@ -1209,6 +1255,26 @@
         ${about ? `<p class="guide-about"><strong>Students see:</strong> ${RP.inlineMd(about)}</p>` : ""}
         <div class="guide-body">${RP.md(body || "No guide yet.")}</div>
       </details>`;
+    // RIOT: every lesson's run sheet, slides and condensed worksheet.
+    const riotGuide = (g, when) => `
+      <details class="card guide">
+        <summary><h2>${h(g.title)}</h2> <span class="tag core">core</span> ${when ? `<span class="tag">${h(when)}</span>` : ""} <span class="tag">8 lessons</span></summary>
+        <p class="guide-about"><strong>Students see:</strong> ${RP.inlineMd(g.about)}</p>
+        <div class="guide-body">${RP.md(g.guide)}</div>
+        ${RP.RIOT.map(L => `
+          <section class="riot-lesson">
+            <h3>${h(L.fullTitle)}</h3>
+            <div class="actions no-print">
+              <button class="btn small primary" data-present="riot:${L.n}">Present the slides</button>
+              <a class="btn small" href="riot-worksheet.html?lesson=${L.n}" target="_blank" rel="noopener">Print worksheet</a>
+              <a class="btn small" href="${RP.riotPdf(L.n)}" target="_blank" rel="noopener">Worksheet PDF</a>
+              <button class="btn small" data-preview="${L.id}">Try it on the laptop</button>
+            </div>
+            <details><summary><strong>Run sheet (25 minutes)</strong></summary><div class="guide-body">${RP.md(L.guide)}</div></details>
+            <details><summary><strong>Slides</strong> <span class="muted">(${L.slides.length})</span></summary><ol class="riot-slide-list">${L.slides.map(sl => `<li>${h(sl.title)}</li>`).join("")}</ol></details>
+            <details><summary><strong>Worksheet</strong></summary>${RP.riotWorksheetMarkup(L)}</details>
+          </section>`).join("")}
+      </details>`;
     app().innerHTML = `
       <div class="page narrow">
         <div class="page-head"><h1>Session guides</h1><div class="page-actions"><button class="btn" data-print-guides>Print all</button></div></div>
@@ -1223,7 +1289,7 @@
           <p class="no-print"><a href="img/lesson-routine.jpg" target="_blank" rel="noopener">Open the lesson routine poster</a></p>
         </details>
         <h2 class="section-title">Group modules</h2>
-        ${RP.GROUP_SESSIONS.filter(g => !g.movement).map(g => guide(g.title,
+        ${RP.GROUP_SESSIONS.filter(g => !g.movement && !g.retired).map(g => g.riot ? riotGuide(g, when(g.id)) : guide(g.title,
           `${g.core ? `<span class="tag core">core</span>` : ""} ${when(g.id) ? `<span class="tag">${h(when(g.id))}</span>` : `<span class="tag">not in a rotation</span>`}`, g.about, g.guide,
           g.slides ? `<button class="btn small" data-present="${g.id}">Present on the projector</button>` : "")).join("")}
         <h2 class="section-title">Teacher-led sessions</h2>
@@ -1333,7 +1399,7 @@
       <table class="sheet-table">
         <thead><tr><th colspan="3">Day ${d}</th></tr></thead>
         <tbody>${sessionsFor(v, d).map(s => {
-          const t = RP.slotTimes(s.slot);
+          const t = RP.slotTimes(s.slot, ttOf(v, d));
           return `<tr><td>${t ? RP.formatTime(t.start) : "Any time"}</td><td>${h(titleOf(s))}<br><span class="muted">${h(RP.kindLabel(s))}</span></td><td>${s.status === "done" ? "✓ " : ""}${h(statusText(s))}</td></tr>`;
         }).join("")}</tbody>
       </table>`;
@@ -1397,10 +1463,11 @@
             ${(RP.INDIVIDUAL_SESSIONS || []).map(x => chip("individual", x.id, x.title, x.day ? ` <span class="tag">Day ${x.day}</span>` : "")).join("")}
             ${ledModules().map(m => `<div class="chip-row">${chip("elective", m.id, m.title)}<button class="chip-view" data-preview="${h(m.id)}" title="See what's in ${h(m.title)}" aria-label="Preview ${h(m.title)}">👁</button></div>`).join("")}
             <h3>Group modules <span class="muted">(change only if you need to)</span></h3>
-            ${RP.GROUP_SESSIONS.filter(g => !g.movement).map(g => chip("group", g.id, g.title, g.core ? ` <span class="tag core">core</span>` : g.optional ? ` <span class="tag">optional</span>` : "")).join("")}
+            ${RP.GROUP_SESSIONS.filter(g => !g.movement && !g.retired).map(g => chip("group", g.id, g.title, g.core ? ` <span class="tag core">core</span>` : g.optional ? ` <span class="tag">optional</span>` : "")).join("")}
             <h3>Other</h3>
             ${chip("custom", "custom", "Other (type what it is)")}
             ${chip("morning", "morning", "Morning session (check-in)")}
+            ${chip("debrief", "debrief", "Afternoon debrief (survey)")}
             ${chip("free", "free", "Free choice")}
             ${chip("clear", "clear", "Empty (choose later)")}
           </aside>
@@ -1447,6 +1514,8 @@
       b.disabled = true; await setDone(s, s.status !== "done"); reload();
     });
     app().querySelectorAll("[data-preview]").forEach(b => b.onclick = e => { e.stopPropagation(); previewModule(b.dataset.preview); });
+    app().querySelectorAll(".plan-days [data-present]").forEach(b => b.onclick = e => { e.stopPropagation(); showPresent(b.dataset.present); });
+    app().querySelectorAll("[data-riot-lesson], [data-riot-format]").forEach(sel => sel.onchange = () => setRiot(v, sel));
     app().querySelectorAll("[data-open-ind]").forEach(b => b.onclick = () => show({ name: "individual", visitId: v.id, sessionId: b.dataset.openInd, from: view.from }));
     app().querySelectorAll("[data-mark]").forEach(b => b.onclick = async () => {
       const s = v.sessions.find(s => s.id === b.dataset.mark);
@@ -1460,25 +1529,32 @@
       if (!confirm(`Let them start "${titleOf(s)}" again? Their progress, result and written answers for it will be cleared.`)) return;
       await api.updateSession(s.id, { status: "not_started", result: null, state: null, completed_at: null }); reload();
     });
+    app().querySelectorAll("[data-full]").forEach(sel => sel.onchange = async () => {
+      const s = v.sessions.find(s => s.id === sel.dataset.full);
+      const st = Object.assign({}, s.state || {});
+      if (sel.value) st.full = true; else delete st.full;
+      await api.updateSession(s.id, { state: Object.keys(st).length ? st : null }); reload();
+    });
     app().querySelectorAll("[data-level]").forEach(sel => sel.onchange = async () => {
       const s = v.sessions.find(s => s.id === sel.dataset.level);
       await api.updateSession(s.id, { state: sel.value ? { level: Number(sel.value) } : null }); reload();
     });
     app().querySelectorAll("[data-apply]").forEach(b => b.onclick = () => applyRotation(Number(b.dataset.apply), b.previousElementSibling.value));
+    app().querySelectorAll("[data-times]").forEach(b => b.onclick = () => editTimes(v, Number(b.dataset.times)));
   }
 
   function planWarnings(v) {
     const notes = [];
     const clash = v.active ? clashes(v) : {};
-    Object.keys(clash).forEach(slot => notes.push(`Today's teacher-led session at ${RP.formatTime(RP.slotTimes(Number(slot)).start)} clashes with ${clash[slot].join(", ")}. You can only be with one student at a time.`));
+    Object.keys(clash).forEach(slot => notes.push(`Today's teacher-led session at ${RP.formatTime(RP.slotTimes(Number(slot), ttOf(v, v.current_day)).start)} clashes with ${clash[slot].join(", ")}. You can only be with one student at a time.`));
     [1, 2].forEach(day => missingIndividual(v, day).forEach(x => notes.push(`Day ${day} doesn't have the teacher-led "${x.title}" session yet. Drag it into an empty session.`)));
     return notes.length ? `<div class="card warn-card">${notes.map(n => `<p>⚠ ${h(n)}</p>`).join("")}</div>` : "";
   }
 
   function planDay(v, day) {
-    const now = RP.currentSlot();
+    const tt = ttOf(v, day), now = RP.currentSlot(tt);
     const rot = rotationOf(v, day);
-    const rows = RP.TIMETABLE.map(t => {
+    const rows = tt.map(t => {
       if (t.brk) return `<li class="plan-brk"><span class="time">${RP.formatTime(t.start)}</span>${h(t.brk)}</li>`;
       const s = at(v, day, t.slot);
       return s ? slotRow(s, t, day === v.current_day && now === t.slot) : "";
@@ -1492,6 +1568,7 @@
             <select>${Object.keys(RP.ROTATIONS).map(r => `<option value="${r}"${r === rot ? " selected" : ""}>Rotation ${r}</option>`).join("")}${rot === "custom" ? `<option value="custom" selected>Custom</option>` : ""}</select>
             <button class="btn small" data-apply="${day}">Apply</button>
           </span>
+          <button class="btn small${v.times && v.times[day] ? " changed" : ""}" data-times="${day}" title="Change this day's session times">${v.times && v.times[day] ? "⏱ Changed times" : "⏱ Times"}</button>
         </div>
         <ol class="plan-list">${rows}</ol>
         ${one ? slotRow(one, null, false) : ""}
@@ -1499,13 +1576,23 @@
   }
 
   function slotRow(s, t, isNow) {
-    const fixed = s.slot === RP.LAST_SLOT || s.slot === RP.ONE_TO_ONE_SLOT;
+    const fixed = s.slot === RP.ONE_TO_ONE_SLOT;
     const m = s.kind === "independent" && s.activity && RP.MODULES[s.activity];
     let controls = "";
+    if (RP.isRiot(s)) {
+      const st = s.state || {}, fmt = st.format || "paper";
+      controls = `<select class="small" data-riot-lesson="${s.id}" aria-label="RIOT lesson"><option value="">Choose the lesson</option>${RP.RIOT.map(L => `<option value="${L.n}"${st.lesson === L.n ? " selected" : ""}>${h(L.fullTitle)}</option>`).join("")}</select>
+        <select class="small" data-riot-format="${s.id}" aria-label="Worksheet format">${RP.RIOT_FORMATS.map(f => `<option value="${f.id}"${fmt === f.id ? " selected" : ""}${f.id !== "paper" && api.needsUpdate3 ? " disabled" : ""}>${h(f.label)}${f.id !== "paper" && api.needsUpdate3 ? " (needs database update 3)" : ""}</option>`).join("")}</select>
+        ${st.lesson ? `<button class="btn small" data-present="riot:${st.lesson}">Present</button>` : ""}
+        ${st.lesson && fmt !== "paper" && s.status !== "not_started" ? `<button class="btn small" data-open-ind="${s.id}">Answers</button>` : ""}`;
+    }
     if (teacherTicks(s)) {
-      controls = `${s.kind === "one_to_one" ? `<button class="btn small" data-open-ind="${s.id}">Open</button>` : ""}<button class="btn small${s.status === "done" ? " ok" : ""}" data-tick="${s.id}">${s.status === "done" ? "✓ Done" : "Mark done"}</button>`;
+      controls += `${s.kind === "one_to_one" ? `<button class="btn small" data-open-ind="${s.id}">Open</button>` : ""}<button class="btn small${s.status === "done" ? " ok" : ""}" data-tick="${s.id}">${s.status === "done" ? "✓ Done" : "Mark done"}</button>`;
     } else if (m) {
-      controls = `${m.teacherLed ? `<button class="btn small" data-open-ind="${s.id}">Open</button>` : ""}<button class="btn small" data-preview="${h(m.id)}" title="See what's in this module" aria-label="View module">👁</button>`;
+      controls = `${m.teacherLed ? `<button class="btn small" data-open-ind="${s.id}">Open</button>` : s.status !== "not_started" ? `<button class="btn small" data-open-ind="${s.id}" title="See their answers as they go">Answers</button>` : ""}<button class="btn small" data-preview="${h(m.id)}" title="See what's in this module" aria-label="View module">👁</button>`;
+      if (s.status === "not_started" && m.items && m.items.some(it => it.extra)) {
+        controls += `<select class="small" data-full="${s.id}" aria-label="Version"><option value="">Standard version</option><option value="1"${s.state && s.state.full ? " selected" : ""}>Full version (${m.items.filter(it => it.extra).length} extra page${m.items.filter(it => it.extra).length > 1 ? "s" : ""})</option></select>`;
+      }
       if (s.status === "not_started" && m.levels) {
         const lv = s.state && s.state.level;
         controls += `<select class="small" data-level="${s.id}" aria-label="Suggested level"><option value="">Level: student picks</option>${m.levels.map(l => `<option value="${l.level}"${lv === l.level ? " selected" : ""}>Suggest ${h(l.title)}${l.staff ? ` (${h(l.staff.replace(/, from.*$/, ""))})` : ""}</option>`).join("")}</select>`;
@@ -1524,9 +1611,79 @@
       </li>`;
   }
 
+  // Change a day's session times (e.g. Tuesday's shorter bell times, or a shorter session). Saved
+  // with the student's program; the student's laptop and the dashboard use them.
+  function editTimes(v, day) {
+    const presets = RP.TIMETABLE_PRESETS || [];
+    const box = document.createElement("dialog");
+    box.className = "times-dialog";
+    const rowsHtml = tt => tt.map((t, i) => `<tr><td>${t.brk ? h(t.brk) : `Session ${t.slot}`}</td>
+      <td><input type="time" data-start="${i}" value="${t.start}" required></td><td><input type="time" data-end="${i}" value="${t.end}" required></td></tr>`).join("");
+    box.innerHTML = `
+      <form method="dialog" data-times-form>
+        <h2>Day ${day} times</h2>
+        <p class="muted">Change when each session starts and ends, for example on a day with shorter bell times. The student's laptop follows these times.</p>
+        <div class="actions">${["Normal times"].concat(presets.map(p => p.name)).map((n, k) => `<button type="button" class="btn small" data-preset="${k}">${h(n)}</button>`).join("")}</div>
+        <table class="records times-table"><thead><tr><th></th><th>Starts</th><th>Ends</th></tr></thead><tbody data-rows>${rowsHtml(ttOf(v, day))}</tbody></table>
+        ${day === v.current_day ? `<label class="field inline"><input type="checkbox" data-everyone> Use these times for everyone else in the program today too</label>` : ""}
+        <p class="error" aria-live="polite"></p>
+        <div class="actions"><button class="btn primary" type="submit">Save</button><button class="btn ghost" type="button" data-cancel>Cancel</button></div>
+      </form>`;
+    document.body.appendChild(box);
+    const err = box.querySelector(".error");
+    box.querySelectorAll("[data-preset]").forEach(b => b.onclick = () => {
+      const k = Number(b.dataset.preset);
+      box.querySelector("[data-rows]").innerHTML = rowsHtml(k === 0 ? RP.TIMETABLE : presets[k - 1].times);
+    });
+    box.querySelector("[data-cancel]").onclick = () => box.close();
+    box.addEventListener("close", () => box.remove());
+    box.querySelector("[data-times-form]").onsubmit = async e => {
+      e.preventDefault();
+      const tt = RP.TIMETABLE.map((t, i) => Object.assign({}, t, { start: box.querySelector(`[data-start="${i}"]`).value, end: box.querySelector(`[data-end="${i}"]`).value }));
+      for (let i = 0; i < tt.length; i++) {
+        if (!tt[i].start || !tt[i].end || RP.toMinutes(tt[i].start) >= RP.toMinutes(tt[i].end)) { err.textContent = `Check ${tt[i].brk || "Session " + tt[i].slot}: it has to start before it ends.`; return; }
+        if (i && RP.toMinutes(tt[i].start) < RP.toMinutes(tt[i - 1].end)) { err.textContent = `${tt[i].brk || "Session " + tt[i].slot} starts before the one before it ends.`; return; }
+      }
+      const normal = JSON.stringify(tt.map(t => [t.start, t.end])) === JSON.stringify(RP.TIMETABLE.map(t => [t.start, t.end]));
+      const withDay = (times, d) => { const out = Object.assign({}, times || {}); if (normal) delete out[d]; else out[d] = tt; return Object.keys(out).length ? out : null; };
+      try {
+        await api.updateVisit(v.id, { times: withDay(v.times, day) });
+        const all = box.querySelector("[data-everyone]");
+        if (all && all.checked) for (const o of visits.filter(o => o.id !== v.id && o.kind !== "followup")) await api.updateVisit(o.id, { times: withDay(o.times, o.current_day) });
+        box.close();
+        [visit, visits] = await Promise.all([api.getVisit(visit.id), api.listActive()]); renderPlan();
+      } catch (ex) { err.textContent = ex.message; }
+    };
+    box.showModal();
+  }
+
+  // Choose a RIOT lesson or worksheet format, and offer the same to the other students in that
+  // RIOT session today.
+  async function setRiot(v, sel) {
+    const s = v.sessions.find(x => x.id === (sel.dataset.riotLesson || sel.dataset.riotFormat));
+    const st = Object.assign({ format: "paper" }, s.state || {});
+    const key = sel.dataset.riotLesson ? "lesson" : "format";
+    const value = key === "lesson" ? (sel.value ? Number(sel.value) : null) : sel.value;
+    let patch = { state: Object.assign({}, st, { [key]: value }) };
+    if (s.status !== "not_started") {
+      if (!confirm(`They've already started this RIOT lesson. Change it? Their progress on it will be cleared.`)) { renderPlan(); return; }
+      patch = { status: "not_started", result: null, completed_at: null, state: { lesson: patch.state.lesson, format: patch.state.format } };
+    }
+    try {
+      await api.updateSession(s.id, patch);
+      const others = s.day === v.current_day ? visits.filter(o => o.id !== v.id && !o.paused && o.kind !== "followup")
+        .map(o => at(o, o.current_day, s.slot)).filter(x => x && RP.isRiot(x) && x.status === "not_started") : [];
+      const L = RP.riotLesson(patch.state.lesson), f = RP.RIOT_FORMATS.find(x => x.id === patch.state.format);
+      if (others.length && L && confirm(`Use ${L.fullTitle} (${f.label}) for the other ${others.length} student${others.length > 1 ? "s" : ""} with RIOT at ${RP.formatTime(RP.slotTimes(s.slot, ttOf(v, s.day)).start)} today?`)) {
+        for (const x of others) await api.updateSession(x.id, { state: Object.assign({}, x.state || {}, { lesson: patch.state.lesson, format: patch.state.format }) });
+      }
+      [visit, visits] = await Promise.all([api.getVisit(visit.id), api.listActive()]); renderPlan();
+    } catch (ex) { failed(ex); }
+  }
+
   async function place(day, slot, item) {
     const s = at(visit, day, slot);
-    if (!s || slot === RP.LAST_SLOT || slot === RP.ONE_TO_ONE_SLOT) return;
+    if (!s || slot === RP.ONE_TO_ONE_SLOT) return;
     let patch, moveFrom = null;
     if (item.type === "elective") patch = { kind: "independent", activity: item.id, title: RP.MODULES[item.id].title };
     else if (item.type === "group") patch = { kind: "group", activity: item.id, title: RP.groupSession(item.id).title };
@@ -1537,20 +1694,25 @@
       if (name == null || !name.trim()) { pick = null; renderPlan(); return; }
       patch = { kind: "free", activity: "custom", title: name.trim().slice(0, 80) };
     }
-    else if (item.type === "morning") {
-      // Move the morning session (social story, check-in and survey), e.g. for a late arrival.
-      patch = { kind: "intro", activity: null, title: "Morning session" };
-      moveFrom = visit.sessions.find(x => x.day === day && x.kind === "intro" && x.slot !== slot) || null;
-      if (moveFrom && !confirm(`Move the morning session from ${RP.formatTime(RP.slotTimes(moveFrom.slot).start)} to ${RP.formatTime(RP.slotTimes(slot).start)} on Day ${day}? ${RP.formatTime(RP.slotTimes(moveFrom.slot).start)} will become empty.` +
-        (moveFrom.status !== "not_started" ? "\n\nThey've already started the morning check-in; it will start again." : ""))) { pick = null; renderPlan(); return; }
+    else if (item.type === "morning" || item.type === "debrief") {
+      // Move the morning session (social story, check-in and survey), e.g. for a late arrival, or
+      // the afternoon debrief (survey), e.g. for a return meeting at the end of the day.
+      const kind = item.type === "morning" ? "intro" : "debrief", name = item.type === "morning" ? "morning session" : "afternoon debrief";
+      patch = { kind, activity: null, title: item.type === "morning" ? "Morning session" : "Afternoon debrief" };
+      moveFrom = visit.sessions.find(x => x.day === day && x.kind === kind && x.slot !== slot) || null;
+      const T = x => RP.formatTime(RP.slotTimes(x, ttOf(visit, day)).start);
+      if (moveFrom && !confirm(`Move the ${name} from ${T(moveFrom.slot)} to ${T(slot)} on Day ${day}? ${T(moveFrom.slot)} will become empty.` +
+        (moveFrom.status !== "not_started" ? `\n\nThey've already started the ${name} survey; it will start again.` : ""))) { pick = null; renderPlan(); return; }
     }
     else patch = { kind: "independent", activity: null, title: "Empty" };
     if (s.kind === patch.kind && s.activity === patch.activity && !RP.isCustom(patch)) { pick = null; renderPlan(); return; }
+    if (s.kind === "debrief" && patch.kind !== "debrief" && !visit.sessions.some(x => x.day === day && x.kind === "debrief" && x.id !== s.id) &&
+      !confirm(`This replaces the afternoon debrief (end-of-day survey and certificate) on Day ${day}. To keep it, drag "Afternoon debrief" to another time first.\n\nReplace it anyway?`)) { pick = null; renderPlan(); return; }
     if (s.kind === "intro" && patch.kind !== "intro" && !visit.sessions.some(x => x.day === day && x.kind === "intro" && x.id !== s.id) &&
       !confirm(`This replaces the morning session (check-in and survey) on Day ${day}. To keep it, drag "Morning session" to a later time first.\n\nReplace it anyway?`)) { pick = null; renderPlan(); return; }
     // Group modules follow the room's rotation, so changing one needs a second check.
     if (s.kind === "group" || patch.kind === "group") {
-      const t = RP.slotTimes(slot);
+      const t = RP.slotTimes(slot, ttOf(visit, day));
       const what = s.kind === "group" ? `This replaces the group module "${titleOf(s)}" at ${RP.formatTime(t.start)} on Day ${day} with "${patch.kind === "independent" && !patch.activity ? "Empty" : patch.title}".`
         : `This puts the group module "${patch.title}" at ${RP.formatTime(t.start)} on Day ${day}, replacing "${titleOf(s)}".`;
       if (!confirm(`Are you sure? ${what}\n\nGroup modules follow the room's rotation, so only change one if you need to.`)) { pick = null; renderPlan(); return; }

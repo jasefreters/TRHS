@@ -122,7 +122,7 @@ If you change your thoughts or your actions, you can change the consequences.`
         lunch: { text: "A fight at lunch leads to a suspension. The comment wasn't worth it.", end: "bad" }
       }
     },
-    {
+    { extra: true,
       type: "write", title: "Scenario",
       q: "A peer makes a disrespectful comment during class.",
       prompts: [
@@ -133,7 +133,7 @@ If you change your thoughts or your actions, you can change the consequences.`
         "Who I could approach for support…"
       ]
     },
-    {
+    { extra: true,
       type: "write", title: "Stop, Think, Choose: my turn",
       q: "Use Stop, Think, Choose for a situation you might face at school.",
       prompts: [

@@ -672,3 +672,87 @@ dialog::backdrop { background: rgba(22, 27, 59, .45); }
 .live-talk { margin: .4rem 0 0; padding: .4rem .6rem; background: var(--maroon-soft); border-radius: 8px; color: var(--maroon); font-size: .92rem; }
 @media (max-width: 900px) { .led-layout { grid-template-columns: 1fr; } .led-staff { position: static; } }
 @media print { .led-print .live-talk, .led-print .link-btn { display: none; } .led-print .live-item { break-inside: avoid; background: none; outline: none; } }
+
+/* ---------- RIOT: worksheets (like the RIOT student workbook) ---------- */
+.riot-print-page { background: #fff; display: block; }
+.rs-toolbar { display: flex; gap: 1rem; align-items: center; padding: 1rem 1.5rem; background: var(--bg); border-bottom: 1px solid var(--line); }
+.riot-sheet { background: #fff; color: #222; max-width: 800px; margin: 0 auto; padding: 1.5rem 1.8rem; font-size: 15px; }
+.rs-head { display: flex; align-items: center; gap: 1rem; margin-bottom: 1rem; }
+.rs-head h1 { margin: 0; font-size: 1.6rem; color: #333; text-transform: uppercase; letter-spacing: .02em; }
+.rs-badge { background: #c8102e; color: #fff; font-weight: 800; border-radius: 50%; width: 3.2rem; height: 3.2rem; display: inline-flex; align-items: center; justify-content: center; font-size: .9rem; flex: none; }
+.rs-li { width: 100%; border-collapse: collapse; margin-bottom: 1.2rem; }
+.rs-li th { background: #6c9a3f; color: #fff; text-align: left; padding: .4rem .6rem; font-size: .9rem; letter-spacing: .05em; }
+.rs-li td { border: 1.5px solid #6c9a3f; vertical-align: top; padding: .4rem .6rem; width: 50%; }
+.rs-li p { margin: 0 0 .2rem; font-weight: 600; }
+.rs-li ul { margin: 0; padding-left: 1.1rem; }
+.rs-ex { margin: 1.1rem 0; break-inside: avoid; }
+.rs-ex-head { display: flex; align-items: center; gap: .6rem; margin-bottom: .5rem; }
+.rs-ex-label { background: #c8102e; color: #fff; font-weight: 800; padding: .2rem .6rem; font-size: .85rem; letter-spacing: .06em; }
+.rs-ex-title { font-weight: 800; color: #333; letter-spacing: .04em; }
+.rs-prompt { font-weight: 600; margin: .6rem 0 .2rem; }
+.rs-lines div { border-bottom: 1px solid #999; height: 1.8rem; }
+.rs-table { width: 100%; border-collapse: collapse; margin: .4rem 0; }
+.rs-table th, .rs-table td { border: 1px solid #999; padding: .35rem .5rem; text-align: left; vertical-align: top; }
+.rs-table th { background: #e8f0df; }
+.rs-tick { text-align: center !important; width: 5.5rem; font-size: 1.2rem; }
+.rs-num { width: 3rem; }
+.rs-stars { font-size: 1.4rem; letter-spacing: .2em; }
+.rs-boxes { list-style: none; padding: 0; margin: .3rem 0; }
+.rs-boxes li { margin: .2rem 0; }
+.rs-cols { columns: 2; column-gap: 2rem; }
+.rs-match { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; align-items: start; }
+.rs-letters { margin: .4rem 0; padding-left: 1.4rem; }
+.rs-letters li { margin: .3rem 0; }
+.rs-foot { margin-top: 1.5rem; font-size: .8rem; color: #777; border-top: 3px solid #c8102e; padding-top: .3rem; }
+.riot-lesson { border-top: 1px solid var(--line); padding: .8rem 0; }
+.riot-lesson h3 { margin: 0 0 .4rem; }
+.riot-lesson details { margin: .3rem 0; }
+.riot-lesson .riot-sheet { border: 1px solid var(--line); border-radius: 10px; margin-top: .5rem; }
+@media print {
+  .riot-print-page .riot-sheet { max-width: none; padding: 0; }
+  .riot-sheet { page: portrait; }
+}
+
+/* ---------- RIOT: slides, in the style of the RIOT PowerPoints ---------- */
+.present.riot-theme { background: #fff; color: #333; background-image: none; }
+.riot-theme .present-top { background: var(--navy); color: #fff; }
+.riot-theme .present-slide { padding: 4vh 7vw; justify-content: flex-start; padding-top: 6vh; }
+.riot-theme .present-slide h1 { color: #444; font-size: clamp(1.8rem, 4vw, 3.4rem); padding-bottom: .4rem; border-bottom: 6px solid #555; display: inline-block; margin-bottom: 4vh; align-self: flex-start; }
+.riot-theme .present-slide h2 { color: #444; font-size: clamp(1.1rem, 2vw, 1.7rem); margin: 0 0 1vh; }
+.riot-theme .present-slide ul { color: #222; }
+.riot-theme .present-note { color: #333; border-left-color: #6c9a3f; }
+.riot-theme .present-nav { background: #c8102e; color: #fff; }
+.riot-theme .present-nav button { color: #fff; border-color: rgba(255,255,255,.6); }
+.riot-theme .present-motto { color: #fff; font-style: normal; font-weight: 600; }
+.riot-boxes { display: grid; gap: 2.5vh; max-width: 70vw; }
+.riot-box { background: #c5e0b4; border-radius: 12px; padding: 2vh 2vw; font-size: clamp(1.1rem, 2.2vw, 2rem); color: #222; }
+.riot-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 4vw; }
+.riot-cols ul { font-size: clamp(1rem, 1.9vw, 1.7rem) !important; }
+.riot-activity li.riot-q { list-style: none; margin-left: -1.2em; font-weight: 700; color: #c8102e; }
+.riot-cover { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; height: 100%; gap: 2vh; }
+.riot-cover h1 { border: none !important; margin: 0 !important; align-self: center !important; }
+.riot-cover p { font-size: clamp(1.1rem, 2.2vw, 2rem); color: #555; }
+.riot-badge { width: 22vh; height: 22vh; border-radius: 50%; background: #c8102e; color: #fff; border: 1.2vh solid #2a8fb0; font-weight: 800; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 2.6vh; line-height: 1.25; }
+.times-dialog { width: min(520px, 94vw); }
+.times-table input { font: inherit; padding: .25em .4em; border: 1.5px solid var(--line); border-radius: 8px; }
+.btn.changed { border-color: var(--amber); }
+
+/* The run sheet prints on one landscape A4 page. */
+@media print {
+  .runsheet-page .page-head { margin-bottom: 2mm; }
+  .runsheet-page .page-head h1 { font-size: 14pt; }
+  .runsheet-page > .print-only { margin-bottom: 2mm; font-size: 10pt; }
+  .runsheet-page .table-wrap { overflow: visible !important; box-shadow: none; }
+  .runsheet { width: 100%; table-layout: fixed; border-collapse: collapse; }
+  .runsheet th, .runsheet td { font-size: 8pt !important; padding: 1.2mm 1.5mm !important; line-height: 1.2; border: 0.5pt solid #bbb; }
+  .runsheet th:first-child, .runsheet td:first-child { width: 22mm; }
+  .runsheet th:nth-child(2), .runsheet td:nth-child(2) { width: 30mm; }
+  .runsheet tr { break-inside: avoid; }
+  .runsheet thead { display: table-header-group; }
+  .runsheet-page > .muted { display: none; }
+  .runsheet-page { page: landscape; }
+  @page landscape { size: A4 landscape; margin: 8mm; }
+}
+.present-slide { min-height: 0; overflow-y: auto; }
+.riot-theme .present-slide ul.riot-activity { font-size: clamp(1rem, 1.9vw, 1.7rem); }
+.riot-theme .present-slide ul.riot-activity li { margin-bottom: .25em; }

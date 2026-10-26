@@ -61,7 +61,7 @@ You can take responsibility for a poor choice without deciding you're a bad pers
         { text: "There's no point trying. I'm just bad.", bucket: 1 }
       ]
     },
-    {
+    { extra: true,
       type: "write", title: "Guilt and shame",
       prompts: [
         "How can I take responsibility without putting myself down?",
