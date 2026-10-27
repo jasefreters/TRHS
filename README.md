@@ -174,7 +174,7 @@ Open the site with `?demo=1` on the end (for example `teacher.html?demo=1`) to u
 
 ## Sentral post
 
-On a student's record (**All students**, then the student), **Sentral post** writes a short overview for the Sentral staff noticeboard, worded so staff who don't know the program can follow it: how many modules they completed (group, independent and teacher-led), what their work and answers kept coming back to, their growth and highlights, and one of their own responses (with obvious spelling slips fixed). Type their name and choose their pronouns, choose a response, check the wording, then **Copy** and paste it into Sentral. Nothing typed there is saved.
+On a student's record (**All students**, then the student), **Sentral post** writes a short post for the Sentral staff noticeboard: a line of context, a few dot points led by what their work and answers kept coming back to, their growth and highlights, and one of their own responses (with obvious spelling slips fixed). Type their name and choose their pronouns, choose a response, and click **↻ New version** for different wording and layout. Check it, then **Copy** and paste it into Sentral. Nothing typed there is saved.
 
 ## Certificates
 

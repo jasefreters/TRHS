@@ -735,10 +735,11 @@
   }
 
   // ---------------------------------------------------------------- Sentral post
-  // A short overview of a program for the Sentral staff noticeboard, written for staff who don't
-  // know the program: how many modules they did, what their work kept coming back to, their
-  // growth and highlights, and one of their own responses (spelling tidied). Staff type the name
-  // and pronouns and edit it before copying; nothing here is saved.
+  // A short post about a student for the Sentral staff noticeboard, for staff who don't know the
+  // program: a line of context, dot points led by what their work and answers kept coming back to,
+  // growth, highlights and anything to support, and one of their own responses (spelling tidied).
+  // The wording and layout vary by student and with ↻ New version, so posts don't read like a
+  // template. Staff type the name and pronouns and edit it before copying; nothing is saved.
   const PRONOUNS = {
     they: { label: "they/them", sub: "they", obj: "them", pos: "their", refl: "themselves" },
     he: { label: "he/him", sub: "he", obj: "him", pos: "his", refl: "himself" },
@@ -822,73 +823,106 @@
     return out.sort((a, b) => a.rank - b.rank).filter(q => { const k = q.about || q.label; if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 6);
   }
 
-  function sentralText(v, name, quotes, pro) {
-    const N = name || "[Student]", P = PRONOUNS[pro] || PRONOUNS.they;
-    const fill = t => t.replace(/\{(sub|obj|refl)\}/g, (m, k) => P[k]);
+  // A small seeded random, so each student's post (and each ↻ New version) words things differently.
+  const seeded = seed => () => { seed = (seed + 0x6D2B79F5) | 0; let t = Math.imul(seed ^ (seed >>> 15), 1 | seed); t ^= t + Math.imul(t ^ (t >>> 7), 61 | t); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const hashOf = t => [...String(t)].reduce((n, c) => (Math.imul(n, 31) + c.charCodeAt(0)) | 0, 7);
+
+  // The facts a post is built from: what their work and answers kept coming back to, growth,
+  // highlights and areas to support. Wording and layout are chosen afterwards.
+  function sentralFacts(v) {
     const done = v.sessions.filter(s => s.status === "done").sort(RP.bySchedule(v.times));
-    const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
-    const group = done.filter(s => s.kind === "group");
-    const led = done.filter(s => s.kind === "one_to_one" || RP.isLedModule(s));
     const ind = done.filter(s => s.kind === "independent" && s.activity && !RP.isLedModule(s));
-    const count = group.length + led.length + ind.length;
+    const count = done.filter(s => s.kind === "group" || s.kind === "one_to_one" || (s.kind === "independent" && s.activity)).length;
     const dates = done.map(s => s.completed_at || s.updated_at).filter(Boolean).sort();
     const from = RP.longDate(dates[0] || v.start_date), to = dates.length ? RP.longDate(dates[dates.length - 1]) : from;
-    const fa = from.split(" "), ta = to.split(" ");
-    const when = from === to ? `on ${from}` : fa[1] === ta[1] && fa[2] === ta[2] ? `on ${fa[0]}–${to}` : `from ${from} to ${to}`;
-    const days = new Set(done.map(s => s.day)).size;
-
-    // Paragraph 1: what they did, and what it kept coming back to.
-    let p1 = v.active
-      ? `${N} has been in the Reset Program, the school's in-house program in the Hub for students returning from suspension, since ${from}`
-      : `${N} spent ${days === 1 ? "a day" : "two days"} in the Reset Program, the school's in-house program in the Hub for students returning from suspension, ${when}`;
-    const parts = [];
-    if (group.length) parts.push(`${plural(group.length, "small-group lesson", "small-group lessons")} with a staff member`);
-    if (ind.length) parts.push(`${ind.length} working independently on a laptop`);
-    if (led.length) parts.push(`${plural(led.length, "one-on-one session", "one-on-one sessions")} with a teacher`);
-    p1 += count ? `, completing ${plural(count, "module", "modules")}: ${listText(parts)}.` : ".";
+    // "27 October", or "27–28 October" (no year: it's a noticeboard post).
+    const fa = from.split(" "), ta = to.split(" "), dm = d => d.split(" ").slice(0, 2).join(" ");
+    const when = from === to ? `on ${dm(from)}` : fa[1] === ta[1] ? `on ${fa[0]}–${dm(to)}` : `from ${dm(from)} to ${dm(to)}`;
     const counts = {};
     done.forEach(s => { const k = themeOf(s); if (k) counts[k] = (counts[k] || 0) + 1; });
-    const top = Object.keys(counts).sort((a, b) => counts[b] - counts[a]).slice(0, 2).map(k => THEMES[k].words);
-    const plan = done.some(s => s.activity === "ind-success") ? `wrote a Return to Class Plan with a teacher` : done.some(s => s.activity === "module-6") ? `drafted a Return to Class Plan` : "";
-    if (top.length) p1 += ` Much of ${P.pos} work focused on ${listText(top)}${plan ? `, and ${P.sub} ${plan}` : ""}.`;
-    else if (plan) p1 += ` ${cap(P.sub)} ${plan}.`;
+    const themes = Object.keys(counts).sort((a, b) => counts[b] - counts[a]).slice(0, 2).map(k => THEMES[k].words);
     // Strategies that come up in answers from more than one module or survey.
     const seenIn = {};
     done.filter(s => s.state && s.state.responses).forEach(s => {
       const all = s.state.responses.flatMap(sec => sec.rows.map(r => r.text || "")).join(" ");
       STRATEGIES.forEach(([re, words]) => { if (re.test(all)) seenIn[words] = (seenIn[words] || 0) + 1; });
     });
-    const threads = Object.keys(seenIn).filter(k => seenIn[k] > 1).sort((a, b) => seenIn[b] - seenIn[a]).slice(0, 2);
-    if (threads.length) p1 += ` A common thread in ${P.pos} answers was ${listText(threads)}.`;
-
-    // Paragraph 2: growth, highlights and their own words.
-    const bits = [];
+    const strategies = Object.keys(seenIn).filter(k => seenIn[k] > 1).sort((a, b) => seenIn[b] - seenIn[a]).slice(0, 2);
     const surveys = RP.SURVEY_ORDER.filter(id => id !== "followup").map(id => done.find(s => RP.surveyResultId(s.result) === id)).filter(s => s && s.result.ratings && s.result.ratings.length);
-    let low = null;
+    let growth = null, low = null;
     if (surveys.length > 1) {
       const first = surveys[0].result, last = surveys[surveys.length - 1].result;
       const r = last.ratings.map((x, k) => ({ k, x: x || 0, d: (x || 0) - ((first.ratings || [])[k] || 0) }));
-      const grew = r.slice().sort((a, b) => b.d - a.d)[0];
-      low = r.slice().sort((a, b) => a.x - b.x)[0];
-      bits.push(last.total > first.total
-        ? `${cap(P.pos)} own rating of ${P.pos} skills grew from ${first.total} to ${last.total} out of ${last.max || 50} over the program${grew.d > 0 ? `, with the biggest growth in ${RP.SURVEY_PHRASES[grew.k]}` : ""}.`
-        : `${cap(P.pos)} own rating of ${P.pos} skills was ${first.total} out of ${first.max || 50} at the start and ${last.total} at the end.`);
+      const grew = r.slice().sort((a, b) => b.d - a.d)[0], lo = r.slice().sort((a, b) => a.x - b.x)[0];
+      growth = { a: first.total, b: last.total, max: last.max || 50, most: grew.d > 0 ? RP.SURVEY_PHRASES[grew.k] : null };
+      if (lo.x <= 2) low = RP.SURVEY_PHRASES[lo.k];
     }
-    // Highlights: moving up a level, a strong score, arriving ready to learn.
-    const levelled = ind.filter(s => s.result && s.result.levels && s.result.levels.length > 1).map(s => titleOf(s).replace(/:\s*Day \d$/i, ""));
+    // Highlights, as "moving up…" and "moved up…" so either fits a sentence.
     const wins = [];
-    if (levelled.length) wins.push(`moving up a level in ${listText([...new Set(levelled)])}`);
-    const strong = ind.filter(s => s.result && s.result.outOf && s.result.score / s.result.outOf >= 0.8 && !levelled.includes(titleOf(s).replace(/:\s*Day \d$/i, "")));
-    if (strong.length) wins.push(`scoring ${strong[0].result.score}/${strong[0].result.outOf} in ${titleOf(strong[0]).replace(/:\s*Day \d$/i, "")}`);
+    const subject = s => titleOf(s).replace(/:\s*Day \d$/i, "");
+    const levelled = [...new Set(ind.filter(s => s.result && s.result.levels && s.result.levels.length > 1).map(subject))];
+    if (levelled.length) wins.push([`moving up a level in ${listText(levelled)}`, `moved up a level in ${listText(levelled)}`]);
+    const strong = ind.find(s => s.result && s.result.outOf && s.result.score / s.result.outOf >= 0.8 && !levelled.includes(subject(s)));
+    if (strong) wins.push([`scoring ${strong.result.score}/${strong.result.outOf} in ${subject(strong)}`, `scored ${strong.result.score}/${strong.result.outOf} in ${subject(strong)}`]);
     const lights = [1, 2].map(d => done.find(s => s.day === d && s.kind === "intro")).map(s => s && s.result && s.result.light);
-    if (lights[1] === "green" && lights[0] && lights[0] !== "green") wins.push("arriving on Day 2 ready to learn");
-    if (wins.length) bits.push(`Highlights included ${listText(wins)}.`);
-    if (low && low.x <= 2) bits.push(`${cap(RP.SURVEY_PHRASES[low.k])} is still an area to support.`);
+    if (lights[1] === "green" && lights[0] && lights[0] !== "green") wins.push(["arriving on Day 2 ready to learn", "arrived on Day 2 ready to learn"]);
+    const plan = done.some(s => s.activity === "ind-success") ? "with" : done.some(s => s.activity === "module-6") ? "draft" : "";
+    return { active: v.active, from: dm(from), when, days: new Set(done.map(s => s.day)).size, count, themes, strategies, growth, low, wins, plan };
+  }
+
+  // The post: a line of context, a few dot points led by the common threads, and their own words.
+  // `seed` picks the wording and layout; ↻ New version changes it.
+  function sentralText(v, name, quotes, pro, seed) {
+    const N = name || "[Student]", P = PRONOUNS[pro] || PRONOUNS.they, F = sentralFacts(v);
+    const rnd = seeded(hashOf(v.id) + (seed || 0) * 7919), pick = xs => xs[Math.floor(rnd() * xs.length)];
+    const fill = t => t.replace(/\{(sub|obj|refl)\}/g, (m, k) => P[k]);
+    const mods = F.count ? `${F.count} module${F.count === 1 ? "" : "s"}` : "";
+    const dayWords = F.days === 1 ? "one day" : "two days";
+
+    const intro = F.active ? pick([
+      `${N} has been in the Reset Program since ${F.from}.`,
+      `Update on ${N}, who has been in the Reset Program (our in-school program after suspension) since ${F.from}.`,
+      `${N} has been in the Hub for the Reset Program since ${F.from}${mods ? ` (${mods} done)` : ""}.`
+    ]) : pick([
+      `${N} finished the Reset Program ${F.when}.`,
+      `Update on ${N}, who completed the Reset Program (our in-school program after suspension) ${F.when}.`,
+      `${N} spent ${dayWords} in the Hub on the Reset Program ${F.when}${mods ? ` (${mods})` : ""}.`,
+      `${N} is back from the Reset Program${mods ? `, where ${P.sub} completed ${mods} over ${dayWords}` : ""}.`
+    ]);
+
+    const points = [];
+    if (F.strategies.length) { const t = listText(F.strategies); points.push(pick([
+      `Kept coming back to ${t} to stay calm`,
+      `${cap(t)} came up again and again`,
+      `Common thread in ${P.pos} answers: ${t}`,
+      `Named ${t} more than once as what works`
+    ])); }
+    if (F.themes.length) { const t = listText(F.themes); points.push(pick([
+      `Most of ${P.pos} work centred on ${t}`,
+      `Big focus on ${t}`,
+      `${cap(t)} came up most`,
+      `Spent most of the program on ${t}`
+    ])); }
+    if (F.growth) { const g = F.growth; points.push(g.b > g.a ? pick([
+      `Self-rating up from ${g.a} to ${g.b} out of ${g.max}${g.most ? `, most in ${g.most}` : ""}`,
+      `More confident by the end (${g.a} → ${g.b}/${g.max})${g.most ? `, especially ${g.most}` : ""}`,
+      g.most ? `Grew most in ${g.most} (self-rating ${g.a} → ${g.b}/${g.max})` : `Rated ${P.refl} ${g.a} at the start and ${g.b} at the end (out of ${g.max})`
+    ]) : `Self-rating steady (${g.a} at the start, ${g.b} at the end, out of ${g.max})`); }
+    if (F.wins.length) points.push(pick([`Highlight: ${listText(F.wins.map(w => w[0]))}`, cap(listText(F.wins.map(w => w[1]))), `Also: ${listText(F.wins.map(w => w[0]))}`]));
+    if (F.low) points.push(pick([`Still building: ${F.low}`, `Worth supporting: ${F.low}`, `Could use a check-in on ${F.low}`]));
+    if (F.plan && points.length < 4) points.push(F.plan === "with" ? pick(["Has a Return to Class Plan, written with a teacher", "Wrote a Return to Class Plan with a teacher"]) : "Drafted a Return to Class Plan");
+
     const said = t => `"${t}${/[.!?…]$/.test(t) ? "" : "."}"`;
-    (quotes || []).forEach(q => {
-      bits.push(q.support ? `Asked about support, ${N} said: ${said(q.text)}` : q.about ? `Asked ${fill(q.about)}, ${N} said: ${said(q.text)}` : `In ${q.from}, ${N} wrote: ${said(q.label + " " + q.text)}`);
-    });
-    return [p1, bits.join(" ")].filter(Boolean).join("\n\n");
+    const quoteLines = (quotes || []).map(q => q.support ? pick([`Asked about support: ${said(q.text)}`, `Support ${P.sub} asked for: ${said(q.text)}`])
+      : q.about ? pick([`In ${P.pos} words: ${said(q.text)}`, `Asked ${fill(q.about)}: ${said(q.text)}`, `${N} said: ${said(q.text)}`])
+      : pick([`From ${q.from}: ${said(cap(q.label) + " " + q.text)}`, `${N} wrote: ${said(cap(q.label) + " " + q.text)}`]));
+
+    // Layouts: bullets after the intro; a short heading over the bullets; or the quote as a bullet.
+    const bullets = ps => ps.map(x => "• " + x).join("\n");
+    const layout = Math.floor(rnd() * 3);
+    if (layout === 1 && points.length) return [intro, pick(["What stood out:", "Common threads:", "Key points:"]) + "\n" + bullets(points), ...quoteLines].join("\n\n");
+    if (layout === 2) return [intro, bullets(points.concat(quoteLines))].filter(Boolean).join("\n\n");
+    return [intro, points.length ? bullets(points) : "", ...quoteLines].filter(Boolean).join("\n\n");
   }
 
   function sentralPost(v) {
@@ -898,26 +932,28 @@
     box.innerHTML = `
       <form method="dialog">
         <h2>Sentral post</h2>
-        <p class="muted">A short overview of ${h(RP.formatCode(v.student.code))}'s program for the staff noticeboard, written for staff who don't know the program. Type their name and pronouns, choose a response to include, check it, then copy it into Sentral. <strong>Nothing here is saved.</strong></p>
+        <p class="muted">A short post about ${h(RP.formatCode(v.student.code))} for the staff noticeboard. Type their name and pronouns, choose a response to include, and use <strong>↻ New version</strong> for different wording. Check it, then copy it into Sentral. <strong>Nothing here is saved.</strong></p>
         <div class="sentral-who">
           <label class="field">Student's name <input data-name autocomplete="off" placeholder="Typed here only, never saved"></label>
           <label class="field">Pronouns <select data-pronouns>${Object.keys(PRONOUNS).map(k => `<option value="${k}">${PRONOUNS[k].label}</option>`).join("")}</select></label>
         </div>
         ${quotes.length ? `<fieldset class="sentral-quotes"><legend>Their own words to include (one is plenty)</legend>${quotes.map((q, i) => `<label><input type="checkbox" data-q="${i}"${i < 1 ? " checked" : ""}> <span class="muted">${h(q.about ? "Asked " + q.about.replace(/\{(sub|obj|refl)\}/g, (m, k) => PRONOUNS.they[k]) : q.from)}:</span> “${h(q.text)}”</label>`).join("")}</fieldset>` : ""}
-        <label class="field">Post <textarea data-text rows="9"></textarea></label>
+        <label class="field">Post <textarea data-text rows="11"></textarea></label>
         <p class="muted small" data-count></p>
-        <div class="actions"><button class="btn primary" type="button" data-copy>Copy</button><button class="btn ghost" type="button" data-close>Close</button></div>
+        <div class="actions"><button class="btn primary" type="button" data-copy>Copy</button><button class="btn" type="button" data-refresh title="Same facts, different wording and layout">↻ New version</button><button class="btn ghost" type="button" data-close>Close</button></div>
       </form>`;
     document.body.appendChild(box);
+    let seed = 0;
     const text = box.querySelector("[data-text]"), count = box.querySelector("[data-count]");
     const words = () => { count.textContent = `${text.value.trim().split(/\s+/).filter(Boolean).length} words`; };
     const draw = () => {
       const picked = [...box.querySelectorAll("[data-q]:checked")].map(c => quotes[Number(c.dataset.q)]);
-      text.value = sentralText(v, box.querySelector("[data-name]").value.trim(), picked, box.querySelector("[data-pronouns]").value); words();
+      text.value = sentralText(v, box.querySelector("[data-name]").value.trim(), picked, box.querySelector("[data-pronouns]").value, seed); words();
     };
     box.querySelector("[data-name]").oninput = draw;
     box.querySelectorAll("[data-q], [data-pronouns]").forEach(c => c.onchange = draw);
     text.oninput = words;
+    box.querySelector("[data-refresh]").onclick = () => { seed++; draw(); };
     box.querySelector("[data-copy]").onclick = async e => {
       try { await navigator.clipboard.writeText(text.value); } catch (ex) { text.select(); document.execCommand("copy"); }
       e.target.textContent = "Copied ✓"; setTimeout(() => { e.target.textContent = "Copy"; }, 1500);
