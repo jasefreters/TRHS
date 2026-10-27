@@ -808,3 +808,4 @@ dialog::backdrop { background: rgba(22, 27, 59, .45); }
 .sentral-dialog input[data-name] { width: 100%; max-width: 360px; }
 .sentral-quotes { border: 1px solid var(--line); border-radius: 10px; padding: .5rem .8rem; margin: .6rem 0; display: flex; flex-direction: column; gap: .35rem; }
 .sentral-quotes label { font-size: .92rem; }
+.cert-list.compact { columns: 3; column-gap: 1.6rem; font-size: .86rem; }

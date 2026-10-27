@@ -313,8 +313,27 @@ RP.dayModules = function (sessions, day, times) {
     .map(s => ({ title: RP.sessionTitle(s), kind: RP.kindLabel(s),
       result: s.kind !== "independent" ? "" : booklet(s) ? RP.subjectsText(s.state.subjects) : RP.resultText(s.result) }));
 };
+// The completion certificate for the whole program: every module finished on either day, once.
+RP.programModules = function (sessions, times) {
+  const seen = new Set();
+  return RP.dayModules(sessions, 1, times).concat(RP.dayModules(sessions, 2, times))
+    .filter(m => !seen.has(m.title) && seen.add(m.title)).map(m => ({ title: m.title, kind: m.kind, result: "" }));
+};
+// A certificate: one day's ({ day: 1 }) or the whole program's ({ complete: true }).
 RP.dayCertificateMarkup = function (cert) {
   const h = RP.h;
+  if (cert.complete) return `
+    <div class="certificate day-cert program-cert">
+      <div class="cert-burst">${RP.logo(110)}</div>
+      <div class="cert-school">Thomas Reddall High School</div>
+      <div class="cert-heading">Certificate of Completion</div>
+      <div class="cert-small">This certificate is awarded to</div>
+      <div class="cert-name" data-cert-name>&nbsp;</div>
+      <div class="cert-small">for successfully completing the Reset Program</div>
+      ${cert.modules.length ? `<ul class="cert-list${cert.modules.length > 10 ? " compact" : ""}">${cert.modules.map(m => `<li>${h(m.title)}</li>`).join("")}</ul>` : ""}
+      <div class="cert-motto">"Focusing on our Future"</div>
+      <div class="cert-foot"><span>Reset Program</span><span>${h(cert.date)}</span></div>
+    </div>`;
   return `
     <div class="certificate day-cert">
       <div class="cert-burst">${RP.logo(110)}</div>
@@ -330,6 +349,7 @@ RP.dayCertificateMarkup = function (cert) {
     </div>`;
 };
 RP.dayMailto = function (cert) {
+  if (cert.complete) return `mailto:?subject=${encodeURIComponent("Reset Program: completion certificate")}&body=${encodeURIComponent(["Reset Program: completed", cert.date, "", "Modules completed:", ...cert.modules.map(m => "- " + m.title)].join("\n"))}`;
   const body = [`Reset Program: Day ${cert.day}`, cert.date, "", "Modules completed:", ...cert.modules.map(m => `- ${m.title} (${m.kind}${m.result ? ", " + m.result : ""})`)].join("\n");
   return `mailto:?subject=${encodeURIComponent("Reset Program: Day " + cert.day + " certificate")}&body=${encodeURIComponent(body)}`;
 };

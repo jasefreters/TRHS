@@ -894,7 +894,7 @@ RP.Player = (function () {
     el.innerHTML = `
       <div class="cert-wrap">
         <div class="cert-controls no-print">
-          <h2>Your certificate for Day ${h(cert.day)}</h2>
+          <h2>${cert.complete ? "Your Reset Program certificate" : `Your certificate for Day ${h(cert.day)}`}</h2>
           <label class="field">Type your name for your certificate <input data-name autocomplete="off" maxlength="40"></label>
           <p class="muted">Your name isn't saved anywhere. To keep a copy, choose <strong>Save as PDF</strong> (then "Save as PDF" or "Save to Google Drive"), or <strong>Email</strong> it.</p>
           <div class="actions">

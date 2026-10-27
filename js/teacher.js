@@ -772,51 +772,46 @@
     return out.sort((a, b) => a.rank - b.rank).filter(q => { const k = q.about || q.label; if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 6);
   }
 
-  function sentralText(v, name, quotes) {
+  // What a teacher-led session was, in a few words for staff outside the program.
+  const LED_WORDS = { "ind-review": "worked through a Reset Plan with a teacher", "ind-success": "wrote a Return to Class Plan with a teacher", "ind-return-meeting": "had their return meeting", "ind-classwork": "caught up on classwork and assessments with a teacher", "ind-testing": "had a learning and support check" };
+
+  function sentralText(v, name, quotes, intro) {
     const N = name || "[Student]";
     const done = v.sessions.filter(s => s.status === "done").sort(RP.bySchedule(v.times));
     const uniq = xs => [...new Set(xs)];
-    const group = uniq(done.filter(s => s.kind === "group").map(titleOf));
-    const ind = uniq(done.filter(s => s.kind === "independent" && s.activity && !RP.isLedModule(s)).map(s => {
-      const m = RP.MODULES[s.activity], r = m && m.levels && RP.resultText(s.result);
-      return titleOf(s) + (r ? ` (${r})` : "");
-    }));
-    const led = uniq(done.filter(s => s.kind === "one_to_one" || RP.isLedModule(s)).map(s => titleOf(s).replace(/^Teacher-led:\s*/i, "")));
+    const short = xs => xs.length > 5 ? xs.slice(0, 4).concat([`${xs.length - 4} more`]) : xs;
+    const group = uniq(done.filter(s => s.kind === "group").map(s => RP.isRiot(s) ? "RIOT (resilience)" : titleOf(s)));
+    const ind = uniq(done.filter(s => s.kind === "independent" && s.activity && !RP.isLedModule(s))
+      .map(s => /^riot-lesson-/.test(s.activity) ? "RIOT (resilience)" : titleOf(s).replace(/:\s*Day \d$/i, "").replace(/^Module \d:\s*/, "")));
+    const led = uniq(done.filter(s => s.kind === "one_to_one" || RP.isLedModule(s)).map(s => LED_WORDS[s.activity] || `did ${titleOf(s).replace(/^Teacher-led:\s*/i, "")} with a teacher`));
     const dates = done.map(s => s.completed_at || s.updated_at).filter(Boolean).sort();
     const from = RP.longDate(dates[0] || v.start_date), to = dates.length ? RP.longDate(dates[dates.length - 1]) : from;
-    // "27 October 2026", or "27–28 October 2026" when both days are in the same month.
     const fa = from.split(" "), ta = to.split(" ");
-    const when = from === to ? from : fa[1] === ta[1] && fa[2] === ta[2] ? `${fa[0]}–${to}` : `${from} to ${to}`;
-    const days = uniq(done.map(s => s.day)).length;
-    const parts = [];
-    if (group.length) parts.push(`group modules on ${listText(group)}`);
-    if (ind.length) parts.push(`independent modules: ${listText(ind)}`);
-    if (led.length) parts.push(`teacher-led sessions: ${listText(led)}`);
-    const count = group.length + ind.length + led.length;
-    let p1 = `${N} ${v.active ? "has been completing" : "completed"} the Reset Program in the Hub (${when}${days === 2 ? ", two days" : days === 1 ? ", one day" : ""}). `;
-    p1 += count ? `${N} finished ${count} module${count > 1 ? "s" : ""}: ${parts.join("; ")}.` : `No modules have been finished yet.`;
+    const when = from === to ? `on ${from}` : fa[1] === ta[1] && fa[2] === ta[2] ? `on ${fa[0]}–${to}` : `from ${from} to ${to}`;
 
-    // Surveys: first and last totals, and which statements stood out.
+    let p = v.active ? `${N} has been in the program since ${from}.` : `${N} completed the program ${when}.`;
+    const did = [];
+    if (group.length) did.push(`took part in group lessons on ${listText(short(group))}`);
+    if (ind.length) did.push(`worked on ${listText(short(ind))} on the laptop`);
+    if (led.length) did.push(listText(led));
+    if (did.length) p += ` They ${listText(did)}.`;
+
+    // Surveys: the start and end of the program put together.
     const surveys = RP.SURVEY_ORDER.filter(id => id !== "followup").map(id => done.find(s => RP.surveyResultId(s.result) === id)).filter(s => s && s.result.ratings && s.result.ratings.length);
-    let p2 = "";
-    if (surveys.length) {
-      const first = surveys[0].result, last = surveys[surveys.length - 1].result, max = last.max || 50;
-      p2 = surveys.length > 1
-        ? `Across ${surveys.length} surveys, ${N}'s rating of their own skills ${last.total > first.total ? `rose from ${first.total} to ${last.total}` : last.total < first.total ? `went from ${first.total} to ${last.total}` : `stayed at ${last.total}`} out of ${max}. `
-        : `In the one survey done so far, ${N} rated their own skills ${last.total} out of ${max}. `;
+    if (surveys.length > 1) {
+      const first = surveys[0].result, last = surveys[surveys.length - 1].result;
       const r = last.ratings.map((x, k) => ({ k, x: x || 0, d: (x || 0) - ((first.ratings || [])[k] || 0) }));
-      const top = r.slice().sort((a, b) => b.x - a.x)[0];
-      const grew = surveys.length > 1 ? r.slice().sort((a, b) => b.d - a.d)[0] : null;
-      const low = r.slice().sort((a, b) => a.x - b.x)[0];
-      const bits = [`felt most confident about ${RP.SURVEY_PHRASES[top.k]}`];
-      if (grew && grew.d > 0 && grew.k !== top.k) bits.push(`grew most in ${RP.SURVEY_PHRASES[grew.k]}`);
-      p2 += `${N} ${listText(bits)}` + (low.x <= 3 && low.k !== top.k ? `, and may need support with ${RP.SURVEY_PHRASES[low.k]}.` : ".");
+      const grew = r.slice().sort((a, b) => b.d - a.d)[0], low = r.slice().sort((a, b) => a.x - b.x)[0];
+      p += last.total > first.total
+        ? ` Their self-rating went from ${first.total} to ${last.total} out of ${last.max || 50} across the program${grew.d > 0 ? `, with the biggest growth in ${RP.SURVEY_PHRASES[grew.k]}` : ""}.`
+        : ` Their self-rating was ${first.total} out of ${first.max || 50} at the start and ${last.total} at the end.`;
+      if (low.x <= 2) p += ` ${RP.SURVEY_PHRASES[low.k][0].toUpperCase() + RP.SURVEY_PHRASES[low.k].slice(1)} is still an area to support.`;
     }
     const said = t => `"${t}${/[.!?…]$/.test(t) ? "" : "."}"`;
     (quotes || []).forEach(q => {
-      p2 += q.support ? ` Asked about support, ${N} said: ${said(q.text)}` : q.about ? ` Asked ${q.about}, ${N} wrote: ${said(q.text)}` : ` In ${q.from}, ${N} wrote: ${said(q.label + " " + q.text)}`;
+      p += q.support ? ` Asked about support, ${N} said: ${said(q.text)}` : q.about ? ` Asked ${q.about}, ${N} said: ${said(q.text)}` : ` In ${q.from}, ${N} wrote: ${said(q.label + " " + q.text)}`;
     });
-    return [p1, p2.trim()].filter(Boolean).join("\n\n");
+    return (intro ? RP.CONTENT.sentralIntro + "\n\n" : "") + p;
   }
 
   function sentralPost(v) {
@@ -826,10 +821,11 @@
     box.innerHTML = `
       <form method="dialog">
         <h2>Sentral post</h2>
-        <p class="muted">A short overview for the staff noticeboard: the modules ${h(RP.formatCode(v.student.code))} finished and their surveys summed up. Type their name, choose any responses to include, check it, then copy it into Sentral. <strong>Nothing here is saved.</strong></p>
+        <p class="muted">A short overview for the staff noticeboard: how the program works, what ${h(RP.formatCode(v.student.code))} did, and their surveys put together. Type their name, choose what to include, check it, then copy it into Sentral. <strong>Nothing here is saved.</strong></p>
         <label class="field">Student's name <input data-name autocomplete="off" placeholder="Typed here only, never saved"></label>
-        ${quotes.length ? `<fieldset class="sentral-quotes"><legend>Their responses to include</legend>${quotes.map((q, i) => `<label><input type="checkbox" data-q="${i}"${i < 2 ? " checked" : ""}> <span class="muted">${h(q.about ? "Asked " + q.about : q.from)}:</span> “${h(q.text)}”</label>`).join("")}</fieldset>` : ""}
-        <label class="field">Post <textarea data-text rows="11"></textarea></label>
+        <label class="field inline"><input type="checkbox" data-intro checked> Start with a few lines on how the program works</label>
+        ${quotes.length ? `<fieldset class="sentral-quotes"><legend>Their own words to include (one is plenty)</legend>${quotes.map((q, i) => `<label><input type="checkbox" data-q="${i}"${i < 1 ? " checked" : ""}> <span class="muted">${h(q.about ? "Asked " + q.about : q.from)}:</span> “${h(q.text)}”</label>`).join("")}</fieldset>` : ""}
+        <label class="field">Post <textarea data-text rows="9"></textarea></label>
         <p class="muted small" data-count></p>
         <div class="actions"><button class="btn primary" type="button" data-copy>Copy</button><button class="btn ghost" type="button" data-close>Close</button></div>
       </form>`;
@@ -838,10 +834,10 @@
     const words = () => { count.textContent = `${text.value.trim().split(/\s+/).filter(Boolean).length} words`; };
     const draw = () => {
       const picked = [...box.querySelectorAll("[data-q]:checked")].map(c => quotes[Number(c.dataset.q)]);
-      text.value = sentralText(v, box.querySelector("[data-name]").value.trim(), picked); words();
+      text.value = sentralText(v, box.querySelector("[data-name]").value.trim(), picked, box.querySelector("[data-intro]").checked); words();
     };
     box.querySelector("[data-name]").oninput = draw;
-    box.querySelectorAll("[data-q]").forEach(c => c.onchange = draw);
+    box.querySelectorAll("[data-q], [data-intro]").forEach(c => c.onchange = draw);
     text.oninput = words;
     box.querySelector("[data-copy]").onclick = async e => {
       try { await navigator.clipboard.writeText(text.value); } catch (ex) { text.select(); document.execCommand("copy"); }
@@ -1486,6 +1482,12 @@
       return { id: "day" + day, day, modules: RP.dayModules(v.sessions, day, v.times), date: RP.longDate(first || v.start_date),
         answers: done.filter(s => s.kind === "independent" && s.state && s.state.responses && s.state.responses.length).sort(RP.bySchedule(v.times)) };
     }).filter(c => c.modules.length);
+    // One certificate for the whole program, as well as (or instead of) the day ones.
+    const all = RP.programModules(v.sessions, v.times);
+    if (all.length) {
+      const last = v.sessions.filter(s => s.status === "done").map(s => s.completed_at || s.updated_at).filter(Boolean).sort().pop();
+      certs.push({ id: "program", complete: true, modules: all, date: RP.longDate(last || v.start_date), answers: [] });
+    }
     const isCerts = view.what === "certs";
     app().innerHTML = `
       <div class="page print-page">
@@ -1495,11 +1497,11 @@
           <label class="field">Student's name <input data-name maxlength="40" autocomplete="off"></label>
           <p class="muted">The name is only used for printing. It isn't saved.</p>
           ${isCerts && certs.some(c => c.answers.length) ? `<label class="field inline"><input type="checkbox" data-with-answers checked> Include their written answers after each certificate</label>` : ""}
-          ${isCerts ? `<div class="cert-picks">${certs.map(c => `<label class="field inline"><input type="checkbox" data-pick="${c.id}" checked> Day ${c.day} <span class="muted">(${c.modules.length} module${c.modules.length === 1 ? "" : "s"})</span></label>`).join("")}</div>` : ""}
+          ${isCerts ? `<div class="cert-picks">${certs.map(c => `<label class="field inline"><input type="checkbox" data-pick="${c.id}"${c.complete ? "" : " checked"}> ${c.complete ? "Completion certificate (whole program)" : `Day ${c.day}`} <span class="muted">(${c.modules.length} module${c.modules.length === 1 ? "" : "s"})</span></label>`).join("")}</div>` : ""}
           <div class="actions"><button class="btn primary" data-print>Print or save as PDF</button></div>
         </div>
         <div class="print-area">
-          ${isCerts ? certs.map(c => `<div class="print-cert" data-cert="${c.id}">${RP.dayCertificateMarkup(c)}${c.answers.map(s => `<div class="print-answers">${RP.worksheetMarkup({ title: titleOf(s), date: RP.longDate(s.completed_at || s.updated_at), worksheet: s.state.responses })}</div>`).join("")}</div>`).join("")
+          ${isCerts ? certs.map(c => `<div class="print-cert" data-cert="${c.id}"${c.complete ? " hidden" : ""}>${RP.dayCertificateMarkup(c)}${c.answers.map(s => `<div class="print-answers">${RP.worksheetMarkup({ title: titleOf(s), date: RP.longDate(s.completed_at || s.updated_at), worksheet: s.state.responses })}</div>`).join("")}</div>`).join("")
             : recordSheet(v)}
         </div>
       </div>`;
@@ -1748,13 +1750,15 @@
     let rows = copy(ttOf(v, day));
     const mine = slot => at(v, day, slot);
     // A session can be removed if it hasn't been started and isn't the morning session or debrief.
-    const removable = t => { const x = mine(t.slot); return !x || (x.status === "not_started" && x.kind !== "intro" && x.kind !== "debrief"); };
+    // A session can be removed if it hasn't been started and isn't the morning session. Removing
+    // the afternoon debrief (e.g. a short day without P5) moves it to the day's last session.
+    const removable = t => { const x = mine(t.slot); return !x || (x.status === "not_started" && x.kind !== "intro"); };
     const box = document.createElement("dialog");
     box.className = "times-dialog";
     box.innerHTML = `
       <form method="dialog" data-times-form>
         <h2>Day ${day} times</h2>
-        <p class="muted">Change when each session starts and ends, for example on a day with shorter bell times. Use <strong>＋</strong> to add a session after one (for example, three 20-minute sessions in a period instead of two) and <strong>✕</strong> to remove one that hasn't been started. The student's laptop follows these times.</p>
+        <p class="muted">Change when each session starts and ends, for example on a day with shorter bell times. Use <strong>＋</strong> to add a session after one (for example, three 20-minute sessions in a period instead of two) and <strong>✕</strong> to remove a break or a session that hasn't been started (for example, B2 and P5 on a short day; the afternoon debrief moves to the last session left). The student's laptop follows these times.</p>
         <div class="actions">${["Normal times"].concat(presets.map(p => p.name)).map((n, k) => `<button type="button" class="btn small" data-preset="${k}">${h(n)}</button>`).join("")}</div>
         <table class="records times-table"><thead><tr><th></th><th>Starts</th><th>Ends</th><th></th><th></th></tr></thead><tbody data-rows></tbody></table>
         ${day === v.current_day ? `<label class="field inline"><input type="checkbox" data-everyone> Use these times and sessions for everyone else in the program today too</label>` : ""}
@@ -1770,7 +1774,7 @@
         return `<tr${t.brk ? ` class="times-brk"` : ""}><td>${h(label(t, i))}${t.slot >= RP.FIRST_ADDED_SLOT ? ` <span class="tag">added</span>` : ""}</td>
         <td><input type="time" data-start="${i}" value="${t.start}" required></td><td><input type="time" data-end="${i}" value="${t.end}" required></td>
         <td class="muted small">${x ? h(titleOf(x)) : t.brk ? "" : "Empty"}</td>
-        <td class="nowrap">${t.brk ? "" : `<button type="button" class="btn small" data-add-after="${i}" title="Add a session after this one" aria-label="Add a session after ${h(label(t, i))}">＋</button>${removable(t) ? `<button type="button" class="btn small" data-remove="${i}" title="Remove this session" aria-label="Remove ${h(label(t, i))}">✕</button>` : ""}`}</td></tr>`;
+        <td class="nowrap">${t.brk ? `<button type="button" class="btn small" data-remove="${i}" title="Remove this break" aria-label="Remove ${h(t.brk)}">✕</button>` : `<button type="button" class="btn small" data-add-after="${i}" title="Add a session after this one" aria-label="Add a session after ${h(label(t, i))}">＋</button>${removable(t) ? `<button type="button" class="btn small" data-remove="${i}" title="Remove this session" aria-label="Remove ${h(label(t, i))}">✕</button>` : ""}`}</td></tr>`;
       }).join("");
       box.querySelectorAll("[data-start]").forEach(inp => inp.oninput = () => { rows[Number(inp.dataset.start)].start = inp.value; });
       box.querySelectorAll("[data-end]").forEach(inp => inp.oninput = () => { rows[Number(inp.dataset.end)].end = inp.value; });
@@ -1809,9 +1813,15 @@
       }
       const kept = new Set(tt.map(t => t.slot).filter(Boolean));
       const blocked = v.sessions.filter(x => x.day === day && x.slot !== RP.ONE_TO_ONE_SLOT && !kept.has(x.slot) && !removable(x));
-      if (blocked.length) { err.textContent = `"${titleOf(blocked[0])}" can't be removed: ${blocked[0].kind === "intro" || blocked[0].kind === "debrief" ? "move it to another session first" : "it has already been started"}.`; return; }
-      const dropping = v.sessions.filter(x => x.day === day && x.slot !== RP.ONE_TO_ONE_SLOT && !kept.has(x.slot) && !(x.kind === "independent" && !x.activity));
-      if (dropping.length && !confirm(`This removes ${dropping.map(x => `"${titleOf(x)}"`).join(", ")} from Day ${day}. Remove ${dropping.length > 1 ? "them" : "it"}?`)) return;
+      if (blocked.length) { err.textContent = `"${titleOf(blocked[0])}" can't be removed: ${blocked[0].kind === "intro" ? "move it to another session first" : "it has already been started"}.`; return; }
+      const dropping = v.sessions.filter(x => x.day === day && x.slot !== RP.ONE_TO_ONE_SLOT && !kept.has(x.slot) && x.kind !== "debrief" && !(x.kind === "independent" && !x.activity));
+      const debrief = v.sessions.find(x => x.day === day && x.kind === "debrief" && !kept.has(x.slot));
+      const lastRow = tt.filter(t => t.slot).pop(), lastS = debrief && mine(lastRow.slot);
+      if (debrief && lastS && lastS.status !== "not_started") { err.textContent = `The afternoon debrief would move to ${RP.formatTime(lastRow.start)}, but "${titleOf(lastS)}" there has already been started.`; return; }
+      const notes = [];
+      if (dropping.length) notes.push(`This removes ${dropping.map(x => `"${titleOf(x)}"`).join(", ")} from Day ${day}.`);
+      if (debrief) notes.push(`The afternoon debrief moves to ${RP.formatTime(lastRow.start)}${lastS && !(lastS.kind === "independent" && !lastS.activity) ? `, replacing "${titleOf(lastS)}"` : ""}.`);
+      if (notes.length && !confirm(notes.join("\n\n") + "\n\nSave these times?")) return;
       try {
         await saveTimes(v, day, tt);
         const all = box.querySelector("[data-everyone]");
@@ -1828,20 +1838,27 @@
   }
 
   // Save a day's timetable for a program: its times, plus the empty sessions it adds and the
-  // unstarted sessions it leaves out. Returns false (and changes nothing) if a session it leaves out
-  // has been started or is the morning session or debrief.
+  // unstarted sessions it leaves out (a left-out afternoon debrief moves to the last session).
+  // Returns false (and changes nothing) if a session it leaves out has been started or is the
+  // morning session, or the debrief would replace a started session.
   async function saveTimes(v, day, tt) {
     const daySessions = v.sessions.filter(x => x.day === day && x.slot !== RP.ONE_TO_ONE_SLOT);
     const kept = new Set(tt.map(t => t.slot).filter(Boolean));
     const remove = daySessions.filter(x => !kept.has(x.slot));
-    if (remove.some(x => x.status !== "not_started" || x.kind === "intro" || x.kind === "debrief")) return false;
+    if (remove.some(x => x.status !== "not_started" || x.kind === "intro")) return false;
+    // A removed afternoon debrief moves to the last session left.
+    const lastSlot = tt.filter(t => t.slot).pop().slot;
+    const moveDebrief = remove.some(x => x.kind === "debrief") && !daySessions.some(x => x.kind === "debrief" && kept.has(x.slot));
+    const target = moveDebrief && daySessions.find(x => x.slot === lastSlot);
+    if (target && target.status !== "not_started") return false;
     const add = [...kept].filter(slot => !daySessions.some(x => x.slot === slot)).map(slot => ({ day, slot, kind: "independent", activity: null, title: "Empty" }));
     const key = t => [t.slot || t.brk, t.start, t.end];
     const normal = JSON.stringify(tt.map(key)) === JSON.stringify(RP.TIMETABLE.map(key));
     const times = Object.assign({}, v.times || {});
     if (normal) delete times[day]; else times[day] = tt;
     await api.updateVisit(v.id, { times: Object.keys(times).length ? times : null });
-    if (add.length) await api.addSessions(v.id, add);
+    if (add.length) await api.addSessions(v.id, moveDebrief && !target ? add.map(r => r.slot === lastSlot ? Object.assign(r, { kind: "debrief", title: "Afternoon debrief" }) : r) : add);
+    if (target) await api.updateSession(target.id, { kind: "debrief", activity: null, title: "Afternoon debrief", status: "not_started", result: null, state: null, completed_at: null });
     for (const x of remove) await api.deleteSession(x.id);
     return true;
   }

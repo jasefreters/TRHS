@@ -226,7 +226,7 @@
         <div class="muted">${h(RP.todayLabel())}</div>
       </div>
       <ol class="day-list">${rows}</ol>
-      <div class="cert-buttons">${[1, 2].filter(d => d <= plan.current_day).map(d => `<button class="btn small" data-day-cert="${d}">🏅 My Day ${d} certificate</button>`).join("")}</div>
+      <div class="cert-buttons">${[1, 2].filter(d => d <= plan.current_day).map(d => `<button class="btn small" data-day-cert="${d}">🏅 My Day ${d} certificate</button>`).join("")}${programDone() ? `<button class="btn small" data-day-cert="all">🏅 My Reset Program certificate</button>` : ""}</div>
       ${one ? `
         <button class="slot k-one_to_one oneone${selected === RP.ONE_TO_ONE_SLOT ? " selected" : ""}" data-slot="${RP.ONE_TO_ONE_SLOT}">
           <span class="time">Any time</span>
@@ -236,7 +236,7 @@
       <p class="offline" id="offline" ${offline ? "" : "hidden"}>Not connected. Your work is saved on this laptop and will send when the internet is back.</p>`;
     pane.querySelectorAll("[data-day-cert]").forEach(b => b.onclick = () => {
       if (mode === "module") return;
-      mode = "cert"; renderSidebar(); showDayCertificate(Number(b.dataset.dayCert));
+      mode = "cert"; renderSidebar(); showDayCertificate(b.dataset.dayCert === "all" ? "all" : Number(b.dataset.dayCert));
     });
     pane.querySelectorAll("[data-slot]").forEach(b => b.onclick = () => {
       if (mode === "module" || mode === "cert") return;
@@ -293,7 +293,7 @@
     } else if (s.kind === "debrief") {
       html += head("Afternoon debrief", "Whole group") + `<div class="card">${RP.md(RP.CONTENT.debrief)}</div>
         ${surveyCard(RP.SURVEYS[RP.surveyIdFor(s)], "Your teacher will tell you when to start.")}
-        ${s.status === "done" ? `<div class="card"><div class="actions"><button class="btn primary big" data-day-cert-main>🏅 My certificate for today</button></div></div>` : ""}`;
+        ${s.status === "done" ? `<div class="card"><div class="actions"><button class="btn primary big" data-day-cert-main>🏅 My certificate for today</button>${s.day === 2 ? `<button class="btn big" data-program-cert>🏅 My Reset Program certificate</button>` : ""}</div></div>` : ""}`;
     } else if (s.kind === "one_to_one") {
       const ind = RP.individualSession(s.activity);
       html += head(RP.sessionTitle(s), "Teacher-led") +
@@ -336,6 +336,8 @@
     if (cert) cert.onclick = () => { mode = "cert"; renderSidebar(); showFinished(certFor(s)); };
     const dc = main.querySelector("[data-day-cert-main]");
     if (dc) dc.onclick = () => { mode = "cert"; renderSidebar(); showDayCertificate(s.day); };
+    const pc = main.querySelector("[data-program-cert]");
+    if (pc) pc.onclick = () => { mode = "cert"; renderSidebar(); showDayCertificate("all"); };
     const survey = main.querySelector("[data-survey]");
     if (survey) survey.onclick = () => openSurvey(s);
   }
@@ -450,7 +452,13 @@
 
   const backToPlan = () => { mode = "plan"; renderSidebar(); renderMain(); };
   function showFinished(info) { RP.Player.finished($("#main"), info, backToPlan); }
+  // The whole program's certificate is there once the Day 2 afternoon survey is done.
+  function programDone() { return plan.current_day === 2 && plan.sessions.some(x => x.day === 2 && x.kind === "debrief" && x.status === "done"); }
   function showDayCertificate(day) {
+    if (day === "all") {
+      RP.Player.dayCertificate($("#main"), { complete: true, date: RP.longDate(new Date().toISOString()), modules: RP.programModules(plan.sessions, plan.times) }, backToPlan);
+      return;
+    }
     const first = plan.sessions.find(x => x.day === day && x.kind === "intro");
     const date = day === plan.current_day ? new Date().toISOString() : (first && (first.completed_at || first.updated_at)) || new Date().toISOString();
     RP.Player.dayCertificate($("#main"), { day, date: RP.longDate(date), modules: RP.dayModules(plan.sessions, day, plan.times) }, backToPlan);
