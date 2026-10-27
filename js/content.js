@@ -5,10 +5,6 @@
 window.RP = window.RP || {};
 
 RP.CONTENT = {
-  // Staff-facing: the opening of the Sentral post (student record → Sentral post), for staff who
-  // don't know the program. Plain text, no formatting.
-  sentralIntro: `The Reset Program is a two-day program in the Hub for students returning from suspension. The day follows the normal bells, split into half-period sessions: small-group lessons with a staff member (such as RIOT, on resilience, and our T-RED values), independent work on a laptop, and one-on-one time with a teacher to plan their return to class. Students rate themselves on 10 statements about managing their behaviour at the start and end of each day.`,
-
   // Social story at the start of each day. Draft wording for staff to adjust.
   story: {
     1: `**Welcome to Day 1 of the Reset Program.**
@@ -41,6 +37,8 @@ If you need help, press **I need help**.`
 
   debrief: `Look back on the day with the group, then do the end-of-day survey. After that you'll get your certificate for today.`,
 
+  // Shown during an event students go to, such as Tuesday's assembly (a timetable row with "event: true").
+  eventTime: (name, back) => `**It's time for ${name}.** Go with your teacher, then come back to the Hub by **${back}**.`,
   // Shown during B1 and B2.
   breakTime: (name, back) => `**It's ${name}.** Go to the break as normal, then come straight back to the Hub by **${back}**.`,
 

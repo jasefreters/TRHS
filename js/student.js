@@ -262,7 +262,7 @@
     const doneNote = s.status === "done" ? `<p class="done-note">✓ Done</p>` : "";
     const nowSlot = RP.currentSlot(tt());
     let html = typeof nowSlot === "object" && nowSlot.brk
-      ? `<div class="card break-card">${RP.md(RP.CONTENT.breakTime(nowSlot.brk, RP.formatTime(nowSlot.end)))}</div>` : "";
+      ? `<div class="card break-card">${RP.md((nowSlot.event ? RP.CONTENT.eventTime : RP.CONTENT.breakTime)(nowSlot.brk, RP.formatTime(nowSlot.end)))}</div>` : "";
 
     const surveyCard = (survey, intro) => survey ? `<div class="card survey-card">
           <h2>${h(survey.title)}</h2>

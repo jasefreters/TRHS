@@ -45,7 +45,7 @@ Everything in the day is a **module**:
 | 9 | 1:32–2:03 | Independent or teacher-led |
 | 10 | 2:03–2:35 | Afternoon debrief (whole group) and afternoon survey |
 
-Every session ends with a school bell or in the middle of a period. To change a day's times (for example Tuesday's shorter bell times, or a shorter session), click **⏱ Times** on the daily schedule; you can apply the new times to everyone in the program that day. In the same box, **＋** adds a session after another (it splits that session's time in half, so you can make three 20-minute sessions in a period instead of two) and **✕** removes a break or a session that hasn't been started (for example, B2 and P5 on a short day: the afternoon debrief moves to the last session left). New sessions start empty.
+Every session ends with a school bell or in the middle of a period. To change a day's times (for example a shorter session), click **⏱ Times** on the daily schedule; **Tuesday** sets Tuesday's bells in one click (assembly or year meeting at 10:26, B1 at 10:41, home at 1:17 with the debrief at 12:45); you can apply the new times to everyone in the program that day. In the same box, **＋** adds a session after another (it splits that session's time in half, so you can make three 20-minute sessions in a period instead of two) and **✕** removes a break or a session that hasn't been started (for example, B2 and P5 on a short day: the afternoon debrief moves to the last session left). New sessions start empty.
 
 **Group modules** run on a two-day rotation, so every student gets all eight across their two days whichever day they start. Each stands alone, and each follows the **Thomas Reddall Lesson Routine**: entry, Do Now, learning intention and success criteria, explicit teaching, brain break, application (butcher's paper, discussion, card sorts), recap, exit.
 
@@ -174,7 +174,7 @@ Open the site with `?demo=1` on the end (for example `teacher.html?demo=1`) to u
 
 ## Sentral post
 
-On a student's record (**All students**, then the student), **Sentral post** writes a short overview for the Sentral staff noticeboard, in plain words for staff who don't know the program: a few lines on how the program works (you can leave these out; edit the wording in `sentralIntro` in [`js/content.js`](js/content.js)), what the student did, their surveys put together, and one of their own responses. Type their name, choose what to include, check the wording, then **Copy** and paste it into Sentral. Nothing typed there is saved.
+On a student's record (**All students**, then the student), **Sentral post** writes a short overview for the Sentral staff noticeboard, worded so staff who don't know the program can follow it: how many modules they completed (group, independent and teacher-led), what their work and answers kept coming back to, their growth and highlights, and one of their own responses (with obvious spelling slips fixed). Type their name and choose their pronouns, choose a response, check the wording, then **Copy** and paste it into Sentral. Nothing typed there is saved.
 
 ## Certificates
 

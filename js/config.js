@@ -27,7 +27,27 @@ RP.TIMETABLE = [
 ];
 // Other bell times staff can pick when changing a day's times on the daily schedule, e.g.
 // { name: "Tuesday", times: [ ...the same rows as RP.TIMETABLE, with Tuesday's times... ] }.
-RP.TIMETABLE_PRESETS = [];
+// A row with "event: true" is something students go to with the school (not a break), e.g. an
+// assembly; they're told to go and come back to the Hub.
+RP.TIMETABLE_PRESETS = [
+  {
+    // Tuesday: assembly or year meeting after P2, shorter periods, home at 1:17 (no B2 or P5).
+    // The afternoon debrief moves to the last session (12:45).
+    name: "Tuesday",
+    times: [
+      { slot: 1, start: "08:20", end: "08:50", period: "P1" },
+      { slot: 2, start: "08:50", end: "09:23", period: "P1" },
+      { slot: 3, start: "09:23", end: "09:55", period: "P2" },
+      { slot: 4, start: "09:55", end: "10:26", period: "P2" },
+      { brk: "Assembly / year meeting", event: true, start: "10:26", end: "10:41" },
+      { brk: "B1", start: "10:41", end: "11:11" },
+      { slot: 5, start: "11:11", end: "11:42", period: "P3" },
+      { slot: 6, start: "11:42", end: "12:14", period: "P3" },
+      { slot: 7, start: "12:14", end: "12:45", period: "P4" },
+      { slot: 8, start: "12:45", end: "13:17", period: "P4" }
+    ]
+  }
+];
 RP.FIRST_SLOT = 1;
 RP.LAST_SLOT = 10;
 // Older plans kept the 1:1 as an untimed slot 11. New plans drag individual sessions into a

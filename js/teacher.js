@@ -735,22 +735,72 @@
   }
 
   // ---------------------------------------------------------------- Sentral post
-  // A one-to-two paragraph overview of a program for the Sentral staff noticeboard: the modules
-  // they finished, the surveys summed up, and one or two of their own responses. Staff type the
-  // name and edit it before copying; nothing here is saved.
+  // A short overview of a program for the Sentral staff noticeboard, written for staff who don't
+  // know the program: how many modules they did, what their work kept coming back to, their
+  // growth and highlights, and one of their own responses (spelling tidied). Staff type the name
+  // and pronouns and edit it before copying; nothing here is saved.
+  const PRONOUNS = {
+    they: { label: "they/them", sub: "they", obj: "them", pos: "their", refl: "themselves" },
+    he: { label: "he/him", sub: "he", obj: "him", pos: "his", refl: "himself" },
+    she: { label: "she/her", sub: "she", obj: "her", pos: "her", refl: "herself" }
+  };
+  const cap = t => t ? t[0].toUpperCase() + t.slice(1) : t;
+  // Survey prompts worth quoting, best first, and how to introduce them ({sub}, {obj}, {refl}).
   const QUOTE_PROMPTS = [
-    [/plan to do differently/i, "what they'll do differently back in class"],
-    [/learned about yourself/i, "what they learned about themselves"],
+    [/plan to do differently/i, "what {sub} would do differently back in class"],
+    [/learned about yourself/i, "what {sub} learned about {refl}"],
     [/strategy you could use/i, "about a strategy for next time"],
-    [/most helpful/i, "what helped most"],
+    [/most helpful/i, "what helped {obj} most"],
     [/best part of today/i, "about the best part of the day"],
-    [/want to keep using/i, "what they want to keep using"],
+    [/want to keep using/i, "what {sub} wanted to keep using"],
     [/additional support/i, "about support", true]
   ];
   const POSITIVE_LABEL = /proud|good at|strength|makes me a good|my goal|I will|I'll|differently|one thing I can/i;
   const emptyAnswer = t => !t || t.trim().length < 4 || /^(no|nope|nothing|none|idk|nah|n\/a|na|dunno|i don'?t know|not sure)[.!]?$/i.test(t.trim());
-  const clip = t => { t = t.trim().replace(/\s+/g, " "); return t.length > 180 ? t.slice(0, 177).replace(/\s\S*$/, "") + "…" : t; };
+  const clip = t => t.length > 180 ? t.slice(0, 177).replace(/\s\S*$/, "") + "…" : t;
   const listText = xs => xs.length < 2 ? xs.join("") : xs.slice(0, -1).join(", ") + " and " + xs[xs.length - 1];
+  // Obvious spelling and texting slips in a student's answer, fixed before it's quoted.
+  const SPELLING = {
+    teh: "the", becuase: "because", becasue: "because", beacuse: "because", becaus: "because", cuz: "because", coz: "because", bc: "because",
+    dont: "don't", doesnt: "doesn't", didnt: "didn't", cant: "can't", wont: "won't", wouldnt: "wouldn't", couldnt: "couldn't", shouldnt: "shouldn't",
+    isnt: "isn't", wasnt: "wasn't", arent: "aren't", thats: "that's", whats: "what's", theyre: "they're", im: "I'm", ive: "I've",
+    alot: "a lot", realy: "really", freind: "friend", freinds: "friends", frend: "friend", frends: "friends", definately: "definitely", untill: "until",
+    wich: "which", thier: "their", u: "you", ur: "your", ppl: "people", tho: "though", thru: "through", gonna: "going to", wanna: "want to",
+    prolly: "probably", probs: "probably", sumthing: "something", somethin: "something", nothin: "nothing", tomorow: "tomorrow", tommorow: "tomorrow",
+    tommorrow: "tomorrow", beleive: "believe", recieve: "receive", angery: "angry", everytime: "every time", agian: "again", wierd: "weird",
+    sry: "sorry", srry: "sorry", pls: "please", plz: "please", thx: "thanks", teacha: "teacher", sch: "school", skool: "school", calmdown: "calm down", i: "I"
+  };
+  function tidy(t) {
+    t = String(t || "").trim().replace(/\s+/g, " ");
+    const letters = t.replace(/[^a-z]/gi, "");
+    if (letters.length > 8 && letters.replace(/[^A-Z]/g, "").length / letters.length > 0.6) t = t.toLowerCase();
+    t = t.replace(/\b[a-z]+\b/gi, w => { const fix = SPELLING[w.toLowerCase()]; return fix ? (w[0] === w[0].toUpperCase() && fix !== "I" && fix !== "I'm" && fix !== "I've" ? cap(fix) : fix) : w; });
+    t = t.replace(/\s+([,.!?])/g, "$1").replace(/([.!?])([A-Za-z])/g, "$1 $2");
+    return clip(cap(t));
+  }
+  // What each module is about, for "much of their work focused on…".
+  const THEMES = {
+    emotions: { words: "managing strong emotions", ids: ["module-2", "module-3", "self-regulation", "rage-recap", "say-it-better"] },
+    resilience: { words: "building resilience", ids: ["riot", "riot-1", "riot-2", "module-4", "growth-mindset", "wellbeing"] },
+    choices: { words: "reflecting on past choices", ids: ["module-1", "module-5", "my-chain", "chain-analysis", "reset-plan", "restorative-prep", "ind-review"] },
+    values: { words: "the school's expectations", ids: ["t-red", "tred-values", "code-of-conduct", "code-of-conduct-check", "classroom-expectations"] },
+    relationships: { words: "getting along with others", ids: ["friendships", "online-conflict", "asking-for-help"] },
+    returning: { words: "planning a positive return to class", ids: ["module-6", "ind-success", "ind-return-meeting", "goal-builder", "attendance", "understanding-truancy"] },
+    learning: { words: "keeping up with learning", ids: ["literacy", "numeracy-day1", "numeracy-day2", "suspension-booklet", "study-skills", "healthy-habits", "ind-classwork", "ind-testing"] }
+  };
+  const themeOf = s => { const id = /^riot-lesson-/.test(s.activity || "") ? "riot" : s.activity; return Object.keys(THEMES).find(k => THEMES[k].ids.includes(id)); };
+  // Ideas a student keeps coming back to in their written answers.
+  const STRATEGIES = [
+    [/walk(ing)? away|leav(e|ing) the room|step(ping)? away|take a break|taking a break|time ?out/i, "walking away or taking a break"],
+    [/breath/i, "breathing to calm down"],
+    [/ask(ing)? for help|ask (a|the|my) teacher/i, "asking for help"],
+    [/talk(ing)? to (a|the|my|someone)|tell(ing)? (a|the|my) (teacher|adult)|trusted adult|counsell?or|year advis[eo]r/i, "talking to a trusted adult"],
+    [/music|headphones/i, "listening to music"],
+    [/count(ing)? to/i, "counting to calm down"],
+    [/stay(ing)? calm|keep(ing)? calm|calm(ing)? down/i, "staying calm"],
+    [/sorry|apologi[sz]/i, "apologising and making things right"],
+    [/think(ing)? (first|before)|stop and think/i, "stopping to think first"]
+  ];
 
   function sentralQuotes(v) {
     const out = [];
@@ -761,9 +811,9 @@
         const label = String(r.label || "").replace(/\*\*/g, "");
         if (survey) {
           const m = QUOTE_PROMPTS.find(([re]) => re.test(label));
-          if (m) out.push({ rank: QUOTE_PROMPTS.indexOf(m), support: !!m[2], about: m[1], text: clip(r.text) });
+          if (m) out.push({ rank: QUOTE_PROMPTS.indexOf(m), support: !!m[2], about: m[1], text: tidy(r.text) });
         } else if (POSITIVE_LABEL.test(label) && label.length < 90) {
-          out.push({ rank: 50, label: label.replace(/…$/, "").trim(), text: clip(r.text), from: titleOf(s) });
+          out.push({ rank: 50, label: label.replace(/…$/, "").trim(), text: tidy(r.text).replace(/^[A-Z](?=[a-z])/, c => c.toLowerCase()), from: titleOf(s) });
         }
       }));
     });
@@ -772,46 +822,73 @@
     return out.sort((a, b) => a.rank - b.rank).filter(q => { const k = q.about || q.label; if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 6);
   }
 
-  // What a teacher-led session was, in a few words for staff outside the program.
-  const LED_WORDS = { "ind-review": "worked through a Reset Plan with a teacher", "ind-success": "wrote a Return to Class Plan with a teacher", "ind-return-meeting": "had their return meeting", "ind-classwork": "caught up on classwork and assessments with a teacher", "ind-testing": "had a learning and support check" };
-
-  function sentralText(v, name, quotes, intro) {
-    const N = name || "[Student]";
+  function sentralText(v, name, quotes, pro) {
+    const N = name || "[Student]", P = PRONOUNS[pro] || PRONOUNS.they;
+    const fill = t => t.replace(/\{(sub|obj|refl)\}/g, (m, k) => P[k]);
     const done = v.sessions.filter(s => s.status === "done").sort(RP.bySchedule(v.times));
-    const uniq = xs => [...new Set(xs)];
-    const short = xs => xs.length > 5 ? xs.slice(0, 4).concat([`${xs.length - 4} more`]) : xs;
-    const group = uniq(done.filter(s => s.kind === "group").map(s => RP.isRiot(s) ? "RIOT (resilience)" : titleOf(s)));
-    const ind = uniq(done.filter(s => s.kind === "independent" && s.activity && !RP.isLedModule(s))
-      .map(s => /^riot-lesson-/.test(s.activity) ? "RIOT (resilience)" : titleOf(s).replace(/:\s*Day \d$/i, "").replace(/^Module \d:\s*/, "")));
-    const led = uniq(done.filter(s => s.kind === "one_to_one" || RP.isLedModule(s)).map(s => LED_WORDS[s.activity] || `did ${titleOf(s).replace(/^Teacher-led:\s*/i, "")} with a teacher`));
+    const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+    const group = done.filter(s => s.kind === "group");
+    const led = done.filter(s => s.kind === "one_to_one" || RP.isLedModule(s));
+    const ind = done.filter(s => s.kind === "independent" && s.activity && !RP.isLedModule(s));
+    const count = group.length + led.length + ind.length;
     const dates = done.map(s => s.completed_at || s.updated_at).filter(Boolean).sort();
     const from = RP.longDate(dates[0] || v.start_date), to = dates.length ? RP.longDate(dates[dates.length - 1]) : from;
     const fa = from.split(" "), ta = to.split(" ");
     const when = from === to ? `on ${from}` : fa[1] === ta[1] && fa[2] === ta[2] ? `on ${fa[0]}–${to}` : `from ${from} to ${to}`;
+    const days = new Set(done.map(s => s.day)).size;
 
-    let p = v.active ? `${N} has been in the program since ${from}.` : `${N} completed the program ${when}.`;
-    const did = [];
-    if (group.length) did.push(`took part in group lessons on ${listText(short(group))}`);
-    if (ind.length) did.push(`worked on ${listText(short(ind))} on the laptop`);
-    if (led.length) did.push(listText(led));
-    if (did.length) p += ` They ${listText(did)}.`;
+    // Paragraph 1: what they did, and what it kept coming back to.
+    let p1 = v.active
+      ? `${N} has been in the Reset Program, the school's in-house program in the Hub for students returning from suspension, since ${from}`
+      : `${N} spent ${days === 1 ? "a day" : "two days"} in the Reset Program, the school's in-house program in the Hub for students returning from suspension, ${when}`;
+    const parts = [];
+    if (group.length) parts.push(`${plural(group.length, "small-group lesson", "small-group lessons")} with a staff member`);
+    if (ind.length) parts.push(`${ind.length} working independently on a laptop`);
+    if (led.length) parts.push(`${plural(led.length, "one-on-one session", "one-on-one sessions")} with a teacher`);
+    p1 += count ? `, completing ${plural(count, "module", "modules")}: ${listText(parts)}.` : ".";
+    const counts = {};
+    done.forEach(s => { const k = themeOf(s); if (k) counts[k] = (counts[k] || 0) + 1; });
+    const top = Object.keys(counts).sort((a, b) => counts[b] - counts[a]).slice(0, 2).map(k => THEMES[k].words);
+    const plan = done.some(s => s.activity === "ind-success") ? `wrote a Return to Class Plan with a teacher` : done.some(s => s.activity === "module-6") ? `drafted a Return to Class Plan` : "";
+    if (top.length) p1 += ` Much of ${P.pos} work focused on ${listText(top)}${plan ? `, and ${P.sub} ${plan}` : ""}.`;
+    else if (plan) p1 += ` ${cap(P.sub)} ${plan}.`;
+    // Strategies that come up in answers from more than one module or survey.
+    const seenIn = {};
+    done.filter(s => s.state && s.state.responses).forEach(s => {
+      const all = s.state.responses.flatMap(sec => sec.rows.map(r => r.text || "")).join(" ");
+      STRATEGIES.forEach(([re, words]) => { if (re.test(all)) seenIn[words] = (seenIn[words] || 0) + 1; });
+    });
+    const threads = Object.keys(seenIn).filter(k => seenIn[k] > 1).sort((a, b) => seenIn[b] - seenIn[a]).slice(0, 2);
+    if (threads.length) p1 += ` A common thread in ${P.pos} answers was ${listText(threads)}.`;
 
-    // Surveys: the start and end of the program put together.
+    // Paragraph 2: growth, highlights and their own words.
+    const bits = [];
     const surveys = RP.SURVEY_ORDER.filter(id => id !== "followup").map(id => done.find(s => RP.surveyResultId(s.result) === id)).filter(s => s && s.result.ratings && s.result.ratings.length);
+    let low = null;
     if (surveys.length > 1) {
       const first = surveys[0].result, last = surveys[surveys.length - 1].result;
       const r = last.ratings.map((x, k) => ({ k, x: x || 0, d: (x || 0) - ((first.ratings || [])[k] || 0) }));
-      const grew = r.slice().sort((a, b) => b.d - a.d)[0], low = r.slice().sort((a, b) => a.x - b.x)[0];
-      p += last.total > first.total
-        ? ` Their self-rating went from ${first.total} to ${last.total} out of ${last.max || 50} across the program${grew.d > 0 ? `, with the biggest growth in ${RP.SURVEY_PHRASES[grew.k]}` : ""}.`
-        : ` Their self-rating was ${first.total} out of ${first.max || 50} at the start and ${last.total} at the end.`;
-      if (low.x <= 2) p += ` ${RP.SURVEY_PHRASES[low.k][0].toUpperCase() + RP.SURVEY_PHRASES[low.k].slice(1)} is still an area to support.`;
+      const grew = r.slice().sort((a, b) => b.d - a.d)[0];
+      low = r.slice().sort((a, b) => a.x - b.x)[0];
+      bits.push(last.total > first.total
+        ? `${cap(P.pos)} own rating of ${P.pos} skills grew from ${first.total} to ${last.total} out of ${last.max || 50} over the program${grew.d > 0 ? `, with the biggest growth in ${RP.SURVEY_PHRASES[grew.k]}` : ""}.`
+        : `${cap(P.pos)} own rating of ${P.pos} skills was ${first.total} out of ${first.max || 50} at the start and ${last.total} at the end.`);
     }
+    // Highlights: moving up a level, a strong score, arriving ready to learn.
+    const levelled = ind.filter(s => s.result && s.result.levels && s.result.levels.length > 1).map(s => titleOf(s).replace(/:\s*Day \d$/i, ""));
+    const wins = [];
+    if (levelled.length) wins.push(`moving up a level in ${listText([...new Set(levelled)])}`);
+    const strong = ind.filter(s => s.result && s.result.outOf && s.result.score / s.result.outOf >= 0.8 && !levelled.includes(titleOf(s).replace(/:\s*Day \d$/i, "")));
+    if (strong.length) wins.push(`scoring ${strong[0].result.score}/${strong[0].result.outOf} in ${titleOf(strong[0]).replace(/:\s*Day \d$/i, "")}`);
+    const lights = [1, 2].map(d => done.find(s => s.day === d && s.kind === "intro")).map(s => s && s.result && s.result.light);
+    if (lights[1] === "green" && lights[0] && lights[0] !== "green") wins.push("arriving on Day 2 ready to learn");
+    if (wins.length) bits.push(`Highlights included ${listText(wins)}.`);
+    if (low && low.x <= 2) bits.push(`${cap(RP.SURVEY_PHRASES[low.k])} is still an area to support.`);
     const said = t => `"${t}${/[.!?…]$/.test(t) ? "" : "."}"`;
     (quotes || []).forEach(q => {
-      p += q.support ? ` Asked about support, ${N} said: ${said(q.text)}` : q.about ? ` Asked ${q.about}, ${N} said: ${said(q.text)}` : ` In ${q.from}, ${N} wrote: ${said(q.label + " " + q.text)}`;
+      bits.push(q.support ? `Asked about support, ${N} said: ${said(q.text)}` : q.about ? `Asked ${fill(q.about)}, ${N} said: ${said(q.text)}` : `In ${q.from}, ${N} wrote: ${said(q.label + " " + q.text)}`);
     });
-    return (intro ? RP.CONTENT.sentralIntro + "\n\n" : "") + p;
+    return [p1, bits.join(" ")].filter(Boolean).join("\n\n");
   }
 
   function sentralPost(v) {
@@ -821,10 +898,12 @@
     box.innerHTML = `
       <form method="dialog">
         <h2>Sentral post</h2>
-        <p class="muted">A short overview for the staff noticeboard: how the program works, what ${h(RP.formatCode(v.student.code))} did, and their surveys put together. Type their name, choose what to include, check it, then copy it into Sentral. <strong>Nothing here is saved.</strong></p>
-        <label class="field">Student's name <input data-name autocomplete="off" placeholder="Typed here only, never saved"></label>
-        <label class="field inline"><input type="checkbox" data-intro checked> Start with a few lines on how the program works</label>
-        ${quotes.length ? `<fieldset class="sentral-quotes"><legend>Their own words to include (one is plenty)</legend>${quotes.map((q, i) => `<label><input type="checkbox" data-q="${i}"${i < 1 ? " checked" : ""}> <span class="muted">${h(q.about ? "Asked " + q.about : q.from)}:</span> “${h(q.text)}”</label>`).join("")}</fieldset>` : ""}
+        <p class="muted">A short overview of ${h(RP.formatCode(v.student.code))}'s program for the staff noticeboard, written for staff who don't know the program. Type their name and pronouns, choose a response to include, check it, then copy it into Sentral. <strong>Nothing here is saved.</strong></p>
+        <div class="sentral-who">
+          <label class="field">Student's name <input data-name autocomplete="off" placeholder="Typed here only, never saved"></label>
+          <label class="field">Pronouns <select data-pronouns>${Object.keys(PRONOUNS).map(k => `<option value="${k}">${PRONOUNS[k].label}</option>`).join("")}</select></label>
+        </div>
+        ${quotes.length ? `<fieldset class="sentral-quotes"><legend>Their own words to include (one is plenty)</legend>${quotes.map((q, i) => `<label><input type="checkbox" data-q="${i}"${i < 1 ? " checked" : ""}> <span class="muted">${h(q.about ? "Asked " + q.about.replace(/\{(sub|obj|refl)\}/g, (m, k) => PRONOUNS.they[k]) : q.from)}:</span> “${h(q.text)}”</label>`).join("")}</fieldset>` : ""}
         <label class="field">Post <textarea data-text rows="9"></textarea></label>
         <p class="muted small" data-count></p>
         <div class="actions"><button class="btn primary" type="button" data-copy>Copy</button><button class="btn ghost" type="button" data-close>Close</button></div>
@@ -834,10 +913,10 @@
     const words = () => { count.textContent = `${text.value.trim().split(/\s+/).filter(Boolean).length} words`; };
     const draw = () => {
       const picked = [...box.querySelectorAll("[data-q]:checked")].map(c => quotes[Number(c.dataset.q)]);
-      text.value = sentralText(v, box.querySelector("[data-name]").value.trim(), picked, box.querySelector("[data-intro]").checked); words();
+      text.value = sentralText(v, box.querySelector("[data-name]").value.trim(), picked, box.querySelector("[data-pronouns]").value); words();
     };
     box.querySelector("[data-name]").oninput = draw;
-    box.querySelectorAll("[data-q], [data-intro]").forEach(c => c.onchange = draw);
+    box.querySelectorAll("[data-q], [data-pronouns]").forEach(c => c.onchange = draw);
     text.oninput = words;
     box.querySelector("[data-copy]").onclick = async e => {
       try { await navigator.clipboard.writeText(text.value); } catch (ex) { text.select(); document.execCommand("copy"); }
