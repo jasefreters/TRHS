@@ -801,3 +801,10 @@ dialog::backdrop { background: rgba(22, 27, 59, .45); }
 .palette-group { border: 1px solid var(--line); border-radius: 10px; padding: .35rem .5rem; }
 .palette-group summary { cursor: pointer; font-size: .9rem; }
 .palette-group[open] { display: flex; flex-direction: column; gap: .4rem; }
+
+/* ---------- Sentral post ---------- */
+.sentral-dialog { width: min(720px, 94vw); max-height: 92vh; overflow-y: auto; }
+.sentral-dialog textarea { width: 100%; font: inherit; line-height: 1.45; padding: .6rem; border: 1.5px solid var(--line); border-radius: 10px; }
+.sentral-dialog input[data-name] { width: 100%; max-width: 360px; }
+.sentral-quotes { border: 1px solid var(--line); border-radius: 10px; padding: .5rem .8rem; margin: .6rem 0; display: flex; flex-direction: column; gap: .35rem; }
+.sentral-quotes label { font-size: .92rem; }

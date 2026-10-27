@@ -70,7 +70,7 @@ Run sheets and projector slides for each are on the dashboard's **Session guides
 
 **RIOT** has eight lessons, each condensed to 25 minutes. On the daily schedule, choose the lesson and how students do the worksheet: on **paper**, as a **PDF on their laptop**, or **interactive on their laptop**. Changing one student offers the same for everyone else in that RIOT session. Click **Present** to show the lesson slides; every worksheet exercise has a matching slide. Session guides has each lesson's run sheet, slides, worksheet, PDF and **answers** (with **Print answers**).
 
-If no staff member is free, students can do a RIOT lesson on their own: with a laptop format they see the lesson slides beside their worksheet (they can hide them or open them in a new tab), and the slides follow the exercise they're on. You can also drag a lesson from **RIOT lessons** on the daily schedule into an independent session; finishing one counts as the core RIOT module.
+If no staff member is free, students can do a RIOT lesson on their own: with a laptop format they see the lesson slides beside their worksheet (they can hide them or open them in a new tab), and the slides follow the exercise they're on. You can turn the slides off for a session on the daily schedule (**No slides for students**). You can also drag a lesson from **RIOT lessons** on the daily schedule into an independent session; finishing one counts as the core RIOT module.
 
 **Following answers live:** for any module a student has started, click **Answers** on the daily schedule (or **See answers** on the board) to see what they've written so far. Notes and testing results stay in Sentral and the school's usual systems.
 
@@ -171,3 +171,7 @@ Open the site with `?demo=1` on the end (for example `teacher.html?demo=1`) to u
 **Database updates:** if your database was set up before staffing, pause and follow-up surveys were added, run [`supabase/update-2.sql`](supabase/update-2.sql) once in a new SQL Editor query, then [`supabase/update-3.sql`](supabase/update-3.sql) (changing session times, and RIOT worksheets on laptops). The dashboard shows a reminder until they're done.
 
 **Adding a teacher:** create them under **Authentication → Users** (email, password, Auto confirm), then paste [`supabase/add-staff.sql`](supabase/add-staff.sql) into a new SQL Editor query, put in their email and run it. Each teacher logs in with their own email; logging out on one computer doesn't affect others.
+
+## Sentral post
+
+On a student's record (**All students**, then the student), **Sentral post** writes a short overview for the Sentral staff noticeboard: the modules they finished, a summary of their surveys (how their score changed, what they felt most confident about and anything that may need support), and one or two of their own responses. Type their name, tick the responses you want, check the wording, then **Copy** and paste it into Sentral. Nothing typed there is saved.

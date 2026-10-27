@@ -282,7 +282,7 @@
       const onLaptop = L && fmt && fmt.id !== "paper";
       html += head(L ? `RIOT ${L.fullTitle}` : "RIOT", "Group module") +
         (onLaptop ? "" : `<div class="card laptop-away big-note"><div class="laptop-icon" aria-hidden="true">💻 ➜ 👥</div>${RP.md(RP.CONTENT.group)}</div>`) +
-        `<div class="card">${RP.md(RP.groupSession("riot").about)}${L && fmt ? `<p><strong>${h(fmt.student)}</strong></p>` : ""}
+        `<div class="card">${RP.md(RP.groupSession("riot").about)}${L && fmt ? `<p><strong>${h((s.state || {}).slides === false ? fmt.student.replace(/ The lesson slides.*$/, "") : fmt.student)}</strong></p>` : ""}
           ${onLaptop && s.status !== "done" ? `<div class="actions"><button class="btn primary big" data-riot>${s.status === "in_progress" ? "Keep going" : "Start"}</button></div>` : ""}
           ${s.status === "done" && s.state && s.state.responses && s.state.responses.length ? `<div class="actions"><button class="btn" data-cert>View my answers</button></div>` : ""}</div>${doneNote}`;
     } else if (s.kind === "group") {
@@ -378,7 +378,8 @@
       ? { id: "riot-pdf", title: `RIOT ${L.fullTitle}`, booklet: true, single: true, score: false, riot: L.n,
           books: [{ id: "riot", title: "RIOT", subjects: [{ id: "lesson" + L.n, title: L.fullTitle, pdf: RP.riotPdf(L.n) }] }] }
       : RP.MODULES[L.id];
-    openModule(s, m);
+    // Staff can turn the slides off on the daily schedule.
+    openModule(s, st.slides === false ? Object.assign({}, m, { riot: null }) : m);
   }
 
   function openModule(s, module) {

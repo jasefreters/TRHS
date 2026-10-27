@@ -20,6 +20,20 @@ RP.SURVEY_STATEMENTS = [
   "I feel confident that I can manage challenges and get back on track at school."
 ];
 
+// The same statements as short phrases, for the Sentral post summary ("most confident about …").
+RP.SURVEY_PHRASES = [
+  "recognising when they're starting to feel angry or overwhelmed",
+  "knowing what triggers their anger",
+  "knowing strategies to calm down",
+  "stopping to think before reacting",
+  "understanding how their behaviour affects others",
+  "taking responsibility and learning from mistakes",
+  "finding different ways to handle conflict",
+  "making positive choices back in class",
+  "knowing which adult to go to for help",
+  "managing challenges and getting back on track"
+];
+
 // The morning ready-to-learn check, at the start of both morning surveys. Saved in the morning
 // session's result as { light, have: [ids], missing: [ids] } and shown on the teacher's dashboard.
 RP.READY_LIGHTS = [

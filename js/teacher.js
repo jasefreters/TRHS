@@ -659,6 +659,7 @@
       on("[data-edit]", () => show({ name: "plan", visitId: v.id, from: "student", studentId: st.id }));
       on("[data-certs]", () => show({ name: "print", what: "certs", visitId: v.id, studentId: st.id, from: view.from }));
       on("[data-record]", () => show({ name: "print", what: "record", visitId: v.id, studentId: st.id, from: view.from }));
+      on("[data-sentral]", () => sentralPost(Object.assign({ student: st }, v)));
       on("[data-reopen]", async () => {
         if (!confirm("Reopen this program? Their code will work on the laptops again.")) return;
         try { await api.updateVisit(v.id, { active: true }); reload(); }
@@ -713,6 +714,7 @@
             <button class="btn small primary" data-edit>Edit program</button>
             <button class="btn small" data-certs ${certDays.length ? "" : "disabled"}>Print certificates${certDays.length ? ` (${certDays.length})` : ""}</button>
             <button class="btn small" data-record>Print program record</button>
+            <button class="btn small" data-sentral>Sentral post</button>
             ${v.active ? `<button class="btn small" data-pause>${v.paused ? "Resume" : "Pause"}</button><button class="btn small" data-finish>Finish program</button>` : (anyActive ? "" : `<button class="btn small" data-reopen>Reopen</button>`)}
             <button class="btn small danger" data-delete-program>Delete program</button>
           </div>
@@ -730,6 +732,125 @@
         </div>` : ""}
         <details><summary>Day-by-day</summary><div class="record-days">${dayList(1)}${dayList(2)}</div></details>
       </section>`;
+  }
+
+  // ---------------------------------------------------------------- Sentral post
+  // A one-to-two paragraph overview of a program for the Sentral staff noticeboard: the modules
+  // they finished, the surveys summed up, and one or two of their own responses. Staff type the
+  // name and edit it before copying; nothing here is saved.
+  const QUOTE_PROMPTS = [
+    [/plan to do differently/i, "what they'll do differently back in class"],
+    [/learned about yourself/i, "what they learned about themselves"],
+    [/strategy you could use/i, "about a strategy for next time"],
+    [/most helpful/i, "what helped most"],
+    [/best part of today/i, "about the best part of the day"],
+    [/want to keep using/i, "what they want to keep using"],
+    [/additional support/i, "about support", true]
+  ];
+  const POSITIVE_LABEL = /proud|good at|strength|makes me a good|my goal|I will|I'll|differently|one thing I can/i;
+  const emptyAnswer = t => !t || t.trim().length < 4 || /^(no|nope|nothing|none|idk|nah|n\/a|na|dunno|i don'?t know|not sure)[.!]?$/i.test(t.trim());
+  const clip = t => { t = t.trim().replace(/\s+/g, " "); return t.length > 180 ? t.slice(0, 177).replace(/\s\S*$/, "") + "…" : t; };
+  const listText = xs => xs.length < 2 ? xs.join("") : xs.slice(0, -1).join(", ") + " and " + xs[xs.length - 1];
+
+  function sentralQuotes(v) {
+    const out = [];
+    v.sessions.filter(s => s.status === "done" && s.state && s.state.responses).sort(RP.bySchedule(v.times)).reverse().forEach(s => {
+      const survey = ["intro", "debrief", "survey"].includes(s.kind);
+      s.state.responses.forEach(sec => sec.rows.forEach(r => {
+        if (emptyAnswer(r.text)) return;
+        const label = String(r.label || "").replace(/\*\*/g, "");
+        if (survey) {
+          const m = QUOTE_PROMPTS.find(([re]) => re.test(label));
+          if (m) out.push({ rank: QUOTE_PROMPTS.indexOf(m), support: !!m[2], about: m[1], text: clip(r.text) });
+        } else if (POSITIVE_LABEL.test(label) && label.length < 90) {
+          out.push({ rank: 50, label: label.replace(/…$/, "").trim(), text: clip(r.text), from: titleOf(s) });
+        }
+      }));
+    });
+    // Survey answers first (in priority order), then module answers; one per prompt.
+    const seen = new Set();
+    return out.sort((a, b) => a.rank - b.rank).filter(q => { const k = q.about || q.label; if (seen.has(k)) return false; seen.add(k); return true; }).slice(0, 6);
+  }
+
+  function sentralText(v, name, quotes) {
+    const N = name || "[Student]";
+    const done = v.sessions.filter(s => s.status === "done").sort(RP.bySchedule(v.times));
+    const uniq = xs => [...new Set(xs)];
+    const group = uniq(done.filter(s => s.kind === "group").map(titleOf));
+    const ind = uniq(done.filter(s => s.kind === "independent" && s.activity && !RP.isLedModule(s)).map(s => {
+      const m = RP.MODULES[s.activity], r = m && m.levels && RP.resultText(s.result);
+      return titleOf(s) + (r ? ` (${r})` : "");
+    }));
+    const led = uniq(done.filter(s => s.kind === "one_to_one" || RP.isLedModule(s)).map(s => titleOf(s).replace(/^Teacher-led:\s*/i, "")));
+    const dates = done.map(s => s.completed_at || s.updated_at).filter(Boolean).sort();
+    const from = RP.longDate(dates[0] || v.start_date), to = dates.length ? RP.longDate(dates[dates.length - 1]) : from;
+    // "27 October 2026", or "27–28 October 2026" when both days are in the same month.
+    const fa = from.split(" "), ta = to.split(" ");
+    const when = from === to ? from : fa[1] === ta[1] && fa[2] === ta[2] ? `${fa[0]}–${to}` : `${from} to ${to}`;
+    const days = uniq(done.map(s => s.day)).length;
+    const parts = [];
+    if (group.length) parts.push(`group modules on ${listText(group)}`);
+    if (ind.length) parts.push(`independent modules: ${listText(ind)}`);
+    if (led.length) parts.push(`teacher-led sessions: ${listText(led)}`);
+    const count = group.length + ind.length + led.length;
+    let p1 = `${N} ${v.active ? "has been completing" : "completed"} the Reset Program in the Hub (${when}${days === 2 ? ", two days" : days === 1 ? ", one day" : ""}). `;
+    p1 += count ? `${N} finished ${count} module${count > 1 ? "s" : ""}: ${parts.join("; ")}.` : `No modules have been finished yet.`;
+
+    // Surveys: first and last totals, and which statements stood out.
+    const surveys = RP.SURVEY_ORDER.filter(id => id !== "followup").map(id => done.find(s => RP.surveyResultId(s.result) === id)).filter(s => s && s.result.ratings && s.result.ratings.length);
+    let p2 = "";
+    if (surveys.length) {
+      const first = surveys[0].result, last = surveys[surveys.length - 1].result, max = last.max || 50;
+      p2 = surveys.length > 1
+        ? `Across ${surveys.length} surveys, ${N}'s rating of their own skills ${last.total > first.total ? `rose from ${first.total} to ${last.total}` : last.total < first.total ? `went from ${first.total} to ${last.total}` : `stayed at ${last.total}`} out of ${max}. `
+        : `In the one survey done so far, ${N} rated their own skills ${last.total} out of ${max}. `;
+      const r = last.ratings.map((x, k) => ({ k, x: x || 0, d: (x || 0) - ((first.ratings || [])[k] || 0) }));
+      const top = r.slice().sort((a, b) => b.x - a.x)[0];
+      const grew = surveys.length > 1 ? r.slice().sort((a, b) => b.d - a.d)[0] : null;
+      const low = r.slice().sort((a, b) => a.x - b.x)[0];
+      const bits = [`felt most confident about ${RP.SURVEY_PHRASES[top.k]}`];
+      if (grew && grew.d > 0 && grew.k !== top.k) bits.push(`grew most in ${RP.SURVEY_PHRASES[grew.k]}`);
+      p2 += `${N} ${listText(bits)}` + (low.x <= 3 && low.k !== top.k ? `, and may need support with ${RP.SURVEY_PHRASES[low.k]}.` : ".");
+    }
+    const said = t => `"${t}${/[.!?…]$/.test(t) ? "" : "."}"`;
+    (quotes || []).forEach(q => {
+      p2 += q.support ? ` Asked about support, ${N} said: ${said(q.text)}` : q.about ? ` Asked ${q.about}, ${N} wrote: ${said(q.text)}` : ` In ${q.from}, ${N} wrote: ${said(q.label + " " + q.text)}`;
+    });
+    return [p1, p2.trim()].filter(Boolean).join("\n\n");
+  }
+
+  function sentralPost(v) {
+    const quotes = sentralQuotes(v);
+    const box = document.createElement("dialog");
+    box.className = "sentral-dialog";
+    box.innerHTML = `
+      <form method="dialog">
+        <h2>Sentral post</h2>
+        <p class="muted">A short overview for the staff noticeboard: the modules ${h(RP.formatCode(v.student.code))} finished and their surveys summed up. Type their name, choose any responses to include, check it, then copy it into Sentral. <strong>Nothing here is saved.</strong></p>
+        <label class="field">Student's name <input data-name autocomplete="off" placeholder="Typed here only, never saved"></label>
+        ${quotes.length ? `<fieldset class="sentral-quotes"><legend>Their responses to include</legend>${quotes.map((q, i) => `<label><input type="checkbox" data-q="${i}"${i < 2 ? " checked" : ""}> <span class="muted">${h(q.about ? "Asked " + q.about : q.from)}:</span> “${h(q.text)}”</label>`).join("")}</fieldset>` : ""}
+        <label class="field">Post <textarea data-text rows="11"></textarea></label>
+        <p class="muted small" data-count></p>
+        <div class="actions"><button class="btn primary" type="button" data-copy>Copy</button><button class="btn ghost" type="button" data-close>Close</button></div>
+      </form>`;
+    document.body.appendChild(box);
+    const text = box.querySelector("[data-text]"), count = box.querySelector("[data-count]");
+    const words = () => { count.textContent = `${text.value.trim().split(/\s+/).filter(Boolean).length} words`; };
+    const draw = () => {
+      const picked = [...box.querySelectorAll("[data-q]:checked")].map(c => quotes[Number(c.dataset.q)]);
+      text.value = sentralText(v, box.querySelector("[data-name]").value.trim(), picked); words();
+    };
+    box.querySelector("[data-name]").oninput = draw;
+    box.querySelectorAll("[data-q]").forEach(c => c.onchange = draw);
+    text.oninput = words;
+    box.querySelector("[data-copy]").onclick = async e => {
+      try { await navigator.clipboard.writeText(text.value); } catch (ex) { text.select(); document.execCommand("copy"); }
+      e.target.textContent = "Copied ✓"; setTimeout(() => { e.target.textContent = "Copy"; }, 1500);
+    };
+    box.querySelector("[data-close]").onclick = () => box.close();
+    box.addEventListener("close", () => box.remove());
+    draw();
+    box.showModal();
   }
 
   // ---------------------------------------------------------------- individual sessions
@@ -1520,7 +1641,7 @@
     });
     app().querySelectorAll("[data-preview]").forEach(b => b.onclick = e => { e.stopPropagation(); previewModule(b.dataset.preview); });
     app().querySelectorAll(".plan-days [data-present]").forEach(b => b.onclick = e => { e.stopPropagation(); showPresent(b.dataset.present); });
-    app().querySelectorAll("[data-riot-lesson], [data-riot-format]").forEach(sel => sel.onchange = () => setRiot(v, sel));
+    app().querySelectorAll("[data-riot-lesson], [data-riot-format], [data-riot-slides]").forEach(sel => sel.onchange = () => setRiot(v, sel));
     app().querySelectorAll("[data-open-ind]").forEach(b => b.onclick = () => show({ name: "individual", visitId: v.id, sessionId: b.dataset.openInd, from: view.from }));
     app().querySelectorAll("[data-mark]").forEach(b => b.onclick = async () => {
       const s = v.sessions.find(s => s.id === b.dataset.mark);
@@ -1588,6 +1709,7 @@
       const st = s.state || {}, fmt = st.format || "paper";
       controls = `<select class="small" data-riot-lesson="${s.id}" aria-label="RIOT lesson"><option value="">Choose the lesson</option>${RP.RIOT.map(L => `<option value="${L.n}"${st.lesson === L.n ? " selected" : ""}>${h(L.fullTitle)}</option>`).join("")}</select>
         <select class="small" data-riot-format="${s.id}" aria-label="Worksheet format">${RP.RIOT_FORMATS.map(f => `<option value="${f.id}"${fmt === f.id ? " selected" : ""}${f.id !== "paper" && api.needsUpdate3 ? " disabled" : ""}>${h(f.label)}${f.id !== "paper" && api.needsUpdate3 ? " (needs database update 3)" : ""}</option>`).join("")}</select>
+        ${fmt !== "paper" ? `<select class="small" data-riot-slides="${s.id}" aria-label="Slides for students"><option value="on">Students see the slides</option><option value="off"${st.slides === false ? " selected" : ""}>No slides for students</option></select>` : ""}
         ${st.lesson ? `<button class="btn small" data-present="riot:${st.lesson}">Present</button>` : ""}
         ${st.lesson && fmt !== "paper" && s.status !== "not_started" ? `<button class="btn small" data-open-ind="${s.id}">Answers</button>` : ""}`;
     }
@@ -1724,25 +1846,32 @@
     return true;
   }
 
-  // Choose a RIOT lesson or worksheet format, and offer the same to the other students in that
+  // Choose a RIOT lesson, worksheet format, or whether students see the slides beside a laptop
+  // worksheet (state.slides false hides them), and offer the same to the other students in that
   // RIOT session today.
   async function setRiot(v, sel) {
-    const s = v.sessions.find(x => x.id === (sel.dataset.riotLesson || sel.dataset.riotFormat));
+    const s = v.sessions.find(x => x.id === (sel.dataset.riotLesson || sel.dataset.riotFormat || sel.dataset.riotSlides));
     const st = Object.assign({ format: "paper" }, s.state || {});
-    const key = sel.dataset.riotLesson ? "lesson" : "format";
-    const value = key === "lesson" ? (sel.value ? Number(sel.value) : null) : sel.value;
+    const key = sel.dataset.riotLesson ? "lesson" : sel.dataset.riotFormat ? "format" : "slides";
+    const value = key === "lesson" ? (sel.value ? Number(sel.value) : null) : key === "slides" ? sel.value !== "off" : sel.value;
     let patch = { state: Object.assign({}, st, { [key]: value }) };
-    if (s.status !== "not_started") {
+    if (key === "slides" && value) delete patch.state.slides;
+    if (s.status !== "not_started" && key !== "slides") {
       if (!confirm(`They've already started this RIOT lesson. Change it? Their progress on it will be cleared.`)) { renderPlan(); return; }
-      patch = { status: "not_started", result: null, completed_at: null, state: { lesson: patch.state.lesson, format: patch.state.format } };
+      patch = { status: "not_started", result: null, completed_at: null, state: Object.assign({ lesson: patch.state.lesson, format: patch.state.format }, patch.state.slides === false ? { slides: false } : {}) };
     }
     try {
       await api.updateSession(s.id, patch);
       const others = s.day === v.current_day ? visits.filter(o => o.id !== v.id && !o.paused && o.kind !== "followup")
         .map(o => at(o, o.current_day, s.slot)).filter(x => x && RP.isRiot(x) && x.status === "not_started") : [];
       const L = RP.riotLesson(patch.state.lesson), f = RP.RIOT_FORMATS.find(x => x.id === patch.state.format);
-      if (others.length && L && confirm(`Use ${L.fullTitle} (${f.label}) for the other ${others.length} student${others.length > 1 ? "s" : ""} with RIOT at ${RP.formatTime(RP.slotTimes(s.slot, ttOf(v, s.day)).start)} today?`)) {
-        for (const x of others) await api.updateSession(x.id, { state: Object.assign({}, x.state || {}, { lesson: patch.state.lesson, format: patch.state.format }) });
+      const noSlides = f.id !== "paper" && patch.state.slides === false;
+      if (others.length && L && confirm(`Use ${L.fullTitle} (${f.label}${noSlides ? ", no slides" : ""}) for the other ${others.length} student${others.length > 1 ? "s" : ""} with RIOT at ${RP.formatTime(RP.slotTimes(s.slot, ttOf(v, s.day)).start)} today?`)) {
+        for (const x of others) {
+          const xs = Object.assign({}, x.state || {}, { lesson: patch.state.lesson, format: patch.state.format });
+          if (patch.state.slides === false) xs.slides = false; else delete xs.slides;
+          await api.updateSession(x.id, { state: xs });
+        }
       }
       [visit, visits] = await Promise.all([api.getVisit(visit.id), api.listActive()]); renderPlan();
     } catch (ex) { failed(ex); }
