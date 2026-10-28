@@ -811,3 +811,6 @@ dialog::backdrop { background: rgba(22, 27, 59, .45); }
 .cert-list.compact { columns: 3; column-gap: 1.6rem; font-size: .86rem; }
 .sentral-who { display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end; }
 .sentral-who .field { margin: 0; }
+.dot { display: inline-block; width: .8rem; height: .8rem; border-radius: 50%; vertical-align: -1px; }
+.rating-dots { color: var(--royal); letter-spacing: 1px; }
+.survey-answers td:first-child { width: 65%; }

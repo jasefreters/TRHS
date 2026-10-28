@@ -93,13 +93,16 @@ RP.Player = (function () {
 
   /*
     opts: { el, module, session, answers: { get(), set(obj) }, save(status, result, state), onExit(), onFinish(result, state, worksheet) }
-    state saved on the session: { level, index, firstTry: { [index]: true|false } }
+    state saved on the session: { level, index, firstTry: { [index]: true|false },
+      attempts: { [index]: goes it took to get it right }, revealed: { [index]: wrong goes before "Show me the answer" } }
   */
   function open(opts) {
     if (opts.module.booklet) return openBooklet(opts);
     const { el, module, session } = opts;
     let state = Object.assign({}, session.state || {});
     if (state.firstTry == null) state.firstTry = {};
+    if (state.attempts == null) state.attempts = {};
+    if (state.revealed == null) state.revealed = {};
     const answers = (opts.answers && opts.answers.get()) || {};
     // Every module (not surveys) also sends the answers so far with its progress, so staff can
     // follow along as the student types (the teacher's "See answers" page).
@@ -140,7 +143,7 @@ RP.Player = (function () {
       el.querySelectorAll("[data-level]").forEach(b => b.onclick = () => {
         state.level = Number(b.dataset.level);
         state.index = 0;
-        state.firstTry = {};
+        state.firstTry = {}; state.attempts = {}; state.revealed = {};
         persist();
         showItem();
       });
@@ -346,6 +349,7 @@ RP.Player = (function () {
       const explain = () => (it.explain ? " " + inlineMd(it.explain) : "");
       const right = () => {
         if (!(i in state.firstTry)) state.firstTry[i] = tries === 0;
+        if (!(i in state.attempts) && !(i in state.revealed)) state.attempts[i] = tries + 1;
         fb.className = "feedback good";
         fb.innerHTML = "Correct!" + explain();
         const check = el.querySelector("[data-check]"); if (check) check.hidden = true;
@@ -378,7 +382,7 @@ RP.Player = (function () {
           else { input.classList.add("wrong"); setTimeout(() => input.classList.remove("wrong"), 600); wrong(); }
         };
         el.querySelector("[data-show]").onclick = e => {
-          state.firstTry[i] = false;
+          state.firstTry[i] = false; state.revealed[i] = tries;
           input.value = it.answer; input.disabled = true;
           fb.className = "feedback"; fb.innerHTML = "The answer is <strong>" + h(it.answer) + "</strong>." + explain();
           e.target.hidden = true; revealNext();
@@ -428,7 +432,7 @@ RP.Player = (function () {
           setTimeout(() => { it.cards.forEach((c, k) => { if (!marks[k]) delete placed[k]; }); if (next.hidden) draw(); }, 1200);
         };
         el.querySelector("[data-show]").onclick = e => {
-          state.firstTry[i] = false;
+          state.firstTry[i] = false; state.revealed[i] = tries;
           it.cards.forEach((c, k) => { placed[k] = c.bucket; });
           chosenCard = null; draw();
           el.querySelectorAll("[data-card]").forEach(c => { c.classList.add("right"); c.disabled = true; });
@@ -460,7 +464,7 @@ RP.Player = (function () {
           draw(marks); wrong();
         };
         el.querySelector("[data-show]").onclick = e => {
-          state.firstTry[i] = false;
+          state.firstTry[i] = false; state.revealed[i] = tries;
           order = it.cards.map((c, k) => k);
           check.hidden = true; e.target.hidden = true; revealNext();
           draw(order.map(() => true));
@@ -531,7 +535,7 @@ RP.Player = (function () {
           setTimeout(() => { Object.keys(marks).forEach(k => { if (!marks[k]) delete placed[k]; }); if (next.hidden) draw(); }, 1200);
         };
         el.querySelector("[data-show]").onclick = e => {
-          state.firstTry[i] = false;
+          state.firstTry[i] = false; state.revealed[i] = tries;
           it.pairs.forEach((p, k) => { placed[k] = k; });
           check.hidden = true; e.target.hidden = true; revealNext();
           const marks = {}; it.pairs.forEach((p, k) => { marks[k] = true; }); draw(marks);
@@ -743,7 +747,7 @@ RP.Player = (function () {
       bindHeader();
       el.querySelector("[data-next-level]").onclick = () => {
         state.levelsDone = result.levels;
-        state.level = next.level; state.index = 0; state.firstTry = {};
+        state.level = next.level; state.index = 0; state.firstTry = {}; state.attempts = {}; state.revealed = {};
         persist(); showItem();
       };
       el.querySelector("[data-stop]").onclick = () => {

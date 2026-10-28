@@ -984,6 +984,7 @@
     const v = visit, s = v && v.sessions.find(x => x.id === view.sessionId);
     if (!s) { show({ name: "board" }); return; }
     if (watchable(s)) return renderLedModule(v, s);
+    if (["intro", "debrief", "survey"].includes(s.kind)) return renderSurveyAnswers(v, s);
     const ind = RP.individualSession(s.activity);
     const t = RP.slotTimes(s.slot, ttOf(v, s.day));
     const staff = s.day === v.current_day ? staffAt(t) : "";
@@ -1008,7 +1009,7 @@
     } else {
       info = `<h3>Surveys</h3>${shown(surveys(RP.SURVEY_ORDER))}`;
     }
-    const back = view.from === "board" ? "In the program" : "Plan";
+    const back = view.from === "board" ? "In the program" : "Daily schedule";
     app().innerHTML = `
       <div class="page">
         <div class="no-print">
@@ -1025,7 +1026,7 @@
         </div>
         ${s.activity === "ind-success" || s.activity === "ind-return-meeting" ? returnPlan(v) : ""}
       </div>`;
-    $("[data-back]").onclick = () => view.from === "board" ? show({ name: "board" }) : show({ name: "plan", visitId: v.id, from: view.from });
+    $("[data-back]").onclick = () => view.from === "board" ? show({ name: "board" }) : show({ name: "plan", visitId: v.id, from: view.planFrom || view.from });
     $("[data-tick]").onclick = async () => { await setDone(s, s.status !== "done"); show(view); };
     const rp = $("[data-print-plan]");
     if (rp) bindReturnPlan(rp);
@@ -1134,17 +1135,33 @@
       const picked = a ? a.picked.slice().sort((x, y) => x - y).map(k => it.options[k]).concat(a.other && a.other.trim() ? ["Other: " + a.other.trim()] : []) : [];
       return `<ul class="plan-tick-list">${it.options.map(o => `<li class="${picked.includes(o) ? "on" : ""}">${picked.includes(o) ? "☑" : "☐"} ${h(o)}</li>`).join("")}${picked.filter(x => /^Other: /.test(x)).map(x => `<li class="on">☑ ${h(x)}</li>`).join("")}</ul>`;
     }
-    if (["mc", "sort", "order", "match", "input"].includes(it.type)) {
-      const ft = (st.firstTry || {})[i];
-      return `<p class="${ft === true ? "ok-text" : ft === false ? "warn" : "muted"}">${ft === true ? "✓ Right first time" : ft === false ? "Needed another go (worth talking about)" : "Not answered yet"}</p>`;
-    }
+    if (CHECKED.includes(it.type)) return attemptsText(st, i);
     return "";
+  }
+  // Questions with a right answer, and how many goes it took (state.attempts, state.revealed;
+  // older progress only has firstTry).
+  const CHECKED = ["mc", "sort", "order", "match", "input"];
+  const ordinal = n => n + (n === 2 ? "nd" : n === 3 ? "rd" : "th");
+  function attemptsText(st, i) {
+    const n = (st.attempts || {})[i], shown = (st.revealed || {})[i], ft = (st.firstTry || {})[i];
+    if (n === 1) return `<p class="ok-text">✓ Right first go</p>`;
+    if (n) return `<p class="warn">Right on the ${ordinal(n)} go</p>`;
+    if (shown != null) return `<p class="warn">Looked at the answer after ${shown} wrong go${shown === 1 ? "" : "es"}</p>`;
+    if (ft === true) return `<p class="ok-text">✓ Right first go</p>`;
+    if (ft === false) return `<p class="warn">Needed more than one go</p>`;
+    return `<p class="muted">Not answered yet</p>`;
+  }
+  // Every question with a right answer, for a finished module.
+  function questionResults(m, st) {
+    const items = liveItems(m, st);
+    const rows = items.map((it, i) => CHECKED.includes(it.type) ? `<li class="live-item"><div class="live-title">${h(it.title || "")}${it.q ? `<div class="live-q">${RP.inlineMd(it.q.split("\n\n").pop())}</div>` : ""}</div>${attemptsText(st, i)}</li>` : "").join("");
+    return rows ? `<h3>Questions</h3><ol class="live-items">${rows}</ol>` : "";
   }
   function ledLive(v, s) {
     const m = moduleFor(s), st = s.state || {};
     if (s.status === "done") {
       const ok = (s.result && s.result.byTeacher) ? "Marked done by a teacher." : `Finished ${RP.formatDate(s.completed_at || s.updated_at)}.`;
-      return `<p class="ok-text">✓ ${h(ok)}</p>${s.state && s.state.responses && s.state.responses.length ? RP.worksheetRows(s.state.responses) : ""}`;
+      return `<p class="ok-text">✓ ${h(ok)}${s.result && s.result.outOf ? ` · ${s.result.score}/${s.result.outOf} right first go` : ""}</p>${s.state && s.state.responses && s.state.responses.length ? RP.worksheetRows(s.state.responses) : ""}${!m.booklet && s.state && s.state.index != null ? questionResults(m, s.state) : ""}`;
     }
     if (m.booklet) {
       // Suspension Booklet or a RIOT PDF: the subjects they've opened and what they've typed.
@@ -1173,6 +1190,38 @@
     $("[data-live-print]").innerHTML = ledLive(visit, s);
     return true;
   }
+  // A submitted survey: the morning check-in (ready to learn), the ratings, and written answers.
+  function renderSurveyAnswers(v, s) {
+    const id = RP.surveyIdFor(s), sv = RP.SURVEYS[id], r = s.result || {};
+    const t = RP.slotTimes(s.slot, ttOf(v, s.day));
+    // The program's first survey, to compare ratings with.
+    const first = RP.SURVEY_ORDER.map(x => v.sessions.find(o => o.status === "done" && RP.surveyResultId(o.result) === x)).find(Boolean);
+    const base = first && first.id !== s.id ? first.result.ratings || [] : null;
+    const ready = r.ready, light = ready && RP.READY_LIGHTS.find(x => x.id === ready.light);
+    const label = x => (RP.READY_ITEMS.find(y => y.id === x) || { label: x }).label;
+    const back = view.from === "board" ? "In the program" : "Daily schedule";
+    app().innerHTML = `
+      <div class="page">
+        <button class="link-btn" data-back>← ${back}</button>
+        <div class="page-head"><div>
+          <h1>${h(sv ? sv.title : s.title)}</h1>
+          <p class="muted">${h(RP.formatCode(v.student.code))} · Day ${s.day}${t ? ` · ${RP.formatTime(t.start)}` : ""}${s.status === "done" ? ` · submitted ${RP.formatDate(s.completed_at || s.updated_at)}` : ""}</p>
+        </div></div>
+        ${s.status !== "done" ? `<div class="card"><p class="muted">${s.status === "in_progress" ? "They've started it. Their answers show here when they submit it." : "Not done yet."}</p></div>` : `
+        ${ready ? `<section class="card"><h2>Ready to learn</h2>
+          <p>${light ? `<span class="dot dot-${h(light.id)}" aria-hidden="true"></span> <strong>${h(light.label)}</strong>` : `<span class="muted">No traffic light chosen</span>`}</p>
+          ${ready.missing && ready.missing.length ? `<p class="warn">Doesn't have: ${h(ready.missing.map(label).join(", "))}</p>` : ""}
+          ${ready.have && ready.have.length ? `<p class="muted">Has: ${h(ready.have.map(label).join(", "))}</p>` : ""}</section>` : ""}
+        ${r.ratings && r.ratings.length ? `<section class="card"><h2>How much they agree <span class="tag">${r.total}/${r.max || 50}</span></h2>
+          <p class="muted small">1 = strongly disagree, 5 = strongly agree${base ? `. Change is since their first survey (${h(RP.SURVEY_SHORT[RP.surveyResultId(first.result)])}).` : "."}</p>
+          <table class="records survey-answers"><thead><tr><th>Statement</th><th>Rating</th>${base ? "<th>Change</th>" : ""}</tr></thead><tbody>
+          ${RP.SURVEY_STATEMENTS.map((st, k) => { const x = r.ratings[k], d = base && x != null && base[k] != null ? x - base[k] : null; return `<tr><td>${h(st)}</td><td class="nowrap"><span class="rating-dots" aria-hidden="true">${"●".repeat(x || 0)}${"○".repeat(5 - (x || 0))}</span> ${x == null ? "–" : x}</td>${base ? `<td class="${d > 0 ? "ok-text" : d < 0 ? "warn" : "muted"}">${d == null ? "" : d > 0 ? "+" + d : d}</td>` : ""}</tr>`; }).join("")}
+          </tbody></table></section>` : ""}
+        <section class="card"><h2>Written answers</h2>${s.state && s.state.responses && s.state.responses.length ? RP.worksheetRows(s.state.responses) : `<p class="muted">No written answers.</p>`}</section>`}
+      </div>`;
+    $("[data-back]").onclick = () => view.from === "board" ? show({ name: "board" }) : show({ name: "plan", visitId: v.id, from: view.planFrom || view.from });
+  }
+
   function renderLedModule(v, s) {
     const m = moduleFor(s), led = !!m.teacherLed;
     const t = RP.slotTimes(s.slot, ttOf(v, s.day));
@@ -1192,7 +1241,7 @@
           </div>
           ${m.guide ? `<details class="card guide" open><summary><h2>How to run it</h2></summary><div class="guide-body">${RP.md(m.guide)}</div></details>` : ""}
           <div class="${led ? "led-layout" : ""}">
-            <section class="card"><h2>What they're doing <span class="tag">live</span></h2><div data-live>${ledLive(v, s)}</div></section>
+            <section class="card"><h2>${s.status === "done" ? "Their answers" : `What they're doing <span class="tag">live</span>`}</h2><div data-live>${ledLive(v, s)}</div></section>
             ${led ? `<aside class="card led-staff">
               <h2>Staff check-in</h2>
               <p class="muted small">Not saved: print it, or record it in Sentral.</p>
@@ -1226,7 +1275,7 @@
     const name = $("[data-led-name]");
     if (name) name.oninput = () => { $("[data-led-name-out]").textContent = name.value.trim() || " "; };
     const pr = $("[data-led-print]"); if (pr) pr.onclick = () => window.print();
-    $("[data-back]").onclick = () => view.from === "board" ? show({ name: "board" }) : show({ name: "plan", visitId: v.id, from: view.from });
+    $("[data-back]").onclick = () => view.from === "board" ? show({ name: "board" }) : show({ name: "plan", visitId: v.id, from: view.planFrom || view.from });
     const tk = $("[data-tick]"); if (tk) tk.onclick = async () => { await setDone(s, s.status !== "done"); show(view); };
     app().querySelectorAll("[data-preview]").forEach(b => b.onclick = () => previewModule(b.dataset.preview));
     drawStaff();
@@ -1759,7 +1808,7 @@
     app().querySelectorAll("[data-preview]").forEach(b => b.onclick = e => { e.stopPropagation(); previewModule(b.dataset.preview); });
     app().querySelectorAll(".plan-days [data-present]").forEach(b => b.onclick = e => { e.stopPropagation(); showPresent(b.dataset.present); });
     app().querySelectorAll("[data-riot-lesson], [data-riot-format], [data-riot-slides]").forEach(sel => sel.onchange = () => setRiot(v, sel));
-    app().querySelectorAll("[data-open-ind]").forEach(b => b.onclick = () => show({ name: "individual", visitId: v.id, sessionId: b.dataset.openInd, from: view.from }));
+    app().querySelectorAll("[data-open-ind]").forEach(b => b.onclick = () => show({ name: "individual", visitId: v.id, sessionId: b.dataset.openInd, from: "plan", planFrom: view.from }));
     app().querySelectorAll("[data-mark]").forEach(b => b.onclick = async () => {
       const s = v.sessions.find(s => s.id === b.dataset.mark);
       if (!confirm(`Mark "${titleOf(s)}" as done? Use this if they completed it another way, such as on paper.`)) return;
@@ -1830,6 +1879,7 @@
         ${st.lesson ? `<button class="btn small" data-present="riot:${st.lesson}">Present</button>` : ""}
         ${st.lesson && fmt !== "paper" && s.status !== "not_started" ? `<button class="btn small" data-open-ind="${s.id}">Answers</button>` : ""}`;
     }
+    if (["intro", "debrief"].includes(s.kind) && s.status === "done") controls = `<button class="btn small" data-open-ind="${s.id}" title="Their check-in, ratings and written answers">Answers</button>`;
     if (teacherTicks(s)) {
       controls += `${s.kind === "one_to_one" ? `<button class="btn small" data-open-ind="${s.id}">Open</button>` : ""}<button class="btn small${s.status === "done" ? " ok" : ""}" data-tick="${s.id}">${s.status === "done" ? "✓ Done" : "Mark done"}</button>`;
     } else if (m) {

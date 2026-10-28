@@ -172,6 +172,10 @@ Open the site with `?demo=1` on the end (for example `teacher.html?demo=1`) to u
 
 **Adding a teacher:** create them under **Authentication → Users** (email, password, Auto confirm), then paste [`supabase/add-staff.sql`](supabase/add-staff.sql) into a new SQL Editor query, put in their email and run it. Each teacher logs in with their own email; logging out on one computer doesn't affect others.
 
+## Seeing answers
+
+On the daily schedule, **Answers** opens what a student has done in any module on the laptop (including RIOT lessons done on the laptop), as they go and after they finish. For multiple-choice and other questions with a right answer, it shows how many goes it took ("Right first go", "Right on the 2nd go", or "Looked at the answer"). Once the morning check-in or afternoon debrief survey is submitted, **Answers** on that session shows their ready-to-learn check, each rating (with the change since their first survey) and their written answers.
+
 ## Sentral post
 
 On a student's record (**All students**, then the student), **Sentral post** writes a short post for the Sentral staff noticeboard: a line of context, a few dot points led by what their work and answers kept coming back to, their growth and highlights, and one of their own responses (with obvious spelling slips fixed). Type their name and choose their pronouns, choose a response, and click **↻ New version** for different wording and layout. Check it, then **Copy** and paste it into Sentral. Nothing typed there is saved.
