@@ -386,6 +386,6 @@ RP.previewModule = function (m) {
     <div class="preview">
       ${m.about ? `<div class="pv-about">${md(m.about)}</div>` : ""}
       ${m.booklet ? m.books.map(b => `<h4>${h(b.title)}</h4><p>${b.subjects.map(x => x.pdf ? `<a href="${h(x.pdf)}" target="_blank" rel="noopener">${h(x.title)}</a>` : h(x.title)).join(" · ")}</p>`).join("") + `<p class="muted">Students choose a subject, type the page or question and their answer, and mark each subject started or finished.</p>`
-        : m.levels ? m.levels.map(l => `<details class="pv-level"><summary><strong>${h(l.title)}</strong>${l.staff ? ` · ${h(l.staff)}` : ""} <span class="muted">${h(l.about || "")}</span></summary>${list(l.items)}</details>`).join("") : list(m.items)}
+        : m.levels ? m.levels.map(l => `<details class="pv-level"><summary><strong>${h(l.title)}</strong> <span class="muted">${h(l.about || "")}</span></summary>${list(l.items)}</details>`).join("") : list(m.items)}
     </div>`;
 };

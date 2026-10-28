@@ -1,13 +1,12 @@
 /*
-  Numeracy Day 2: about 30 minutes. Each level is an NSW Stage: Level 1 = Stage 1 (Years 1–2)
-  up to Level 5 = Stage 5 (Years 9–10). Levels 2 and 3 come from The Daily Dash (numeracy-dash.js,
-  built by tools/dash-numeracy.js); Levels 1, 4 and 5 are written here. Students only see "Level N"
-  and the "about" text; "staff" (the Stage and Years) shows only in the staff preview and dashboard.
+  Numeracy Day 2: about 30 minutes. Level N matches NSW Stage N (staff
+  know this; it isn't shown anywhere on the site). Levels 2 and 3 come from The Daily Dash (numeracy-dash.js,
+  built by tools/dash-numeracy.js); Levels 1, 4 and 5 are written here. Students and staff see only
+  "Level N" and the "about" text.
 */
 (function () {
-  const STAGE = { 2: "Stage 2 (Years 3–4)", 3: "Stage 3 (Years 5–6)" };
   const dashLevels = day => [2, 3].filter(n => RP.DASH_NUMERACY && RP.DASH_NUMERACY[day][n])
-    .map(n => ({ level: n, title: "Level " + n, about: "Mixed review", staff: STAGE[n] + ", from The Daily Dash", items: RP.DASH_NUMERACY[day][n] }));
+    .map(n => ({ level: n, title: "Level " + n, about: "Mixed review", items: RP.DASH_NUMERACY[day][n] }));
 RP.registerModule({
   id: "numeracy-day2",
   title: "Numeracy: Day 2",
@@ -15,7 +14,7 @@ RP.registerModule({
   about: "Maths questions at your level. Choose your level, then check each answer as you go. You can have more than one try.\n\nAbout 30 minutes.",
   levels: [
     {
-      level: 1, title: "Level 1", staff: "Stage 1 (Years 1–2)", about: "Time, length, mass, shapes and data",
+      level: 1, title: "Level 1", about: "Time, length, mass, shapes and data",
       items: [
         { type: "mc", q: "Which is the longest?", choices: ["A pencil", "A bus", "A shoe", "A book"], answer: 1 },
         { type: "mc", q: "How many days are in a week?", choices: ["5", "6", "7", "10"], answer: 2 },
@@ -33,7 +32,7 @@ RP.registerModule({
     },
   ].concat(dashLevels("day2"), [
     {
-      level: 4, title: "Level 4", staff: "Stage 4 (Years 7–8)", about: "Converting units, statistics, ratio and simple equations",
+      level: 4, title: "Level 4", about: "Converting units, statistics, ratio and simple equations",
       items: [
         { type: "input", q: "Convert 2.5 km to metres.", answer: "2500", suffix: "m" },
         { type: "input", q: "Convert 350 cm to metres.", answer: "3.5", suffix: "m" },
@@ -51,7 +50,7 @@ RP.registerModule({
       ]
     },
     {
-      level: 5, title: "Level 5", staff: "Stage 5 (Years 9–10)", about: "Circles, volume, Pythagoras, algebra and probability",
+      level: 5, title: "Level 5", about: "Circles, volume, Pythagoras, algebra and probability",
       items: [
         { type: "input", q: "Find the area of a circle with radius 5 cm, to the nearest whole number. (Use π ≈ 3.14.)", answer: "79", accept: ["78.5"], suffix: "cm²", explain: "3.14 × 5 × 5 = 78.5, which rounds to 79." },
         { type: "input", q: "Find the volume of a rectangular prism 4 cm × 5 cm × 6 cm.", answer: "120", suffix: "cm³" },

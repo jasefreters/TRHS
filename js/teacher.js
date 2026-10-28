@@ -1889,7 +1889,7 @@
       }
       if (s.status === "not_started" && m.levels) {
         const lv = s.state && s.state.level;
-        controls += `<select class="small" data-level="${s.id}" aria-label="Suggested level"><option value="">Level: student picks</option>${m.levels.map(l => `<option value="${l.level}"${lv === l.level ? " selected" : ""}>Suggest ${h(l.title)}${l.staff ? ` (${h(l.staff.replace(/, from.*$/, ""))})` : ""}</option>`).join("")}</select>`;
+        controls += `<select class="small" data-level="${s.id}" aria-label="Suggested level"><option value="">Level: student picks</option>${m.levels.map(l => `<option value="${l.level}"${lv === l.level ? " selected" : ""}>Suggest ${h(l.title)}</option>`).join("")}</select>`;
       }
       if (s.status !== "done") controls += `<button class="btn small" data-mark="${s.id}" title="For example, if they did it on paper">Mark done</button>`;
       if (s.status !== "not_started") controls += `<button class="btn small" data-reset="${s.id}">Let them redo</button>`;
